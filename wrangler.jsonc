@@ -1,0 +1,39 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "main": ".open-next/worker.js",
+  "name": "mossgap",
+  "compatibility_date": "2024-12-30",
+  "compatibility_flags": [
+    "nodejs_compat",
+    "global_fetch_strictly_public"
+  ],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "services": [
+    {
+      "binding": "WORKER_SELF_REFERENCE",
+      "service": "mossgap"
+    }
+  ],
+  "r2_buckets": [
+    {
+      // 游戏静态资源存储桶（生产：Cloudflare R2；本地：通过 S3 兼容 API 访问 MinIO）
+      "binding": "GAMES_BUCKET",
+      "bucket_name": "mossgap-games"
+    }
+  ],
+  "d1_databases": [
+    {
+      // 主数据库（生产：Cloudflare D1；本地：wrangler 本地 D1 模拟 SQLite）
+      "binding": "DB",
+      "database_name": "mossgap",
+      "database_id": "local-mossgap-db",
+      "migrations_dir": "drizzle"
+    }
+  ],
+  "images": {
+    "binding": "IMAGES"
+  }
+}

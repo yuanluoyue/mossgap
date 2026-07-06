@@ -1,0 +1,70 @@
+{
+  "Nav": {
+    "home": "Home",
+    "games": "Games",
+    "about": "About",
+    "search": "Search games...",
+    "language": "Language",
+    "english": "English",
+    "chinese": "中文"
+  },
+  "Home": {
+    "heroBadge": "Play instantly · No downloads",
+    "heroTitle": "Jump into the game.",
+    "heroTitleAccent": "Anytime. Anywhere.",
+    "heroSubtitle": "A curated playground of browser games. No installs, no waiting — just hit play and go.",
+    "heroCta": "Browse games",
+    "heroSecondary": "Learn more",
+    "popularTitle": "Trending now",
+    "popularSubtitle": "Most played this week",
+    "newestTitle": "Fresh drops",
+    "newestSubtitle": "Just added to the arcade",
+    "categoriesTitle": "Pick your vibe",
+    "viewAll": "View all",
+    "play": "Play"
+  },
+  "Games": {
+    "title": "All games",
+    "subtitle": "Browse the full collection",
+    "searchPlaceholder": "Search games...",
+    "sortNewest": "Newest",
+    "sortPopular": "Most popular",
+    "results": "{count, plural, =0 {No games found} one {# game} other {# games}}",
+    "empty": "No games match your filters yet.",
+    "play": "Play",
+    "allCategories": "All"
+  },
+  "GameDetail": {
+    "play": "Play now",
+    "description": "About this game",
+    "screenshots": "Screenshots",
+    "related": "You might also like",
+    "plays": "{count, plural, =0 {No plays yet} one {# play} other {# plays}}",
+    "back": "Back",
+    "notFound": "Game not found"
+  },
+  "Play": {
+    "exit": "Exit",
+    "loading": "Loading game...",
+    "back": "Back to game"
+  },
+  "Categories": {
+    "action": "Action",
+    "puzzle": "Puzzle",
+    "arcade": "Arcade",
+    "adventure": "Adventure",
+    "strategy": "Strategy",
+    "sports": "Sports",
+    "racing": "Racing",
+    "other": "Other"
+  },
+  "Footer": {
+    "tagline": "Browser games, delivered.",
+    "rights": "All rights reserved.",
+    "madeWith": "Built with Next.js on Cloudflare"
+  },
+  "Common": {
+    "loading": "Loading...",
+    "error": "Something went wrong"
+  }
+}
