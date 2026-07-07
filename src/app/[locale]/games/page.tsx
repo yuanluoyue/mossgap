@@ -48,20 +48,17 @@ export default async function GamesPage({
   const hasResults = items.length > 0;
 
   return (
-    <div className="relative mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
       {/* 页头 */}
       <header className="mb-8">
-        <p className="font-mono text-[11px] uppercase tracking-widest text-[var(--color-neon-cyan)]">
-          / games
-        </p>
-        <h1 className="mt-1 font-heading text-4xl font-bold tracking-tight text-white sm:text-5xl">
+        <h1 className="font-heading text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
           {t("title")}
         </h1>
-        <p className="mt-2 text-sm text-white/50">{t("subtitle")}</p>
+        <p className="mt-2 text-sm text-muted-foreground">{t("subtitle")}</p>
       </header>
 
       {/* 筛选条 */}
-      <div className="mb-8 rounded-xl border border-white/5 bg-white/[0.02] p-4 backdrop-blur-sm">
+      <div className="mb-8 rounded-3xl border border-border/60 bg-card p-5 card-shadow">
         <GamesFilter
           activeCategory={category}
           activeSort={sort}
@@ -71,7 +68,7 @@ export default async function GamesPage({
 
       {/* 结果统计 */}
       <div className="mb-4 flex items-center justify-between">
-        <p className="font-mono text-xs uppercase tracking-widest text-white/40">
+        <p className="text-sm text-muted-foreground">
           {t("results", { count: total })}
         </p>
       </div>
@@ -84,13 +81,13 @@ export default async function GamesPage({
           ))}
         </div>
       ) : (
-        <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-16 text-center">
-          <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-full bg-white/5 text-white/40">
+        <div className="rounded-3xl border border-dashed border-border bg-card p-16 text-center card-shadow">
+          <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-full bg-muted text-muted-foreground">
             <SearchX className="size-6" />
           </div>
-          <p className="font-heading text-lg text-white/80">{t("empty")}</p>
-          <p className="mt-2 text-sm text-white/40">
-            Try a different category or search term.
+          <p className="font-heading text-lg text-foreground">{t("empty")}</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {t("emptyHint")}
           </p>
         </div>
       )}
@@ -111,8 +108,8 @@ export default async function GamesPage({
                 href={`?${params.toString()}`}
                 className={
                   p === page
-                    ? "inline-flex size-9 items-center justify-center rounded-md border border-[oklch(from_var(--color-neon-cyan)_l_c_h_/_50%)] bg-[oklch(from_var(--color-neon-cyan)_l_c_h_/_12%)] font-mono text-sm text-[var(--color-neon-cyan)]"
-                    : "inline-flex size-9 items-center justify-center rounded-md border border-white/10 bg-white/[0.02] font-mono text-sm text-white/60 transition-colors hover:border-white/20 hover:text-white"
+                    ? "btn-press inline-flex size-10 items-center justify-center rounded-full bg-primary font-semibold text-primary-foreground card-shadow"
+                    : "btn-press inline-flex size-10 items-center justify-center rounded-full border border-border bg-card text-sm font-medium text-muted-foreground card-shadow hover:text-foreground"
                 }
               >
                 {p}

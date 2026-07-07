@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { headers } from "next/headers";
 import { isAdminAuthenticated } from "@/lib/auth";
 import { fail } from "@/types";
 
@@ -28,4 +29,20 @@ export async function parseJson<T>(
       }),
     };
   }
+}
+
+/** 从请求头提取客户端 IP（兼容 Cloudflare / 通用反代）。 */
+export async function getClientIp(): Promise<string> {
+  const h = await headers();
+  return (
+    h.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    h.get("cf-connecting-ip") ??
+    "0.0.0.0"
+  );
+}
+
+/** 从请求头提取 User-Agent。 */
+export async function getClientUserAgent(): Promise<string> {
+  const h = await headers();
+  return h.get("user-agent") ?? "unknown";
 }

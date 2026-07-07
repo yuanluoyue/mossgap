@@ -23,9 +23,8 @@ export async function generateMetadata({
       template: `%s · MossGap`,
     },
     description: t("search"),
-    // 暗黑主题色
     other: {
-      "color-scheme": "dark",
+      "color-scheme": "light",
     },
   };
 }
@@ -42,13 +41,7 @@ export default async function LocaleLayout({
   setRequestLocale(locale);
 
   return (
-    <div className="relative flex min-h-screen flex-col neon-bg">
-      {/* 全局背景：网格 + 径向光晕 */}
-      <div className="pointer-events-none fixed inset-0 -z-10">
-        <div className="absolute inset-0 neon-grid opacity-[0.06]" />
-        <div className="absolute inset-0 neon-radial" />
-      </div>
-
+    <div className="relative flex min-h-screen flex-col bg-background">
       <SiteHeader />
       <main className="relative flex-1">{children}</main>
       <SiteFooter />

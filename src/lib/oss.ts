@@ -5,6 +5,7 @@ import {
   DeleteObjectsCommand,
   ListObjectsV2Command,
 } from "@aws-sdk/client-s3";
+import { randomUUID } from "node:crypto";
 import { getServerEnv } from "@/env";
 
 /**
@@ -117,6 +118,42 @@ export async function deletePrefix(prefix: string): Promise<void> {
   } while (continuationToken);
 }
 
+/** 列出某前缀下所有对象，返回 key 与 size 列表。 */
+export async function listPrefixObjects(
+  prefix: string,
+): Promise<{ key: string; size: number }[]> {
+  const client = getS3();
+  const bucket = bucketName();
+  const p = prefix.replace(/^\/+|\/+$/g, "");
+  const items: { key: string; size: number }[] = [];
+  let continuationToken: string | undefined;
+  do {
+    const list = await client.send(
+      new ListObjectsV2Command({
+        Bucket: bucket,
+        Prefix: p ? `${p}/` : "",
+        ContinuationToken: continuationToken,
+      }),
+    );
+    for (const o of list.Contents ?? []) {
+      items.push({ key: o.Key!, size: o.Size ?? 0 });
+    }
+    continuationToken = list.IsTruncated ? list.NextContinuationToken : undefined;
+  } while (continuationToken);
+  return items;
+}
+
+/** 统计某前缀下所有对象总占用字节数。 */
+export async function getPrefixSize(prefix: string): Promise<number> {
+  const items = await listPrefixObjects(prefix);
+  return items.reduce((sum, o) => sum + o.size, 0);
+}
+
+/** 统计整个 bucket 的总占用字节数。 */
+export async function getBucketSize(): Promise<number> {
+  return getPrefixSize("");
+}
+
 /** 简易 Content-Type 推断。 */
 export function guessContentType(path: string): string {
   const ext = path.split(".").pop()?.toLowerCase() ?? "";
@@ -148,4 +185,62 @@ export function guessContentType(path: string): string {
     txt: "text/plain; charset=utf-8",
   };
   return map[ext] ?? "application/octet-stream";
+}
+
+// ===== 图片资源 =====
+
+/** 图片资源类型 → OSS 前缀映射。不同资源在桶内分区存放。 */
+const IMAGE_PREFIXES = {
+  cover: "images/covers",
+  screenshot: "images/screenshots",
+} as const;
+
+export type ImageCategory = keyof typeof IMAGE_PREFIXES;
+
+/** 允许上传的图片扩展名。 */
+const IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "gif", "webp", "svg"] as const;
+
+/**
+ * 生成图片在 OSS 上的 key。
+ * 规则：`images/{category}/{uuid}.{ext}`
+ */
+export function imageKey(category: ImageCategory, ext: string): string {
+  const safeExt = ext.toLowerCase().replace(/^\.+/, "");
+  const prefix = IMAGE_PREFIXES[category];
+  return `${prefix}/${randomUUID()}.${safeExt}`;
+}
+
+/** 校验文件扩展名是否为允许的图片类型。 */
+export function isAllowedImageExt(filename: string): boolean {
+  const ext = filename.split(".").pop()?.toLowerCase() ?? "";
+  return (IMAGE_EXTENSIONS as readonly string[]).includes(ext);
+}
+
+/**
+ * 从公共 URL 中提取 OSS key。
+ * 如果 URL 不属于当前 bucket 域名则返回 null。
+ */
+export function extractKeyFromUrl(url: string): string | null {
+  if (!url) return null;
+  const base = r2PublicUrl();
+  if (!url.startsWith(base)) return null;
+  return decodeURIComponent(url.slice(base.length + 1));
+}
+
+/**
+ * 上传图片到 OSS 并返回公共 URL。
+ * @param category 资源类型（cover / screenshot）
+ * @param filename 原始文件名（用于推断扩展名和 Content-Type）
+ * @param data 文件二进制数据
+ */
+export async function putImage(
+  category: ImageCategory,
+  filename: string,
+  data: Uint8Array,
+): Promise<{ url: string; key: string }> {
+  const ext = filename.split(".").pop() ?? "png";
+  const key = imageKey(category, ext);
+  const contentType = guessContentType(filename);
+  await putObject(key, data, contentType);
+  return { url: `${r2PublicUrl()}/${key}`, key };
 }

@@ -8,6 +8,13 @@
       "when": 1783344863584,
       "tag": "0000_initial",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1783408679793,
+      "tag": "0001_tearful_supernaut",
+      "breakpoints": true
     }
   ]
 }

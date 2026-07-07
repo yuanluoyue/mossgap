@@ -3,8 +3,9 @@ import { randomUUID } from "crypto";
 
 import { extractZip } from "@/lib/zip";
 import { putObjects, deletePrefix } from "@/lib/oss";
-import { createGame } from "@/db/queries";
-import { requireAdmin } from "@/lib/api-guard";
+import { createGame, writeOperationLog } from "@/db/queries";
+import { requireAdmin, getClientIp, getClientUserAgent } from "@/lib/api-guard";
+import { handleApiError } from "@/lib/api-error";
 import { ok, fail } from "@/types";
 import type { UploadGameResponse } from "@/types";
 import { hasServerEnv } from "@/env";
@@ -30,7 +31,8 @@ export async function POST(req: Request) {
   let formData: FormData;
   try {
     formData = await req.formData();
-  } catch {
+  } catch (err) {
+    console.error("[API] POST /api/admin/upload · formData 解析失败", err);
     return NextResponse.json(fail("BAD_REQUEST", "无法解析表单数据"), {
       status: 400,
     });
@@ -61,7 +63,8 @@ export async function POST(req: Request) {
   let extracted;
   try {
     extracted = await extractZip(buf);
-  } catch {
+  } catch (err) {
+    console.error("[API] POST /api/admin/upload · zip 解压失败", err);
     return NextResponse.json(fail("BAD_ZIP", "zip 文件解压失败"), {
       status: 400,
     });
@@ -85,9 +88,10 @@ export async function POST(req: Request) {
     // 上传失败时清理已上传的部分
     try {
       await deletePrefix(ossPrefix);
-    } catch {
-      // 忽略清理错误
+    } catch (cleanErr) {
+      console.error("[API] POST /api/admin/upload · 清理失败片段异常", cleanErr);
     }
+    console.error("[API] POST /api/admin/upload · OSS 上传失败", err);
     return NextResponse.json(
       fail("UPLOAD_FAILED", `上传到 OSS 失败: ${(err as Error).message}`),
       { status: 502 },
@@ -98,28 +102,60 @@ export async function POST(req: Request) {
   const baseName = file.name.replace(/\.zip$/i, "");
   const title = baseName || "Untitled Game";
 
-  // 创建草稿游戏记录
-  const game = await createGame({
-    slug: `${baseName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}-${randomUUID().slice(0, 8)}`,
-    title,
-    description: "",
-    category: "other",
-    coverImage: "",
-    screenshots: [],
-    entryFile: extracted.detectedEntry ?? "index.html",
-    ossPrefix,
-    status: "draft",
-    locale: {
-      en: { title, description: "" },
-      zh: { title, description: "" },
-    },
-  });
+  // 统计解压后总字节数（用于 OSS 用量展示）
+  const totalSize = extracted.files.reduce((sum, f) => sum + f.size, 0);
+
+  // 创建草稿游戏记录（此处失败需明确报错，避免静默 500）
+  let game;
+  try {
+    game = await createGame({
+      slug: `${baseName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}-${randomUUID().slice(0, 8)}`,
+      title,
+      description: "",
+      category: "other",
+      coverImage: "",
+      screenshots: [],
+      entryFile: extracted.detectedEntry ?? "index.html",
+      ossPrefix,
+      status: "draft",
+      locale: {
+        en: { title, description: "" },
+        zh: { title, description: "" },
+      },
+      sourceType: "zip",
+      ossSize: totalSize,
+    });
+  } catch (err) {
+    // 数据库写入失败，回滚已上传的 OSS 资源
+    try {
+      await deletePrefix(ossPrefix);
+    } catch (cleanErr) {
+      console.error("[API] POST /api/admin/upload · DB 失败后清理 OSS 异常", cleanErr);
+    }
+    return handleApiError("POST /api/admin/upload · createGame", err);
+  }
+
+  // 记录操作日志
+  try {
+    const [ip, ua] = await Promise.all([getClientIp(), getClientUserAgent()]);
+    await writeOperationLog({
+      action: "game.upload",
+      targetId: game.id,
+      meta: { ossPrefix, ossSize: totalSize, fileName: file.name },
+      operatorIp: ip,
+      operatorUseragent: ua,
+    });
+  } catch (err) {
+    // 日志失败不阻塞主流程，但打印日志便于排查
+    console.error("[API] POST /api/admin/upload · 操作日志写入失败", err);
+  }
 
   const payload: UploadGameResponse = {
     id: game.id,
     ossPrefix,
     detectedEntry: extracted.detectedEntry,
     files: extracted.files.map((f) => ({ path: f.path, size: f.size })),
+    totalSize,
   };
 
   return NextResponse.json(ok(payload), { status: 201 });

@@ -6,7 +6,7 @@ import { Search, X } from "lucide-react";
 
 import { useTranslations } from "next-intl";
 import type { GameCategory } from "@/types";
-import { GAME_CATEGORIES } from "@/types";
+import { GAME_CATEGORIES, CATEGORY_COLORS } from "@/types";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
@@ -44,22 +44,22 @@ export function GamesFilter({
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5">
       {/* 搜索框 */}
       <div className="relative">
-        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-white/40" />
+        <Search className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           type="search"
           defaultValue={activeQuery ?? ""}
           placeholder={t("searchPlaceholder")}
           onChange={(e) => update("q", e.target.value || null)}
-          className="border-white/10 bg-white/5 pl-9 pr-9 text-sm text-white placeholder:text-white/40 focus-visible:border-[oklch(from_var(--color-neon-cyan)_l_c_h_/_50%)] focus-visible:ring-[oklch(from_var(--color-neon-cyan)_l_c_h_/_20%)]"
+          className="h-12 rounded-full border-border bg-card pl-11 pr-11 text-sm shadow-sm focus-visible:border-primary focus-visible:ring-primary/20"
         />
         {activeQuery ? (
           <button
             type="button"
             onClick={() => update("q", null)}
-            className="absolute top-1/2 right-3 -translate-y-1/2 text-white/40 hover:text-white"
+            className="absolute top-1/2 right-4 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
             aria-label="clear"
           >
             <X className="size-4" />
@@ -69,16 +69,14 @@ export function GamesFilter({
 
       {/* 分类标签 */}
       <div className="flex flex-wrap gap-2">
-        <CategoryChip
-          active={!activeCategory}
-          onClick={() => update("category", null)}
-        >
+        <CategoryChip active={!activeCategory} onClick={() => update("category", null)}>
           {t("allCategories")}
         </CategoryChip>
         {GAME_CATEGORIES.map((c) => (
           <CategoryChip
             key={c}
             active={activeCategory === c}
+            accent={CATEGORY_COLORS[c]}
             onClick={() => update("category", c)}
           >
             {tc(c)}
@@ -89,23 +87,17 @@ export function GamesFilter({
       {/* 排序 */}
       <div
         className={cn(
-          "flex items-center gap-3 transition-opacity",
+          "flex items-center gap-2 transition-opacity",
           isPending && "opacity-60",
         )}
       >
-        <span className="font-mono text-[10px] uppercase tracking-widest text-white/40">
-          Sort
+        <span className="text-xs font-medium text-muted-foreground">
+          {t("sortLabel")}
         </span>
-        <SortButton
-          active={activeSort === "newest"}
-          onClick={() => update("sort", "newest")}
-        >
+        <SortButton active={activeSort === "newest"} onClick={() => update("sort", "newest")}>
           {t("sortNewest")}
         </SortButton>
-        <SortButton
-          active={activeSort === "popular"}
-          onClick={() => update("sort", "popular")}
-        >
+        <SortButton active={activeSort === "popular"} onClick={() => update("sort", "popular")}>
           {t("sortPopular")}
         </SortButton>
       </div>
@@ -115,10 +107,12 @@ export function GamesFilter({
 
 function CategoryChip({
   active,
+  accent,
   onClick,
   children,
 }: {
   active: boolean;
+  accent?: string;
   onClick: () => void;
   children: React.ReactNode;
 }) {
@@ -127,11 +121,16 @@ function CategoryChip({
       type="button"
       onClick={onClick}
       className={cn(
-        "rounded-full border px-3 py-1 font-mono text-[11px] uppercase tracking-widest transition-all",
+        "btn-press rounded-full px-4 py-1.5 text-sm font-medium transition-all",
         active
-          ? "border-[oklch(from_var(--color-neon-cyan)_l_c_h_/_60%)] bg-[oklch(from_var(--color-neon-cyan)_l_c_h_/_12%)] text-[var(--color-neon-cyan)]"
-          : "border-white/10 bg-white/[0.03] text-white/50 hover:border-white/20 hover:text-white/80",
+          ? "bg-foreground text-background"
+          : "bg-card text-muted-foreground hover:text-foreground card-shadow",
       )}
+      style={
+        active && accent
+          ? { backgroundColor: accent, color: "#fff" }
+          : undefined
+      }
     >
       {children}
     </button>
@@ -152,10 +151,10 @@ function SortButton({
       type="button"
       onClick={onClick}
       className={cn(
-        "rounded-md px-2.5 py-1 text-xs transition-colors",
+        "btn-press rounded-full px-3.5 py-1.5 text-sm transition-colors",
         active
-          ? "bg-white/10 text-white"
-          : "text-white/50 hover:text-white/80",
+          ? "bg-primary/10 font-semibold text-primary"
+          : "text-muted-foreground hover:text-foreground",
       )}
     >
       {children}

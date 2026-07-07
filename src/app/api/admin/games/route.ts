@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
-import { ZodError } from "zod";
 
-import { listAdminGames, createGame } from "@/db/queries";
-import { listGamesQuerySchema, upsertGameSchema } from "@/lib/validators";
-import { requireAdmin, parseJson } from "@/lib/api-guard";
+import { listAdminGames, createGame, writeOperationLog } from "@/db/queries";
+import {
+  listGamesQuerySchema,
+  createIframeGameSchema,
+} from "@/lib/validators";
+import { requireAdmin, parseJson, getClientIp, getClientUserAgent } from "@/lib/api-guard";
+import { handleApiError, isZodError, collectZodIssues } from "@/lib/api-error";
 import { ok, fail } from "@/types";
 import { hasServerEnv } from "@/env";
 
@@ -35,20 +38,24 @@ export async function GET(req: Request) {
     );
   }
 
-  const result = await listAdminGames({
-    page: parsed.data.page,
-    pageSize: parsed.data.pageSize,
-    search: parsed.data.search,
-    status: parsed.data.status as
-      | "draft"
-      | "published"
-      | "archived"
-      | undefined,
-  });
-  return NextResponse.json(ok(result));
+  try {
+    const result = await listAdminGames({
+      page: parsed.data.page,
+      pageSize: parsed.data.pageSize,
+      search: parsed.data.search,
+      status: parsed.data.status as
+        | "draft"
+        | "published"
+        | "archived"
+        | undefined,
+    });
+    return NextResponse.json(ok(result));
+  } catch (err) {
+    return handleApiError("GET /api/admin/games", err);
+  }
 }
 
-/** POST /api/admin/games — 手动创建游戏（不带上传） */
+/** POST /api/admin/games — 创建游戏（支持 iframe 外链模式） */
 export async function POST(req: Request) {
   if (!hasServerEnv()) {
     return NextResponse.json(
@@ -63,11 +70,11 @@ export async function POST(req: Request) {
   if (error) return error;
 
   try {
-    const input = upsertGameSchema.parse(data);
+    const input = createIframeGameSchema.parse(data);
     const game = await createGame({
       slug: input.slug,
-      title: input.locale.en.title || input.locale.zh.title || input.slug,
-      description: input.locale.en.description,
+      title: input.title,
+      description: "",
       category: input.category as
         | "action"
         | "puzzle"
@@ -78,20 +85,48 @@ export async function POST(req: Request) {
         | "racing"
         | "other",
       coverImage: input.coverImage,
-      screenshots: input.screenshots,
-      entryFile: input.entryFile,
-      ossPrefix: "", // 手动创建时无 OSS 资源
-      status: input.status as "draft" | "published" | "archived",
-      locale: input.locale,
+      screenshots: [],
+      entryFile: "index.html",
+      ossPrefix: "", // iframe 模式无 OSS 资源
+      status: "draft",
+      locale: {
+        en: { title: input.title, description: "" },
+        zh: { title: input.title, description: "" },
+      },
+      sourceType: "iframe",
+      iframeUrl: input.iframeUrl,
+      ossSize: 0,
     });
+
+    try {
+      const [ip, ua] = await Promise.all([getClientIp(), getClientUserAgent()]);
+      await writeOperationLog({
+        action: "game.create.iframe",
+        targetId: game.id,
+        meta: { slug: input.slug, iframeUrl: input.iframeUrl },
+        operatorIp: ip,
+        operatorUseragent: ua,
+      });
+    } catch {
+      // 日志失败不阻塞主流程
+    }
+
     return NextResponse.json(ok(game), { status: 201 });
   } catch (err) {
-    if (err instanceof ZodError) {
+    if (isZodError(err)) {
+      const issues = collectZodIssues(err);
+      console.error("[API] POST /api/admin/games · 校验失败", {
+        issues,
+        raw: (err as { issues?: unknown }).issues,
+      });
       return NextResponse.json(
-        fail("VALIDATION_ERROR", err.issues[0]?.message ?? "参数错误"),
+        fail(
+          "VALIDATION_ERROR",
+          issues.length > 0 ? issues.join("; ") : "参数校验失败",
+        ),
         { status: 400 },
       );
     }
-    return NextResponse.json(fail("INTERNAL", "创建失败"), { status: 500 });
+    return handleApiError("POST /api/admin/games", err);
   }
 }

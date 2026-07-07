@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Loader2, ArrowLeft } from "lucide-react";
+import { Loader2, ArrowLeft, Maximize, Minimize } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface PlayFrameProps {
   playUrl: string;
@@ -44,28 +45,40 @@ export function PlayFrame({
   }
 
   return (
-    <div className="relative flex min-h-[calc(100vh-4rem)] flex-col">
+    <div className="relative flex min-h-[calc(100vh-4rem)] flex-col bg-background">
       {/* 顶栏 */}
-      <div className="flex items-center justify-between border-b border-white/5 bg-[var(--color-neon-bg)]/80 px-4 py-2.5 backdrop-blur-md">
+      <div className="flex items-center justify-between border-b border-border bg-card/80 px-4 py-3 backdrop-blur-md">
         <div className="flex min-w-0 items-center gap-3">
           <Link
             href="/games"
-            className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-widest text-white/50 transition-colors hover:text-[var(--color-neon-cyan)]"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
           >
-            <ArrowLeft className="size-3.5" />
+            <ArrowLeft className="size-4" />
             {exitLabel}
           </Link>
-          <span className="hidden truncate font-heading text-sm font-semibold text-white/80 sm:block">
+          <span className="hidden truncate font-heading text-sm font-semibold text-foreground sm:block">
             {title}
           </span>
         </div>
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="sm"
           onClick={toggleFullscreen}
-          className="rounded-md border border-white/10 bg-white/5 px-3 py-1 font-mono text-[10px] uppercase tracking-widest text-white/60 transition-colors hover:border-white/20 hover:text-white"
+          className="btn-press rounded-full"
         >
-          {fullscreen ? "Exit Fullscreen" : "Fullscreen"}
-        </button>
+          {fullscreen ? (
+            <>
+              <Minimize className="size-4" />
+              <span className="hidden sm:inline">Exit Fullscreen</span>
+            </>
+          ) : (
+            <>
+              <Maximize className="size-4" />
+              <span className="hidden sm:inline">Fullscreen</span>
+            </>
+          )}
+        </Button>
       </div>
 
       {/* iframe 容器 */}
@@ -74,12 +87,12 @@ export function PlayFrame({
         className="relative flex-1 bg-black"
       >
         {!loaded ? (
-          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-[var(--color-neon-bg)]">
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-background">
             <div className="relative">
-              <div className="absolute inset-0 animate-ping rounded-full bg-[var(--color-neon-cyan)] opacity-20" />
-              <Loader2 className="size-8 animate-spin text-[var(--color-neon-cyan)]" />
+              <div className="absolute inset-0 animate-ping rounded-full bg-primary opacity-20" />
+              <Loader2 className="size-8 animate-spin text-primary" />
             </div>
-            <p className="font-mono text-xs uppercase tracking-widest text-white/60">
+            <p className="text-sm font-medium text-muted-foreground">
               {loadingLabel}
             </p>
           </div>

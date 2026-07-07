@@ -1,12 +1,22 @@
 import { NextResponse } from "next/server";
-import { ZodError } from "zod";
 
-import { getAdminGame, updateGame, deleteGame } from "@/db/queries";
+import {
+  getAdminGame,
+  updateGame,
+  deleteGame,
+  writeOperationLog,
+} from "@/db/queries";
 import { upsertGameSchema } from "@/lib/validators";
-import { requireAdmin, parseJson } from "@/lib/api-guard";
+import {
+  requireAdmin,
+  parseJson,
+  getClientIp,
+  getClientUserAgent,
+} from "@/lib/api-guard";
+import { handleApiError, isZodError, collectZodIssues } from "@/lib/api-error";
 import { ok, fail } from "@/types";
 import { hasServerEnv } from "@/env";
-import { deletePrefix } from "@/lib/oss";
+import { deletePrefix, deleteObject, extractKeyFromUrl } from "@/lib/oss";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,14 +36,19 @@ export async function GET(
   if (guard) return guard;
 
   const { id } = await ctx.params;
-  const game = await getAdminGame(id);
+  let game;
+  try {
+    game = await getAdminGame(id);
+  } catch (err) {
+    return handleApiError(`GET /api/admin/games/${id} · getAdminGame`, err);
+  }
   if (!game) {
     return NextResponse.json(fail("NOT_FOUND", "游戏不存在"), { status: 404 });
   }
   return NextResponse.json(ok(game));
 }
 
-/** PATCH /api/admin/games/[id] — 更新游戏配置 */
+/** PATCH /api/admin/games/[id] — 更新游戏配置（含上架/下架状态切换） */
 export async function PATCH(
   req: Request,
   ctx: { params: Promise<{ id: string }> },
@@ -76,23 +91,67 @@ export async function PATCH(
       entryFile: input.entryFile,
       status: input.status as "draft" | "published" | "archived",
       locale: input.locale,
+      sourceType: input.sourceType as "zip" | "iframe",
+      iframeUrl: input.iframeUrl,
+      howToPlay: input.howToPlay,
+      relatedGameIds: input.relatedGameIds,
     });
     if (!updated) {
       return NextResponse.json(fail("NOT_FOUND", "游戏不存在"), { status: 404 });
     }
+
+    // 状态变更记日志（上架/下架属于敏感操作）
+    if (existing.status !== updated.status) {
+      try {
+        const [ip, ua] = await Promise.all([getClientIp(), getClientUserAgent()]);
+        await writeOperationLog({
+          action: "game.status_change",
+          targetId: id,
+          meta: { from: existing.status, to: updated.status },
+          operatorIp: ip,
+          operatorUseragent: ua,
+        });
+      } catch {
+        // 日志失败不阻塞
+      }
+    } else {
+      // 普通编辑
+      try {
+        const [ip, ua] = await Promise.all([getClientIp(), getClientUserAgent()]);
+        await writeOperationLog({
+          action: "game.update",
+          targetId: id,
+          meta: { slug: input.slug },
+          operatorIp: ip,
+          operatorUseragent: ua,
+        });
+      } catch {
+        // 日志失败不阻塞
+      }
+    }
+
     return NextResponse.json(ok(updated));
   } catch (err) {
-    if (err instanceof ZodError) {
+    if (isZodError(err)) {
+      const issues = collectZodIssues(err);
+      console.error(`[API] PATCH /api/admin/games/${id} · 校验失败`, {
+        id,
+        issues,
+        raw: (err as { issues?: unknown }).issues,
+      });
       return NextResponse.json(
-        fail("VALIDATION_ERROR", err.issues[0]?.message ?? "参数错误"),
+        fail(
+          "VALIDATION_ERROR",
+          issues.length > 0 ? issues.join("; ") : "参数校验失败",
+        ),
         { status: 400 },
       );
     }
-    return NextResponse.json(fail("INTERNAL", "更新失败"), { status: 500 });
+    return handleApiError(`PATCH /api/admin/games/${id}`, err);
   }
 }
 
-/** DELETE /api/admin/games/[id] — 删除游戏（同时清理 R2 资源） */
+/** DELETE /api/admin/games/[id] — 删除游戏（同时清理 OSS 资源） */
 export async function DELETE(
   _req: Request,
   ctx: { params: Promise<{ id: string }> },
@@ -107,19 +166,60 @@ export async function DELETE(
   if (guard) return guard;
 
   const { id } = await ctx.params;
-  const existing = await getAdminGame(id);
+  let existing;
+  try {
+    existing = await getAdminGame(id);
+  } catch (err) {
+    return handleApiError(`DELETE /api/admin/games/${id} · getAdminGame`, err);
+  }
   if (!existing) {
     return NextResponse.json(fail("NOT_FOUND", "游戏不存在"), { status: 404 });
   }
 
-  // 先清理 R2 资源（如有），再删除数据库记录
-  if (existing.ossPrefix) {
+  // 先清理 OSS 资源（zip 游戏目录 + 封面图 + 截图），再删除数据库记录
+  const imageUrls = [existing.coverImage, ...existing.screenshots].filter(
+    (u): u is string => !!u && u.length > 0,
+  );
+  if (existing.sourceType === "zip" && existing.ossPrefix) {
     try {
       await deletePrefix(existing.ossPrefix);
-    } catch {
-      // R2 清理失败不阻塞删除，记录仍在数据库中
+    } catch (err) {
+      // OSS 清理失败不阻塞删除，记录仍在数据库中
+      console.error(`[API] DELETE /api/admin/games/${id} · OSS 清理失败`, {
+        id,
+        ossPrefix: existing.ossPrefix,
+        err,
+      });
     }
   }
-  await deleteGame(id);
+  // 清理封面图和截图（属于 images/ 前缀，不在游戏目录内）
+  for (const imgUrl of imageUrls) {
+    const key = extractKeyFromUrl(imgUrl);
+    if (!key) continue;
+    try {
+      await deleteObject(key);
+    } catch {
+      // 单张图片删除失败不阻塞
+    }
+  }
+  try {
+    await deleteGame(id);
+  } catch (err) {
+    return handleApiError(`DELETE /api/admin/games/${id} · deleteGame`, err);
+  }
+
+  try {
+    const [ip, ua] = await Promise.all([getClientIp(), getClientUserAgent()]);
+    await writeOperationLog({
+      action: "game.delete",
+      targetId: id,
+      meta: { slug: existing.slug, title: existing.title },
+      operatorIp: ip,
+      operatorUseragent: ua,
+    });
+  } catch {
+    // 日志失败不阻塞
+  }
+
   return NextResponse.json(ok({}));
 }

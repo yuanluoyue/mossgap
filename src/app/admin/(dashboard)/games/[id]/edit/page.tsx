@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 
-import { getAdminGame } from "@/db/queries";
+import { getAdminGame, listPublishedGamesForPicker } from "@/db/queries";
 import { hasServerEnv } from "@/env";
 import { GameForm } from "@/components/admin/game-form";
 
@@ -16,10 +16,16 @@ export default async function AdminEditGamePage({
   }
 
   const { id } = await params;
-  const game = await getAdminGame(id);
+  const [game, picker] = await Promise.all([
+    getAdminGame(id),
+    listPublishedGamesForPicker(),
+  ]);
   if (!game) {
     notFound();
   }
 
-  return <GameForm game={game} />;
+  // 排除当前游戏本身
+  const candidates = picker.filter((g) => g.id !== id);
+
+  return <GameForm game={game} candidates={candidates} />;
 }

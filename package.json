@@ -14,8 +14,8 @@
     "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
     "db:generate": "drizzle-kit generate",
     "db:studio": "drizzle-kit studio",
-    "db:migrate:local": "wrangler d1 execute mossgap --local --file=drizzle/0000_initial.sql",
-    "db:migrate:remote": "wrangler d1 execute mossgap --remote --file=drizzle/0000_initial.sql",
+    "db:migrate:local": "wrangler d1 execute mossgap --local --file=drizzle/0000_initial.sql && wrangler d1 execute mossgap --local --file=drizzle/0001_tearful_supernaut.sql",
+    "db:migrate:remote": "wrangler d1 execute mossgap --remote --file=drizzle/0000_initial.sql && wrangler d1 execute mossgap --remote --file=drizzle/0001_tearful_supernaut.sql",
     "db:seed:local": "tsx scripts/seed.ts --local",
     "db:seed:remote": "tsx scripts/seed.ts --remote",
     "oss:create-bucket": "tsx scripts/create-bucket.ts"

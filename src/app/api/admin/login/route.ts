@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { ZodError } from "zod";
 
 import { signIn, setAuthCookie } from "@/lib/auth";
 import { loginSchema } from "@/lib/validators";
+import { handleApiError, isZodError, collectZodIssues } from "@/lib/api-error";
 import { ok, fail } from "@/types";
 import { hasServerEnv } from "@/env";
 
@@ -36,12 +36,20 @@ export async function POST(req: Request) {
     await setAuthCookie(result.token);
     return NextResponse.json(ok({ username }));
   } catch (err) {
-    if (err instanceof ZodError) {
+    if (isZodError(err)) {
+      const issues = collectZodIssues(err);
+      console.error("[API] POST /api/admin/login · 校验失败", {
+        issues,
+        raw: (err as { issues?: unknown }).issues,
+      });
       return NextResponse.json(
-        fail("VALIDATION_ERROR", err.issues[0]?.message ?? "参数错误"),
+        fail(
+          "VALIDATION_ERROR",
+          issues.length > 0 ? issues.join("; ") : "参数校验失败",
+        ),
         { status: 400 },
       );
     }
-    return NextResponse.json(fail("INTERNAL", "服务器错误"), { status: 500 });
+    return handleApiError("POST /api/admin/login", err);
   }
 }

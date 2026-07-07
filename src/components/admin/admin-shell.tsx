@@ -1,33 +1,50 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useSyncExternalStore, useCallback } from "react";
 
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AdminSidebar } from "@/components/admin/sidebar";
 import { AdminHeader } from "@/components/admin/admin-header";
 
+const STORAGE_KEY = "admin_sidebar_collapsed";
+
+function subscribe(callback: () => void) {
+  window.addEventListener("storage", callback);
+  window.addEventListener("mossgap:sidebar-collapse", callback);
+  return () => {
+    window.removeEventListener("storage", callback);
+    window.removeEventListener("mossgap:sidebar-collapse", callback);
+  };
+}
+
+function getSnapshot(): boolean {
+  return localStorage.getItem(STORAGE_KEY) === "true";
+}
+
+function getServerSnapshot(): boolean {
+  return false;
+}
+
 /**
  * 后台外壳：侧边栏 + 头部 + 主内容区
- * - 折叠状态持久化到 localStorage
+ * - 折叠状态持久化到 localStorage（useSyncExternalStore 订阅）
  * - 包裹 ThemeProvider（仅后台启用 next-themes 主题切换）
  * - 包裹 TooltipProvider（ActionButton 依赖）
  */
 export function AdminShell({ children }: { children: React.ReactNode }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const collapsed = useSyncExternalStore(
+    subscribe,
+    getSnapshot,
+    getServerSnapshot,
+  );
 
-  useEffect(() => {
-    const saved = localStorage.getItem("admin_sidebar_collapsed");
-    if (saved === "true") setCollapsed(true);
-  }, []);
-
-  function handleToggleCollapse() {
-    setCollapsed((c) => {
-      const next = !c;
-      localStorage.setItem("admin_sidebar_collapsed", String(next));
-      return next;
-    });
-  }
+  const handleToggleCollapse = useCallback(() => {
+    const next = !collapsed;
+    localStorage.setItem(STORAGE_KEY, String(next));
+    // storage 事件不会在同一 window 触发，需手动派发
+    window.dispatchEvent(new Event("mossgap:sidebar-collapse"));
+  }, [collapsed]);
 
   return (
     <ThemeProvider>

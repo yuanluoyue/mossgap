@@ -2,10 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Gamepad2, LayoutDashboard, ExternalLink } from "lucide-react";
+import {
+  Gamepad2,
+  LayoutDashboard,
+  HardDrive,
+  MessageSquare,
+} from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { AdminLogoutButton } from "@/components/admin/logout-button";
 
 interface NavItem {
   href: string;
@@ -15,8 +19,10 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { href: "/admin", label: "控制台", icon: LayoutDashboard, exact: true },
+  { href: "/admin", label: "仪表盘", icon: LayoutDashboard, exact: true },
   { href: "/admin/games", label: "游戏管理", icon: Gamepad2 },
+  { href: "/admin/feedbacks", label: "反馈管理", icon: MessageSquare },
+  { href: "/admin/oss-usage", label: "OSS 用量", icon: HardDrive },
 ];
 
 interface AdminSidebarProps {
@@ -81,29 +87,6 @@ export function AdminSidebar({ collapsed }: AdminSidebarProps) {
           );
         })}
       </nav>
-
-      {/* 底部 */}
-      <div className="space-y-1 border-t p-2">
-        <Link
-          href="/"
-          target="_blank"
-          title={collapsed ? "访问前台" : undefined}
-          className={cn(
-            "flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
-            collapsed && "justify-center px-0",
-          )}
-        >
-          <ExternalLink className="size-4 shrink-0" />
-          {!collapsed && "访问前台"}
-        </Link>
-        {collapsed ? (
-          <div className="flex justify-center px-0 py-2">
-            <AdminLogoutButton collapsed />
-          </div>
-        ) : (
-          <AdminLogoutButton />
-        )}
-      </div>
     </aside>
   );
 }
