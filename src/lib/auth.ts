@@ -11,6 +11,13 @@ function secret(): Uint8Array {
   return new TextEncoder().encode(getServerEnv().JWT_SECRET);
 }
 
+/** JWT 载荷类型。 */
+export interface AuthPayload {
+  sub: string; // admin id
+  username: string;
+  role: string;
+}
+
 /** 校验账号密码并签发 JWT。 */
 export async function signIn(
   username: string,
@@ -50,6 +57,22 @@ export async function isAdminAuthenticated(): Promise<boolean> {
   const token = store.get(COOKIE_NAME)?.value;
   if (!token) return false;
   return verifyToken(token);
+}
+
+/**
+ * 在服务端读取当前登录管理员的 JWT 载荷（已校验）。
+ * 用于 RBAC：获取 adminId 以查询用户的角色与菜单。
+ */
+export async function getAuthPayload(): Promise<AuthPayload | null> {
+  const store = await cookies();
+  const token = store.get(COOKIE_NAME)?.value;
+  if (!token) return null;
+  try {
+    const { payload } = await jwtVerify(token, secret());
+    return payload as unknown as AuthPayload;
+  } catch {
+    return null;
+  }
 }
 
 /** 设置登录 Cookie（在 Route Handler 中调用）。 */

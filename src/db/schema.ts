@@ -4,6 +4,7 @@ import {
   integer,
   index,
   uniqueIndex,
+  primaryKey,
 } from "drizzle-orm/sqlite-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import type { GameLocale } from "@/types";
@@ -30,6 +31,11 @@ export const admins = sqliteTable(
     username: text("username").notNull(),
     // PBKDF2 哈希后的密码（base64），格式：pbkdf2$<iterations>$<salt>$<hash>
     passwordHash: text("password_hash").notNull(),
+    // 新增可空字段（向前兼容）：邮箱 / 昵称 / 头像 / 启用状态（0/1）
+    email: text("email"),
+    name: text("name"),
+    avatar: text("avatar"),
+    isActive: integer("is_active").default(1),
     createdAt: integer("created_at")
       .notNull()
       .$defaultFn(nowSeconds),
@@ -170,6 +176,10 @@ export const adminOperationLogs = sqliteTable(
     meta: text("meta").notNull().default("{}"),
     operatorIp: text("operator_ip").notNull().default(""),
     operatorUseragent: text("operator_useragent").notNull().default(""),
+    // 新增可空字段（向前兼容）：操作人 ID / 操作人用户名 / 资源类型（menus/roles/users 等）
+    operatorId: text("operator_id"),
+    operatorUsername: text("operator_username"),
+    resource: text("resource"),
     createdAt: integer("created_at")
       .notNull()
       .$defaultFn(nowSeconds),
@@ -178,6 +188,8 @@ export const adminOperationLogs = sqliteTable(
     actionIdx: index("op_logs_action_idx").on(t.action),
     targetIdx: index("op_logs_target_idx").on(t.targetType, t.targetId),
     createdIdx: index("op_logs_created_idx").on(t.createdAt),
+    resourceIdx: index("op_logs_resource_idx").on(t.resource),
+    operatorIdx: index("op_logs_operator_idx").on(t.operatorId),
   }),
 );
 
@@ -251,6 +263,130 @@ export type GameLike = typeof gameLikes.$inferSelect;
 export type GameDislike = typeof gameDislikes.$inferSelect;
 export type Feedback = typeof feedbacks.$inferSelect;
 export type AdminOperationLog = typeof adminOperationLogs.$inferSelect;
+
+// ─── RBAC：角色 / 菜单 / 关联表 / 系统配置 ─────────────────────────
+
+/** 系统角色表 */
+export const sysRoles = sqliteTable(
+  "sys_roles",
+  {
+    id: text("id")
+      .primaryKey()
+      .notNull()
+      .$defaultFn(genUuid),
+    name: text("name").notNull(),
+    code: text("code").notNull(),
+    description: text("description").default(""),
+    sortOrder: integer("sort_order").default(0),
+    isActive: integer("is_active").default(1),
+    createdAt: integer("created_at")
+      .notNull()
+      .$defaultFn(nowSeconds),
+    updatedAt: integer("updated_at")
+      .notNull()
+      .$defaultFn(nowSeconds),
+  },
+  (t) => ({
+    codeIdx: uniqueIndex("sys_roles_code_idx").on(t.code),
+    nameIdx: uniqueIndex("sys_roles_name_idx").on(t.name),
+  }),
+);
+
+/** 系统菜单表（自引用 parent_id 实现树形层级） */
+export const sysMenus = sqliteTable(
+  "sys_menus",
+  {
+    id: text("id")
+      .primaryKey()
+      .notNull()
+      .$defaultFn(genUuid),
+    parentId: text("parent_id"),
+    name: text("name").notNull(),
+    path: text("path"),
+    icon: text("icon"),
+    sortOrder: integer("sort_order").default(0),
+    isVisible: integer("is_visible").default(1),
+    createdAt: integer("created_at")
+      .notNull()
+      .$defaultFn(nowSeconds),
+    updatedAt: integer("updated_at")
+      .notNull()
+      .$defaultFn(nowSeconds),
+  },
+  (t) => ({
+    parentIdx: index("sys_menus_parent_idx").on(t.parentId),
+  }),
+);
+
+/** 管理员 ↔ 角色 关联表 */
+export const sysUserRoles = sqliteTable(
+  "sys_user_roles",
+  {
+    adminId: text("admin_id")
+      .notNull()
+      .references(() => admins.id, { onDelete: "cascade" }),
+    roleId: text("role_id")
+      .notNull()
+      .references(() => sysRoles.id, { onDelete: "cascade" }),
+    createdAt: integer("created_at")
+      .notNull()
+      .$defaultFn(nowSeconds),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.adminId, t.roleId] }),
+  }),
+);
+
+/** 角色 ↔ 菜单 关联表 */
+export const sysRoleMenus = sqliteTable(
+  "sys_role_menus",
+  {
+    roleId: text("role_id")
+      .notNull()
+      .references(() => sysRoles.id, { onDelete: "cascade" }),
+    menuId: text("menu_id")
+      .notNull()
+      .references(() => sysMenus.id, { onDelete: "cascade" }),
+    createdAt: integer("created_at")
+      .notNull()
+      .$defaultFn(nowSeconds),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.roleId, t.menuId] }),
+  }),
+);
+
+/** 系统配置表（key-value） */
+export const settings = sqliteTable(
+  "settings",
+  {
+    id: text("id")
+      .primaryKey()
+      .notNull()
+      .$defaultFn(genUuid),
+    key: text("key").notNull(),
+    value: text("value").default(""),
+    remark: text("remark").default(""),
+    createdAt: integer("created_at")
+      .notNull()
+      .$defaultFn(nowSeconds),
+    updatedAt: integer("updated_at")
+      .notNull()
+      .$defaultFn(nowSeconds),
+  },
+  (t) => ({
+    keyIdx: uniqueIndex("settings_key_idx").on(t.key),
+  }),
+);
+
+export type SysRole = typeof sysRoles.$inferSelect;
+export type NewSysRole = typeof sysRoles.$inferInsert;
+export type SysMenu = typeof sysMenus.$inferSelect;
+export type NewSysMenu = typeof sysMenus.$inferInsert;
+export type SysUserRole = typeof sysUserRoles.$inferSelect;
+export type SysRoleMenu = typeof sysRoleMenus.$inferSelect;
+export type Setting = typeof settings.$inferSelect;
+export type NewSetting = typeof settings.$inferInsert;
 
 // Zod Schemas（前后端共享校验）
 export const insertGameSchema = createInsertSchema(games);

@@ -15,6 +15,13 @@
       "when": 1783408679793,
       "tag": "0001_tearful_supernaut",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1783518336739,
+      "tag": "0002_outstanding_ogun",
+      "breakpoints": true
     }
   ]
 }

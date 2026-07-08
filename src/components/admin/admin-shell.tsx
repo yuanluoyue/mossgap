@@ -49,7 +49,10 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   return (
     <ThemeProvider>
       <TooltipProvider>
-        <div className="flex h-screen">
+        <div
+          className="flex h-screen"
+          style={{ ["--radius" as string]: "0.5rem" }}
+        >
           <AdminSidebar collapsed={collapsed} />
           <div className="flex flex-1 flex-col overflow-hidden">
             <AdminHeader
