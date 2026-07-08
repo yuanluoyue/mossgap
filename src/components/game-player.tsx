@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 
 interface GamePlayerProps {
@@ -15,6 +15,24 @@ interface GamePlayerProps {
  */
 export function GamePlayer({ src, title, loadingLabel }: GamePlayerProps) {
   const [loading, setLoading] = useState(true);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+
+    // 跨域 iframe 用 addEventListener 更可靠
+    const handleLoad = () => setLoading(false);
+    iframe.addEventListener("load", handleLoad);
+
+    // 超时兜底：5 秒后自动隐藏 loading
+    const timer = setTimeout(() => setLoading(false), 5000);
+
+    return () => {
+      iframe.removeEventListener("load", handleLoad);
+      clearTimeout(timer);
+    };
+  }, []);
 
   return (
     <div
@@ -29,12 +47,12 @@ export function GamePlayer({ src, title, loadingLabel }: GamePlayerProps) {
         </div>
       ) : null}
       <iframe
+        ref={iframeRef}
         src={src}
         title={title}
         className="h-full w-full border-0"
-        allow="autoplay; fullscreen; gamepad; pointer-lock; screen-wake-lock; cross-origin-isolated; xr-spatial-tracking"
+        allow="autoplay; fullscreen; gamepad; pointer-lock; screen-wake-lock; xr-spatial-tracking"
         sandbox="allow-scripts allow-same-origin allow-pointer-lock allow-forms allow-popups allow-modals allow-presentation"
-        onLoad={() => setLoading(false)}
       />
     </div>
   );

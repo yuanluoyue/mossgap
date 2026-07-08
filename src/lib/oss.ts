@@ -70,6 +70,7 @@ export async function putObject(
       Key: key,
       Body: body,
       ContentType: contentType,
+      ACL: "public-read",
     }),
   );
 }
