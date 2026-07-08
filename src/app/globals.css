@@ -57,7 +57,7 @@
 
 /* 浅色主题为默认（后续暗色模式通过 .dark 覆盖） */
 :root {
-  --background: oklch(0.975 0.003 190); /* 极浅青灰，无紫调，干净柔和 */
+  --background: #f4f8f7; /* 极浅青灰，无紫调，干净柔和 */
   --foreground: oklch(0.22 0.01 190); /* 温和深灰文字，不发闷 */
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.22 0.01 190);

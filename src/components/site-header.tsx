@@ -23,23 +23,12 @@ export async function SiteHeader() {
 
         {/* 主导航 */}
         <nav className="hidden items-center gap-1 md:flex">
-          <NavLink href="/">{t("home")}</NavLink>
           <NavLink href="/games">{t("games")}</NavLink>
           <NavLink href="/about">{t("about")}</NavLink>
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
           <LanguageSwitcher />
-          <Button
-            asChild
-            size="sm"
-            className="btn-press hidden rounded-full px-5 sm:inline-flex"
-          >
-            <Link href="/games">
-              <Gamepad2 className="size-4" />
-              {t("games")}
-            </Link>
-          </Button>
         </div>
       </div>
     </header>

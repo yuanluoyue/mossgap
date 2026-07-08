@@ -58,13 +58,13 @@ export default async function GamesPage({
       </header>
 
       {/* 筛选条 */}
-      <div className="mb-8 rounded-3xl border border-border/60 bg-card p-5 card-shadow">
+      {/* <div className="mb-8 rounded-3xl border border-border/60 bg-card p-5 card-shadow">
         <GamesFilter
           activeCategory={category}
           activeSort={sort}
           activeQuery={q}
         />
-      </div>
+      </div> */}
 
       {/* 结果统计 */}
       <div className="mb-4 flex items-center justify-between">
