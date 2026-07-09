@@ -8,7 +8,7 @@ export async function SiteFooter() {
   const year = new Date().getFullYear();
 
   return (
-    <footer className="relative mt-24 border-t border-border bg-background">
+    <footer className="relative border-t border-border bg-background">
       <div className="relative mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="flex flex-col gap-8 md:flex-row md:items-start md:justify-between">
           <div className="max-w-sm">
@@ -49,7 +49,9 @@ export async function SiteFooter() {
         </div>
 
         <div className="mt-10 flex flex-col items-start justify-between gap-2 border-t border-border pt-6 text-xs text-muted-foreground sm:flex-row sm:items-center">
-          <p>© {year} MossGap. {t("rights")}</p>
+          <p>
+            © {year} MossGap. {t("rights")}
+          </p>
           <p className="font-mono uppercase tracking-widest text-muted-foreground/70">
             v1.0.0
           </p>
