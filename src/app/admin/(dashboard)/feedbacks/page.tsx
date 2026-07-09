@@ -191,7 +191,6 @@ export default async function AdminFeedbacksPage({
           totalPages={totalPages}
           search={search}
           status={status}
-          type={type}
         />
       </div>
     </div>

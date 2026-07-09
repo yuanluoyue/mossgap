@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Gamepad2, FileEdit, Eye, Archive, CheckCircle2 } from "lucide-react";
+import { Gamepad2, Upload, FileEdit, Eye, Archive, CheckCircle2 } from "lucide-react";
 
 import { getDashboardStats } from "@/db/queries";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { UploadGameDialog } from "@/components/admin/upload-game-dialog";
 import { formatDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -57,11 +58,19 @@ export default async function AdminDashboardPage() {
   return (
     <div className="space-y-6">
       {/* 页头 */}
-      <div>
-        <h1 className="font-heading text-2xl font-bold tracking-tight">仪表盘</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          游戏平台数据概览
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="font-heading text-2xl font-bold tracking-tight">控制台</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            游戏平台数据概览
+          </p>
+        </div>
+        <UploadGameDialog>
+          <Button>
+            <Upload className="size-4" />
+            上传游戏
+          </Button>
+        </UploadGameDialog>
       </div>
 
       {/* 统计卡片 */}

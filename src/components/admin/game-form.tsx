@@ -2,31 +2,15 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import {
-  Save,
-  Trash2,
-  Loader2,
-  Plus,
-  X,
-  ExternalLink,
-  RefreshCw,
-  Link2,
-  Archive,
-  HardDrive,
-  ArrowLeft,
-} from "lucide-react";
+import { Save, Trash2, Loader2, Plus, X, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 
-import type { AdminGame, GameCategory, GameSourceType, GameStatus } from "@/types";
+import type { AdminGame, GameCategory, GameStatus } from "@/types";
 import { GAME_CATEGORIES } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
-import { ImageUploader } from "@/components/admin/image-uploader";
 import {
   Card,
   CardContent,
@@ -50,7 +34,6 @@ import {
   DialogTrigger,
   DialogClose,
 } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
 
 const CATEGORY_LABELS: Record<GameCategory, string> = {
   action: "动作",
@@ -69,29 +52,15 @@ const STATUS_LABELS: Record<GameStatus, string> = {
   archived: "已归档",
 };
 
-const SOURCE_TYPE_LABELS: Record<GameSourceType, string> = {
-  zip: "ZIP 上传",
-  iframe: "iframe 外链",
-};
-
-interface PickerGame {
-  id: string;
-  title: string;
-  slug: string;
-  coverImage: string;
-}
-
 interface GameFormProps {
   game: AdminGame;
-  /** 候选相关推荐游戏列表 */
-  candidates: PickerGame[];
+  candidates?: { id: string; title: string; slug: string; coverImage: string }[];
 }
 
-export function GameForm({ game, candidates }: GameFormProps) {
+export function GameForm({ game, candidates = [] }: GameFormProps) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [refreshingSize, setRefreshingSize] = useState(false);
 
   // 表单状态
   const [slug, setSlug] = useState(game.slug);
@@ -104,12 +73,6 @@ export function GameForm({ game, candidates }: GameFormProps) {
   const [enDesc, setEnDesc] = useState(game.locale.en.description);
   const [zhTitle, setZhTitle] = useState(game.locale.zh.title);
   const [zhDesc, setZhDesc] = useState(game.locale.zh.description);
-  const [enHowTo, setEnHowTo] = useState(game.howToPlay.en);
-  const [zhHowTo, setZhHowTo] = useState(game.howToPlay.zh);
-  const [iframeUrl, setIframeUrl] = useState(game.iframeUrl);
-  const [relatedGameIds, setRelatedGameIds] = useState<string[]>(game.relatedGameIds);
-  const [ossSize, setOssSize] = useState(game.ossSize);
-  const [featured, setFeatured] = useState(game.featured);
 
   async function onSave() {
     if (saving) return;
@@ -129,11 +92,6 @@ export function GameForm({ game, candidates }: GameFormProps) {
             en: { title: enTitle, description: enDesc },
             zh: { title: zhTitle, description: zhDesc },
           },
-          sourceType: game.sourceType,
-          iframeUrl,
-          howToPlay: { en: enHowTo, zh: zhHowTo },
-          relatedGameIds,
-          featured,
         }),
       });
       const data = (await res.json()) as {
@@ -178,68 +136,24 @@ export function GameForm({ game, candidates }: GameFormProps) {
     }
   }
 
-  async function onRefreshSize() {
-    if (refreshingSize) return;
-    if (game.sourceType !== "zip") {
-      toast.info("iframe 模式无 OSS 占用");
-      return;
-    }
-    setRefreshingSize(true);
-    try {
-      const res = await fetch(`/api/admin/games/${game.id}/refresh-size`, {
-        method: "POST",
-      });
-      const data = (await res.json()) as {
-        success?: boolean;
-        data?: { ossSize: number };
-        error?: { message?: string };
-      };
-      if (!res.ok || !data.success || !data.data) {
-        toast.error(data?.error?.message ?? "刷新失败");
-        return;
-      }
-      setOssSize(data.data.ossSize);
-      toast.success(`已更新：${formatBytes(data.data.ossSize)}`);
-    } catch {
-      toast.error("网络错误");
-    } finally {
-      setRefreshingSize(false);
-    }
-  }
-
   const playUrl = game.ossPrefix
-    ? `${game.ossPrefix}/${entryFile}`
+    ? `${game.ossPrefix}/${entryFile}` // 仅用于显示路径
     : "";
 
   return (
     <div className="space-y-6">
       {/* 操作栏 */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <Button asChild variant="outline" size="icon">
-            <Link href="/admin/games">
-              <ArrowLeft className="size-4" />
-            </Link>
-          </Button>
-          <div>
-            <h1 className="font-heading text-2xl font-bold tracking-tight">
-              编辑游戏
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {game.title || game.slug}
-            </p>
-          </div>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="font-heading text-2xl font-bold tracking-tight">
+            编辑游戏
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {game.title || game.slug}
+          </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="outline" className="gap-1.5">
-            {game.sourceType === "iframe" ? (
-              <Link2 className="size-3" />
-            ) : (
-              <Archive className="size-3" />
-            )}
-            {SOURCE_TYPE_LABELS[game.sourceType]}
-          </Badge>
-          {game.status === "published" ? (
+        <div className="flex items-center gap-2">
+          {game.status === "published" && game.ossPrefix ? (
             <Button asChild variant="outline">
               <a
                 href={`/play/${game.slug}`}
@@ -306,18 +220,6 @@ export function GameForm({ game, candidates }: GameFormProps) {
                   rows={4}
                 />
               </div>
-              <div className="space-y-1.5">
-                <Label>玩法说明（中文）</Label>
-                <Textarea
-                  value={zhHowTo}
-                  onChange={(e) => setZhHowTo(e.target.value)}
-                  placeholder="操作方式、规则技巧等，留空则不显示该模块"
-                  rows={4}
-                />
-                <p className="text-xs text-muted-foreground">
-                  支持换行；C 端详情页会展示给中文用户
-                </p>
-              </div>
             </CardContent>
           </Card>
 
@@ -341,18 +243,6 @@ export function GameForm({ game, candidates }: GameFormProps) {
                   rows={4}
                 />
               </div>
-              <div className="space-y-1.5">
-                <Label>How to play (English)</Label>
-                <Textarea
-                  value={enHowTo}
-                  onChange={(e) => setEnHowTo(e.target.value)}
-                  placeholder="Controls, rules, tips. Leave empty to hide this section."
-                  rows={4}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Supports line breaks; shown on the C-end detail page for English users.
-                </p>
-              </div>
             </CardContent>
           </Card>
 
@@ -360,29 +250,24 @@ export function GameForm({ game, candidates }: GameFormProps) {
           <Card>
             <CardHeader>
               <CardTitle>游戏截图</CardTitle>
-              <CardDescription>上传游戏截图，每张不超过 5MB</CardDescription>
+              <CardDescription>每行一个图片 URL</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-2">
               {screenshots.map((s, i) => (
-                <div key={i} className="relative">
-                  <ImageUploader
-                    category="screenshot"
-                    url={s}
-                    onUrlChange={(url) => {
-                      if (!url) {
-                        // 删除该截图
-                        setScreenshots(screenshots.filter((_, idx) => idx !== i));
-                      } else {
-                        const next = [...screenshots];
-                        next[i] = url;
-                        setScreenshots(next);
-                      }
+                <div key={i} className="flex items-center gap-2">
+                  <Input
+                    value={s}
+                    onChange={(e) => {
+                      const next = [...screenshots];
+                      next[i] = e.target.value;
+                      setScreenshots(next);
                     }}
+                    placeholder="https://..."
+                    className="flex-1"
                   />
                   <Button
                     variant="ghost"
                     size="icon-sm"
-                    className="absolute top-1 right-1 z-10 bg-background/80"
                     onClick={() => setScreenshots(screenshots.filter((_, idx) => idx !== i))}
                   >
                     <X className="size-4" />
@@ -397,63 +282,6 @@ export function GameForm({ game, candidates }: GameFormProps) {
                 <Plus className="size-4" />
                 添加截图
               </Button>
-            </CardContent>
-          </Card>
-
-          {/* 相关推荐 */}
-          <Card>
-            <CardHeader>
-              <CardTitle>相关推荐</CardTitle>
-              <CardDescription>
-                手动选择要在详情页「猜你也喜欢」中展示的游戏（不足会自动按分类补齐）
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {candidates.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  暂无其他已发布游戏可选
-                </p>
-              ) : (
-                <div className="max-h-72 space-y-1.5 overflow-y-auto rounded-lg border p-2">
-                  {candidates.map((c) => {
-                    const checked = relatedGameIds.includes(c.id);
-                    return (
-                      <label
-                        key={c.id}
-                        className={cn(
-                          "flex cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 text-sm transition-colors",
-                          checked ? "bg-primary/10 text-foreground" : "hover:bg-muted",
-                        )}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setRelatedGameIds([...relatedGameIds, c.id]);
-                            } else {
-                              setRelatedGameIds(relatedGameIds.filter((id) => id !== c.id));
-                            }
-                          }}
-                          className="size-4 accent-primary"
-                        />
-                        <div className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded bg-muted">
-                          {c.coverImage ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={c.coverImage} alt="" className="h-full w-full object-cover" />
-                          ) : null}
-                        </div>
-                        <span className="truncate">{c.title || c.slug}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              )}
-              {relatedGameIds.length > 0 ? (
-                <p className="mt-2 text-xs text-muted-foreground">
-                  已选 {relatedGameIds.length} 个
-                </p>
-              ) : null}
             </CardContent>
           </Card>
         </div>
@@ -508,124 +336,46 @@ export function GameForm({ game, candidates }: GameFormProps) {
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">
-                  已发布 = 上架；草稿/已归档 = 下架
-                </p>
-              </div>
-
-              <div className="flex items-center justify-between rounded-lg border p-3">
-                <div className="space-y-0.5">
-                  <Label htmlFor="featured-switch">首页推荐</Label>
-                  <p className="text-xs text-muted-foreground">
-                    开启后显示在首页顶部推荐位
-                  </p>
-                </div>
-                <Switch
-                  id="featured-switch"
-                  checked={featured}
-                  onCheckedChange={setFeatured}
-                />
               </div>
 
               <div className="space-y-1.5">
-                <Label>封面图</Label>
-                <ImageUploader
-                  category="cover"
-                  url={coverImage}
-                  onUrlChange={setCoverImage}
+                <Label>封面图 URL</Label>
+                <Input
+                  value={coverImage}
+                  onChange={(e) => setCoverImage(e.target.value)}
+                  placeholder="https://..."
                 />
-                <p className="text-xs text-muted-foreground">
-                  支持 JPG/PNG/GIF/WEBP，不超过 5MB
-                </p>
               </div>
             </CardContent>
           </Card>
 
-          {/* 游戏资源 */}
           <Card>
             <CardHeader>
               <CardTitle>游戏资源</CardTitle>
-              <CardDescription>
-                {game.sourceType === "iframe"
-                  ? "通过 iframe 外链嵌入"
-                  : "来自上传的 zip 包"}
-              </CardDescription>
+              <CardDescription>来自上传的 zip 包</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
-              {/* iframe 模式：iframe URL 可编辑 */}
-              {game.sourceType === "iframe" ? (
-                <div className="space-y-1.5">
-                  <Label>iframe URL</Label>
-                  <Input
-                    value={iframeUrl}
-                    onChange={(e) => setIframeUrl(e.target.value)}
-                    placeholder="https://example.com/game/"
-                    className="font-mono"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    游戏将通过 iframe 嵌入此 URL
-                  </p>
-                </div>
-              ) : (
-                <>
-                  <div className="space-y-1.5">
-                    <Label>入口文件</Label>
-                    <Input
-                      value={entryFile}
-                      onChange={(e) => setEntryFile(e.target.value)}
-                      placeholder="index.html"
-                      className="font-mono"
-                    />
-                  </div>
-                  <div className="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">
-                    <p className="mb-1 font-medium text-foreground">OSS 路径</p>
-                    <p className="break-all font-mono">{game.ossPrefix || "（无）"}</p>
-                    {playUrl ? (
-                      <p className="mt-2 break-all font-mono text-[10px]">
-                        完整 URL: .../{playUrl}
-                      </p>
-                    ) : null}
-                  </div>
-                </>
-              )}
-
-              {/* OSS 占用统计 */}
-              <div className="flex items-center justify-between rounded-lg bg-muted/40 p-3 text-xs">
-                <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-                  <HardDrive className="size-3.5" />
-                  OSS 占用
-                </span>
-                <span className="font-mono tabular-nums font-semibold text-foreground">
-                  {game.sourceType === "iframe" ? "—" : formatBytes(ossSize)}
-                </span>
+              <div className="space-y-1.5">
+                <Label>入口文件</Label>
+                <Input
+                  value={entryFile}
+                  onChange={(e) => setEntryFile(e.target.value)}
+                  placeholder="index.html"
+                  className="font-mono"
+                />
               </div>
-
-              {/* 刷新 OSS 占用按钮（仅 zip 模式） */}
-              {game.sourceType === "zip" ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="w-full"
-                  onClick={onRefreshSize}
-                  disabled={refreshingSize}
-                >
-                  {refreshingSize ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <RefreshCw className="size-4" />
-                  )}
-                  实时统计 OSS 占用
-                </Button>
-              ) : null}
-
-              <div className="flex items-center justify-between rounded-lg bg-muted/40 p-3 text-xs">
+              <div className="rounded-lg bg-slate-50 p-3 text-xs text-muted-foreground">
+                <p className="mb-1 font-medium text-foreground">OSS 路径</p>
+                <p className="break-all font-mono">{game.ossPrefix || "（无）"}</p>
+                {playUrl ? (
+                  <p className="mt-2 break-all font-mono text-[10px]">
+                    完整 URL: .../{playUrl}
+                  </p>
+                ) : null}
+              </div>
+              <div className="flex items-center justify-between rounded-lg bg-slate-50 p-3 text-xs">
                 <span className="text-muted-foreground">游玩次数</span>
                 <span className="font-mono tabular-nums">{game.playCount}</span>
-              </div>
-              <div className="flex items-center justify-between rounded-lg bg-muted/40 p-3 text-xs">
-                <span className="text-muted-foreground">点赞数</span>
-                <span className="font-mono tabular-nums">{game.likeCount}</span>
               </div>
             </CardContent>
           </Card>
@@ -633,13 +383,4 @@ export function GameForm({ game, candidates }: GameFormProps) {
       </div>
     </div>
   );
-}
-
-/** 字节数格式化 */
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return "0 B";
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  const value = bytes / Math.pow(1024, i);
-  return `${value.toFixed(value >= 100 || i === 0 ? 0 : 2)} ${units[i]}`;
 }

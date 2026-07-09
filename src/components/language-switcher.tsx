@@ -43,7 +43,7 @@ export function LanguageSwitcher() {
     <Select value={locale} onValueChange={onSelect} disabled={isPending}>
       <SelectTrigger
         size="sm"
-        className="gap-1.5 rounded-full border-border bg-card text-xs font-medium text-muted-foreground hover:text-foreground"
+        className="gap-1.5 border-white/10 bg-white/5 text-xs uppercase tracking-widest text-white/70 hover:text-white"
         aria-label="Switch language"
       >
         <Globe className="size-3.5" />
@@ -54,10 +54,10 @@ export function LanguageSwitcher() {
           <SelectItem
             key={l}
             value={l}
-            className="justify-between"
+            className="justify-between uppercase tracking-wider"
           >
             <span className="flex items-center gap-2">
-              <span className="font-mono text-[10px] text-muted-foreground">{SHORT[l]}</span>
+              <span className="font-mono text-[10px] text-white/40">{SHORT[l]}</span>
               <span>{LABELS[l]}</span>
             </span>
           </SelectItem>

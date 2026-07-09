@@ -173,7 +173,6 @@ export default async function AuditLogsPage({
           totalPages={totalPages}
           search={search}
           status={resource}
-          type={action}
         />
       </div>
     </div>

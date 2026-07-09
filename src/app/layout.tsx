@@ -3,6 +3,7 @@ import { Poppins, Inter, Geist_Mono } from "next/font/google";
 import { getLocale, getMessages } from "next-intl/server";
 import { NextIntlClientProvider } from "next-intl";
 import { Toaster } from "@/components/ui/sonner";
+import { Analytics } from "@/components/analytics";
 import "./globals.css";
 
 const poppins = Poppins({
@@ -49,6 +50,7 @@ export default async function RootLayout({
         <NextIntlClientProvider locale={locale} messages={messages}>
           {children}
           <Toaster position="top-center" />
+          <Analytics />
         </NextIntlClientProvider>
       </body>
     </html>

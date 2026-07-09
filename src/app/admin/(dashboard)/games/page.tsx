@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Gamepad2, Upload, Search, Eye, Link2, HardDrive } from "lucide-react";
+import { Gamepad2, Upload, Search, Eye } from "lucide-react";
 
 import { listAdminGames } from "@/db/queries";
 import { Badge } from "@/components/ui/badge";
@@ -20,15 +20,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { Pagination } from "@/components/admin/pagination";
 import { UploadGameDialog } from "@/components/admin/upload-game-dialog";
-import { IframeGameDialog } from "@/components/admin/iframe-game-dialog";
-import { GameRowActionsWithDrawer } from "@/components/admin/game-row-actions-with-drawer";
+import { GameRowActions } from "@/components/admin/game-row-actions";
 import { formatDate, formatNumber } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -60,32 +54,23 @@ export default async function AdminGamesPage({
   });
 
   const totalPages = Math.max(1, Math.ceil(result.total / PAGE_SIZE));
-  const totalOssSize = result.items.reduce((sum, g) => sum + (g.ossSize ?? 0), 0);
 
   return (
     <div className="space-y-6">
       {/* 页头 */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="font-heading text-2xl font-bold tracking-tight">游戏管理</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            共 {result.total} 个游戏 · 当前页 OSS 占用 {formatBytes(totalOssSize)}
+            共 {result.total} 个游戏
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <IframeGameDialog>
-            <Button variant="outline">
-              <Link2 className="size-4" />
-              iframe 游戏
-            </Button>
-          </IframeGameDialog>
-          <UploadGameDialog>
-            <Button>
-              <Upload className="size-4" />
-              上传 Zip 游戏
-            </Button>
-          </UploadGameDialog>
-        </div>
+        <UploadGameDialog>
+          <Button>
+            <Upload className="size-4" />
+            上传游戏
+          </Button>
+        </UploadGameDialog>
       </div>
 
       {/* 筛选 */}
@@ -129,18 +114,16 @@ export default async function AdminGamesPage({
               <TableHead className="w-[60px]">封面</TableHead>
               <TableHead>名称 / Slug</TableHead>
               <TableHead className="w-[100px]">分类</TableHead>
-              <TableHead className="w-[100px]">来源</TableHead>
-              <TableHead className="w-[90px]">状态</TableHead>
-              <TableHead className="w-[90px]">OSS 占用</TableHead>
-              <TableHead className="w-[80px]">游玩</TableHead>
+              <TableHead className="w-[100px]">状态</TableHead>
+              <TableHead className="w-[80px]">游玩次数</TableHead>
               <TableHead className="w-[120px]">创建时间</TableHead>
-              <TableHead className="w-[120px] text-right">操作</TableHead>
+              <TableHead className="w-[100px] text-right">操作</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {result.items.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="h-32 text-center">
+                <TableCell colSpan={7} className="h-32 text-center">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <Gamepad2 className="size-8" />
                     <p className="text-sm">暂无游戏</p>
@@ -173,29 +156,7 @@ export default async function AdminGamesPage({
                   </TableCell>
                   <TableCell className="text-sm">{g.category}</TableCell>
                   <TableCell>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="inline-flex size-7 items-center justify-center rounded-md bg-muted text-muted-foreground">
-                          {g.sourceType === "iframe" ? (
-                            <Link2 className="size-3.5" />
-                          ) : (
-                            <Gamepad2 className="size-3.5" />
-                          )}
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent side="top">
-                        {g.sourceType === "iframe" ? "iframe 外链" : "ZIP 上传"}
-                      </TooltipContent>
-                    </Tooltip>
-                  </TableCell>
-                  <TableCell>
                     <StatusBadge status={g.status} />
-                  </TableCell>
-                  <TableCell className="tabular-nums">
-                    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                      <HardDrive className="size-3" />
-                      {g.sourceType === "iframe" ? "—" : formatBytes(g.ossSize ?? 0)}
-                    </span>
                   </TableCell>
                   <TableCell className="tabular-nums">
                     <span className="inline-flex items-center gap-1 text-sm">
@@ -207,10 +168,9 @@ export default async function AdminGamesPage({
                     {formatDate(g.createdAt)}
                   </TableCell>
                   <TableCell>
-                    <GameRowActionsWithDrawer
+                    <GameRowActions
                       id={g.id}
                       editHref={`/admin/games/${g.id}/edit`}
-                      status={g.status}
                     />
                   </TableCell>
                 </TableRow>
@@ -243,13 +203,4 @@ function StatusBadge({ status }: { status: string }) {
 function firstOf(v: string | string[] | undefined): string | undefined {
   if (Array.isArray(v)) return v[0];
   return v;
-}
-
-/** 字节数格式化 */
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return "0 B";
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  const value = bytes / Math.pow(1024, i);
-  return `${value.toFixed(value >= 100 || i === 0 ? 0 : 2)} ${units[i]}`;
 }
