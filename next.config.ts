@@ -1,3 +1,4 @@
+import { withSentryConfig } from "@sentry/nextjs";
 import type { NextConfig } from "next";
 import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
 import createNextIntlPlugin from "next-intl/plugin";
@@ -19,4 +20,10 @@ if (process.env.NODE_ENV === "development") {
   initOpenNextCloudflareForDev();
 }
 
-export default withNextIntl(nextConfig);
+export default withSentryConfig(withNextIntl(nextConfig), {
+  org: "snow-do",
+  project: "mossgap",
+  silent: !process.env.CI,
+  // 上传更完整的 source map 以获得更清晰的错误堆栈
+  widenClientFileUpload: true,
+});

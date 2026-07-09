@@ -49,3 +49,6 @@ cloudflare-env.d.ts
 
 .data
 !.data/.gitignore
+
+# Sentry Config File
+.env.sentry-build-plugin
