@@ -15,11 +15,14 @@ const serverEnvSchema = z.object({
   S3_ACCESS_KEY_ID: z.string().min(1),
   S3_SECRET_ACCESS_KEY: z.string().min(1),
   S3_BUCKET: z.string().min(1),
+  S3_KEY_PREFIX: z.string().optional().default(""),
   S3_PUBLIC_URL: z.string().url(),
   S3_FORCE_PATH_STYLE: z
     .string()
     .optional()
     .transform((v) => v === "true"),
+  // OSS 适配器选择：aws-sdk（默认，使用 @aws-sdk/client-s3）| custom（手写签名）
+  OSS_ADAPTER: z.string().optional().default("aws-sdk"),
   JWT_SECRET: z.string().min(16, "JWT_SECRET 至少 16 个字符"),
   NEXT_PUBLIC_APP_URL: z.string().url().optional(),
 });

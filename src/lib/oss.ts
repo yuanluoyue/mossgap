@@ -1,160 +1,54 @@
 import { getServerEnv } from "@/env";
+import type { OssAdapter } from "./oss-adapter";
+import { awsSdkAdapter } from "./oss-adapter-aws-sdk";
+import { customS3Adapter } from "./oss-adapter-custom-s3";
 
 /**
- * S3 兼容对象存储客户端（轻量版，无 AWS SDK 依赖）。
+ * S3 兼容对象存储客户端。
  *
- * 直接用原生 fetch + Web Crypto API 实现 AWS Signature V4 签名，
- * 完全移除 @aws-sdk/client-s3 以减小 Cloudflare Worker 体积。
+ * 通过适配器模式支持两种实现：
+ * - aws-sdk（默认）：使用 @aws-sdk/client-s3，功能完整、自动重试
+ * - custom：手写 AWS Signature V4 + fetch，无第三方依赖、体积最小
  *
- * - 生产：Cloudflare R2
- * - 本地：Docker MinIO（path-style）
+ * 所有对外暴露的 key 均为逻辑 key（不含 S3_KEY_PREFIX），
+ * 适配器接收的是完整 key（已拼接前缀）。
  */
 
 async function env() {
   return await getServerEnv();
 }
 
-/** 构建规范请求并签名，返回完整请求 URL + headers。 */
-async function signRequest(
-  method: string,
-  bucket: string,
-  key: string,
-  body: Uint8Array | string | null,
-  contentType: string,
-  queryParams: Record<string, string> = {},
-): Promise<{ url: string; headers: Record<string, string> }> {
+// ===== 适配器选择 =====
+
+let cachedAdapter: OssAdapter | null = null;
+
+async function getAdapter(): Promise<OssAdapter> {
+  if (cachedAdapter) return cachedAdapter;
   const e = await env();
-  const region = e.S3_REGION || "auto";
-  const service = "s3";
-  const accessKey = e.S3_ACCESS_KEY_ID;
-  const secretKey = e.S3_SECRET_ACCESS_KEY;
-  const endpoint = e.S3_ENDPOINT.replace(/\/$/, "");
-  const pathStyle = e.S3_FORCE_PATH_STYLE;
+  cachedAdapter = e.OSS_ADAPTER === "custom" ? customS3Adapter : awsSdkAdapter;
+  return cachedAdapter;
+}
 
-  // 构建请求路径和 URL
-  const objectPath = key ? `/${key}` : "/";
-  const pathForSign = pathStyle ? `/${bucket}${objectPath}` : objectPath;
+// ===== Key 前缀工具 =====
 
-  // query string
-  const sortedQuery = Object.keys(queryParams)
-    .sort()
-    .map((k) => `${encodeURIComponent(k)}=${encodeURIComponent(queryParams[k])}`)
-    .join("&");
-  const queryString = sortedQuery ? `?${sortedQuery}` : "";
+function joinKey(prefix: string, relative: string): string {
+  const p = prefix.replace(/^\/+|\/+$/g, "");
+  const r = relative.replace(/^\/+/, "");
+  return p ? `${p}/${r}` : r;
+}
 
-  // 构建 host 和 URL
-  let host: string;
-  let urlPath: string;
-  if (pathStyle) {
-    host = endpoint.replace(/^https?:\/\//, "");
-    urlPath = `/${bucket}${objectPath}`;
-  } else {
-    host = `${bucket}.${endpoint.replace(/^https?:\/\//, "")}`;
-    urlPath = objectPath;
+/** 将 S3_KEY_PREFIX 与逻辑 key 拼接为实际存储 key。 */
+function fullKey(keyPrefix: string, key: string): string {
+  return joinKey(keyPrefix, key);
+}
+
+/** 从实际存储 key 中去除 S3_KEY_PREFIX，还原为逻辑 key。 */
+function stripKeyPrefix(keyPrefix: string, key: string): string {
+  const p = keyPrefix.replace(/^\/+|\/+$/g, "");
+  if (p && key.startsWith(`${p}/`)) {
+    return key.slice(p.length + 1);
   }
-  const url = `${endpoint.replace(/^https?:\/\//, "https://")}${urlPath}${queryString}`;
-
-  // 时间戳
-  const now = new Date();
-  const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, "");
-  const dateStamp = amzDate.slice(0, 8);
-
-  // payload hash（空 body 用空字符串的 SHA-256）
-  const bodyBytes =
-    body === null ? new Uint8Array(0) : typeof body === "string" ? new TextEncoder().encode(body) : body;
-  const payloadHash = await sha256Hex(bodyBytes);
-
-  // headers
-  const headers: Record<string, string> = {
-    host,
-    "x-amz-date": amzDate,
-    "x-amz-content-sha256": payloadHash,
-  };
-  if (contentType) headers["content-type"] = contentType;
-  if (body !== null) headers["content-length"] = String(bodyBytes.length);
-
-  // 规范请求
-  const signedHeaderKeys = Object.keys(headers)
-    .map((k) => k.toLowerCase())
-    .sort();
-  const signedHeadersStr = signedHeaderKeys.join(";");
-  const canonicalHeaders = signedHeaderKeys
-    .map((k) => `${k}:${headers[k]}\n`)
-    .join("");
-  const canonicalRequest = [
-    method,
-    pathForSign,
-    queryString,
-    canonicalHeaders,
-    signedHeadersStr,
-    payloadHash,
-  ].join("\n");
-
-  // 待签字符串
-  const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
-  const stringToSign = [
-    "AWS4-HMAC-SHA256",
-    amzDate,
-    credentialScope,
-    await sha256Hex(new TextEncoder().encode(canonicalRequest)),
-  ].join("\n");
-
-  // 计算签名
-  const signingKey = await deriveSigningKey(secretKey, dateStamp, region, service);
-  const signature = await hmacSha256Hex(signingKey, stringToSign);
-
-  // 组装 Authorization header
-  const authHeader = [
-    `AWS4-HMAC-SHA256 Credential=${accessKey}/${credentialScope}`,
-    `SignedHeaders=${signedHeadersStr}`,
-    `Signature=${signature}`,
-  ].join(", ");
-  headers.authorization = authHeader;
-
-  return { url, headers };
-}
-
-// ===== Web Crypto 辅助函数 =====
-
-async function sha256Hex(data: Uint8Array): Promise<string> {
-  const hash = await crypto.subtle.digest("SHA-256", data.buffer as ArrayBuffer);
-  return bufToHex(new Uint8Array(hash));
-}
-
-async function hmacSha256(key: Uint8Array, data: string): Promise<Uint8Array> {
-  const cryptoKey = await crypto.subtle.importKey(
-    "raw",
-    key.buffer as ArrayBuffer,
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const sig = await crypto.subtle.sign("HMAC", cryptoKey, new TextEncoder().encode(data));
-  return new Uint8Array(sig);
-}
-
-async function hmacSha256Hex(key: Uint8Array, data: string): Promise<string> {
-  const sig = await hmacSha256(key, data);
-  return bufToHex(sig);
-}
-
-async function deriveSigningKey(
-  secretKey: string,
-  dateStamp: string,
-  region: string,
-  service: string,
-): Promise<Uint8Array> {
-  const kSecret = new TextEncoder().encode(`AWS4${secretKey}`);
-  const kDate = await hmacSha256(kSecret, dateStamp);
-  const kRegion = await hmacSha256(kDate, region);
-  const kService = await hmacSha256(kRegion, service);
-  return await hmacSha256(kService, "aws4_request");
-}
-
-function bufToHex(buf: Uint8Array): string {
-  return Array.from(buf)
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
+  return key;
 }
 
 // ===== 公共 API =====
@@ -167,14 +61,9 @@ export async function r2PublicUrl(): Promise<string> {
 
 /** 拼接某对象在公共域名下的完整 URL。 */
 export async function publicObjectUrl(ossPrefix: string, relativePath: string): Promise<string> {
-  const key = joinKey(ossPrefix, relativePath);
+  const e = await env();
+  const key = fullKey(e.S3_KEY_PREFIX, joinKey(ossPrefix, relativePath));
   return `${await r2PublicUrl()}/${key}`;
-}
-
-function joinKey(prefix: string, relative: string): string {
-  const p = prefix.replace(/^\/+|\/+$/g, "");
-  const r = relative.replace(/^\/+/, "");
-  return p ? `${p}/${r}` : r;
 }
 
 /** 上传单个文件到对象存储。 */
@@ -184,22 +73,8 @@ export async function putObject(
   contentType: string,
 ): Promise<void> {
   const e = await env();
-  const { url, headers } = await signRequest(
-    "PUT",
-    e.S3_BUCKET,
-    key,
-    body,
-    contentType,
-  );
-  const res = await fetch(url, {
-    method: "PUT",
-    headers: { ...headers, "x-amz-acl": "public-read" },
-    body: body as BodyInit,
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`S3 PUT failed (${res.status}): ${text}`);
-  }
+  const adapter = await getAdapter();
+  await adapter.putObject(fullKey(e.S3_KEY_PREFIX, key), body, contentType);
 }
 
 /** 批量上传多个文件。 */
@@ -217,91 +92,34 @@ export async function putObjects(
 /** 删除单个对象。 */
 export async function deleteObject(key: string): Promise<void> {
   const e = await env();
-  const { url, headers } = await signRequest(
-    "DELETE",
-    e.S3_BUCKET,
-    key,
-    null,
-    "",
-  );
-  const res = await fetch(url, { method: "DELETE", headers });
-  if (!res.ok && res.status !== 404) {
-    const text = await res.text();
-    throw new Error(`S3 DELETE failed (${res.status}): ${text}`);
-  }
+  const adapter = await getAdapter();
+  await adapter.deleteObject(fullKey(e.S3_KEY_PREFIX, key));
 }
 
 /** 删除某前缀下所有对象（递归清理）。 */
 export async function deletePrefix(prefix: string): Promise<void> {
-  const bucket = (await env()).S3_BUCKET;
-  const p = prefix.replace(/^\/+|\/+$/g, "");
-  let continuationToken: string | undefined;
-  do {
-    const params: Record<string, string> = {
-      "list-type": "2",
-      prefix: p ? `${p}/` : "",
-    };
-    if (continuationToken) params["continuation-token"] = continuationToken;
-
-    const { url, headers } = await signRequest(
-      "GET",
-      bucket,
-      "",
-      null,
-      "",
-      params,
-    );
-    const res = await fetch(url, { method: "GET", headers });
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`S3 LIST failed (${res.status}): ${text}`);
-    }
-    const xml = await res.text();
-    const keys = parseListKeys(xml);
-    const nextToken = parseNextToken(xml);
-
-    if (keys.length > 0) {
-      // 批量删除（每个单独删除，避免 POST XML body 签名复杂度）
-      await Promise.all(keys.map((k) => deleteObject(k)));
-    }
-    continuationToken = nextToken;
-  } while (continuationToken);
+  const e = await env();
+  const adapter = await getAdapter();
+  const fullPrefix = fullKey(e.S3_KEY_PREFIX, prefix).replace(/^\/+|\/+$/g, "");
+  const objects = await adapter.listObjects(fullPrefix);
+  if (objects.length > 0) {
+    await adapter.deleteObjects(objects.map((o) => o.key));
+  }
 }
 
-/** 列出某前缀下所有对象，返回 key 与 size 列表。 */
+/** 列出某前缀下所有对象，返回逻辑 key 与 size 列表。 */
 export async function listPrefixObjects(
   prefix: string,
 ): Promise<{ key: string; size: number }[]> {
-  const bucket = (await env()).S3_BUCKET;
-  const p = prefix.replace(/^\/+|\/+$/g, "");
-  const items: { key: string; size: number }[] = [];
-  let continuationToken: string | undefined;
-  do {
-    const params: Record<string, string> = {
-      "list-type": "2",
-      prefix: p ? `${p}/` : "",
-    };
-    if (continuationToken) params["continuation-token"] = continuationToken;
-
-    const { url, headers } = await signRequest(
-      "GET",
-      bucket,
-      "",
-      null,
-      "",
-      params,
-    );
-    const res = await fetch(url, { method: "GET", headers });
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`S3 LIST failed (${res.status}): ${text}`);
-    }
-    const xml = await res.text();
-    const objects = parseListObjects(xml);
-    items.push(...objects);
-    continuationToken = parseNextToken(xml);
-  } while (continuationToken);
-  return items;
+  const e = await env();
+  const adapter = await getAdapter();
+  const fullPrefix = fullKey(e.S3_KEY_PREFIX, prefix).replace(/^\/+|\/+$/g, "");
+  const objects = await adapter.listObjects(fullPrefix);
+  // 去除存储前缀，返回逻辑 key
+  return objects.map((o) => ({
+    key: stripKeyPrefix(e.S3_KEY_PREFIX, o.key),
+    size: o.size,
+  }));
 }
 
 /** 统计某前缀下所有对象总占用字节数。 */
@@ -313,40 +131,6 @@ export async function getPrefixSize(prefix: string): Promise<number> {
 /** 统计整个 bucket 的总占用字节数。 */
 export async function getBucketSize(): Promise<number> {
   return getPrefixSize("");
-}
-
-// ===== XML 解析辅助 =====
-
-function parseListObjects(xml: string): { key: string; size: number }[] {
-  const items: { key: string; size: number }[] = [];
-  const regex = /<Contents>([\s\S]*?)<\/Contents>/g;
-  let match: RegExpExecArray | null;
-  while ((match = regex.exec(xml)) !== null) {
-    const block = match[1];
-    const key = extractXmlTag(block, "Key");
-    const sizeStr = extractXmlTag(block, "Size");
-    if (key) {
-      items.push({ key, size: sizeStr ? parseInt(sizeStr, 10) : 0 });
-    }
-  }
-  return items;
-}
-
-function parseListKeys(xml: string): string[] {
-  return parseListObjects(xml).map((o) => o.key);
-}
-
-function parseNextToken(xml: string): string | undefined {
-  const token = extractXmlTag(xml, "NextContinuationToken");
-  const isTruncated = extractXmlTag(xml, "IsTruncated");
-  if (token && isTruncated === "true") return token;
-  return undefined;
-}
-
-function extractXmlTag(xml: string, tag: string): string | null {
-  const regex = new RegExp(`<${tag}>([^<]*)</${tag}>`);
-  const match = regex.exec(xml);
-  return match ? match[1] : null;
 }
 
 // ===== Content-Type 推断 =====
@@ -409,9 +193,11 @@ export function isAllowedImageExt(filename: string): boolean {
 
 export async function extractKeyFromUrl(url: string): Promise<string | null> {
   if (!url) return null;
+  const e = await env();
   const base = await r2PublicUrl();
   if (!url.startsWith(base)) return null;
-  return decodeURIComponent(url.slice(base.length + 1));
+  const rawKey = decodeURIComponent(url.slice(base.length + 1));
+  return stripKeyPrefix(e.S3_KEY_PREFIX, rawKey);
 }
 
 export async function putImage(
@@ -423,5 +209,7 @@ export async function putImage(
   const key = imageKey(category, ext);
   const contentType = guessContentType(filename);
   await putObject(key, data, contentType);
-  return { url: `${await r2PublicUrl()}/${key}`, key };
+  const e = await env();
+  const urlKey = fullKey(e.S3_KEY_PREFIX, key);
+  return { url: `${await r2PublicUrl()}/${urlKey}`, key };
 }

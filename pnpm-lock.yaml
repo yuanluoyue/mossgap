@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@aws-sdk/client-s3':
+        specifier: ^3.1079.0
+        version: 3.1079.0
       '@next/third-parties':
         specifier: ^16.2.10
         version: 16.2.10(next@16.2.10(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)
@@ -78,9 +81,6 @@ importers:
         specifier: ^4.4.3
         version: 4.4.3
     devDependencies:
-      '@aws-sdk/client-s3':
-        specifier: ^3.1079.0
-        version: 3.1079.0
       '@cloudflare/workers-types':
         specifier: ^4.20260701.1
         version: 4.20260702.1
