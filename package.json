@@ -21,7 +21,8 @@
     "db:setup:remote": "pnpm db:migrate:remote && pnpm db:seed:remote && wrangler d1 execute mossgap --remote --file=seed-remote.sql",
     "db:seed:local": "tsx scripts/seed.ts --local",
     "db:seed:remote": "tsx scripts/seed.ts --remote",
-    "oss:create-bucket": "tsx scripts/create-bucket.ts"
+    "oss:create-bucket": "tsx scripts/create-bucket.ts",
+    "setup:secrets": "bash scripts/setup-secrets.sh"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1079.0",
