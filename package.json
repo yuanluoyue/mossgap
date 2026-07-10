@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "docker:dev": "docker-compose -f docker-compose.dev.yml up -d",
-    "build": "next build",
+    "build": "next build && opennextjs-cloudflare build --skipNextBuild",
     "start": "next start",
     "lint": "eslint",
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
