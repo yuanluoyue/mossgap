@@ -6,6 +6,8 @@ import createNextIntlPlugin from "next-intl/plugin";
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 const nextConfig: NextConfig = {
+  // OpenNext (Cloudflare) 需要 standalone 输出
+  output: "standalone",
   images: {
     // 游戏封面/截图来自 R2 公共域名，Cloudflare Workers 上不做 Next 图片优化
     unoptimized: true,

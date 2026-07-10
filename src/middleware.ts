@@ -4,12 +4,11 @@ import type { NextRequest } from "next/server";
 import { routing } from "./i18n/routing";
 import { AUTH_COOKIE } from "./lib/auth";
 
-// OpenNext (Cloudflare) 要求 middleware 使用 edge runtime
-export const runtime = "edge";
-
+// 使用 middleware.ts（而非 Next.js 16 的 proxy.ts）以确保 edge runtime
+// OpenNext (Cloudflare) 不支持 Node.js middleware/proxy
 const intlMiddleware = createMiddleware(routing);
 
-export default function proxy(request: NextRequest) {
+export default function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Admin 路由：仅做登录态乐观校验，不走 i18n（Admin 仅中文）
