@@ -1,9 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Pencil, Trash2, Loader2, Eye } from "lucide-react";
+import {
+  Pencil,
+  Trash2,
+  Loader2,
+  Eye,
+  EyeOff,
+  Play,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -12,24 +19,47 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { GamePlayer } from "@/components/game-player";
 
 interface GameRowActionsProps {
   id: string;
   editHref: string;
-  status?: string;
+  status: string;
+  title: string;
+  /** 游戏可预览的 URL（zip 解压后的 index.html 完整地址，或 iframe URL） */
+  playUrl: string;
   onView?: () => void;
 }
 
 /**
- * 游戏行操作：编辑（链接）+ 删除（确认弹窗）
- * - 编辑：Tooltip + Button asChild 包裹 Link
- * - 删除：Tooltip + Button 触发 ConfirmDialog
+ * 游戏行操作：预览 + 编辑 + 上架/下架 + 删除
+ * - 预览：弹窗内嵌 GamePlayer（836×470，与 C 端一致）
+ * - 上下架：调用 PATCH /api/admin/games/[id]/status
+ * - 删除：确认弹窗
+ *
+ * 操作按钮优先使用 icon，hover 时 Tooltip 显示描述文字。
  */
-export function GameRowActions({ id, editHref, onView }: GameRowActionsProps) {
+export function GameRowActions({
+  id,
+  editHref,
+  status,
+  title,
+  playUrl,
+  onView,
+}: GameRowActionsProps) {
   const router = useRouter();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [toggling, startTransition] = useTransition();
 
   async function onConfirmDelete() {
     if (deleting) return;
@@ -53,18 +83,54 @@ export function GameRowActions({ id, editHref, onView }: GameRowActionsProps) {
     }
   }
 
+  /** 上架/下架：published ↔ draft */
+  function onTogglePublish() {
+    if (toggling) return;
+    const next = status === "published" ? "draft" : "published";
+    const label = next === "published" ? "上架" : "下架";
+    startTransition(async () => {
+      try {
+        const res = await fetch(`/api/admin/games/${id}/status`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: next }),
+        });
+        const data = (await res.json()) as {
+          success?: boolean;
+          error?: { message?: string };
+        };
+        if (!res.ok || !data.success) {
+          toast.error(data?.error?.message ?? `${label}失败`);
+          return;
+        }
+        toast.success(`${label}成功`);
+        router.refresh();
+      } catch {
+        toast.error("网络错误");
+      }
+    });
+  }
+
+  const isPublished = status === "published";
+
   return (
     <div className="flex items-center justify-end gap-1">
-      {onView ? (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" onClick={onView}>
-              <Eye className="size-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="top">查看</TooltipContent>
-        </Tooltip>
-      ) : null}
+      {/* 预览 */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setPreviewOpen(true)}
+            disabled={!playUrl}
+          >
+            <Play className="size-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="top">预览</TooltipContent>
+      </Tooltip>
+
+      {/* 编辑 */}
       <Tooltip>
         <TooltipTrigger asChild>
           <Button variant="ghost" size="icon" asChild>
@@ -76,6 +142,30 @@ export function GameRowActions({ id, editHref, onView }: GameRowActionsProps) {
         <TooltipContent side="top">编辑</TooltipContent>
       </Tooltip>
 
+      {/* 上架 / 下架 */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onTogglePublish}
+            disabled={toggling}
+          >
+            {toggling ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : isPublished ? (
+              <EyeOff className="size-4" />
+            ) : (
+              <Eye className="size-4" />
+            )}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="top">
+          {isPublished ? "下架" : "上架"}
+        </TooltipContent>
+      </Tooltip>
+
+      {/* 删除 */}
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
@@ -105,6 +195,30 @@ export function GameRowActions({ id, editHref, onView }: GameRowActionsProps) {
         variant="destructive"
         onConfirm={onConfirmDelete}
       />
+
+      {/* 预览弹窗：与 C 端一致的 GamePlayer 836×470 */}
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent
+          className="max-w-fit gap-0 overflow-hidden p-0 sm:max-w-fit"
+          showCloseButton
+        >
+          <DialogHeader className="sr-only">
+            <DialogTitle>{title}</DialogTitle>
+            <DialogDescription>游戏预览</DialogDescription>
+          </DialogHeader>
+          {playUrl ? (
+            <GamePlayer
+              src={playUrl}
+              title={title}
+              loadingLabel="加载中..."
+            />
+          ) : (
+            <div className="flex h-[470px] w-[836px] items-center justify-center text-sm text-muted-foreground">
+              暂无可预览的游戏资源
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

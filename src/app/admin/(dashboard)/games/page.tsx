@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Gamepad2, Upload, Search, Eye } from "lucide-react";
 
 import { listAdminGames } from "@/db/queries";
+import { publicObjectUrl } from "@/lib/oss";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,6 +55,19 @@ export default async function AdminGamesPage({
   });
 
   const totalPages = Math.max(1, Math.ceil(result.total / PAGE_SIZE));
+
+  // 为每行计算预览用的 playUrl（与 C 端 toPublicGame 一致）
+  const rowsWithPlayUrl = await Promise.all(
+    result.items.map(async (g) => ({
+      ...g,
+      playUrl:
+        g.sourceType === "iframe" && g.iframeUrl
+          ? g.iframeUrl
+          : g.ossPrefix
+            ? await publicObjectUrl(g.ossPrefix, g.entryFile)
+            : "",
+    })),
+  );
 
   return (
     <div className="space-y-6">
@@ -117,7 +131,7 @@ export default async function AdminGamesPage({
               <TableHead className="w-[100px]">状态</TableHead>
               <TableHead className="w-[80px]">游玩次数</TableHead>
               <TableHead className="w-[120px]">创建时间</TableHead>
-              <TableHead className="w-[100px] text-right">操作</TableHead>
+              <TableHead className="w-[160px] text-right">操作</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -131,7 +145,7 @@ export default async function AdminGamesPage({
                 </TableCell>
               </TableRow>
             ) : (
-              result.items.map((g) => (
+              rowsWithPlayUrl.map((g) => (
                 <TableRow key={g.id}>
                   <TableCell>
                     <div className="flex size-10 items-center justify-center overflow-hidden rounded-lg bg-muted">
@@ -171,6 +185,9 @@ export default async function AdminGamesPage({
                     <GameRowActions
                       id={g.id}
                       editHref={`/admin/games/${g.id}/edit`}
+                      status={g.status}
+                      title={g.title || g.slug}
+                      playUrl={g.playUrl}
                     />
                   </TableCell>
                 </TableRow>

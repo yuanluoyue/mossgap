@@ -10,6 +10,8 @@ interface GameRowActionsWithDrawerProps {
   id: string;
   editHref: string;
   status: GameStatus;
+  title: string;
+  playUrl: string;
 }
 
 /**
@@ -20,6 +22,8 @@ export function GameRowActionsWithDrawer({
   id,
   editHref,
   status,
+  title,
+  playUrl,
 }: GameRowActionsWithDrawerProps) {
   const [open, setOpen] = useState(false);
 
@@ -29,6 +33,8 @@ export function GameRowActionsWithDrawer({
         id={id}
         editHref={editHref}
         status={status}
+        title={title}
+        playUrl={playUrl}
         onView={() => setOpen(true)}
       />
       <GameDetailDrawer
