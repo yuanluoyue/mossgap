@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 /** GET /api/admin/me — 当前登录管理员的完整信息（含角色） */
 export async function GET() {
-  if (!hasServerEnv()) {
+  if (!(await hasServerEnv())) {
     return NextResponse.json(
       { success: false, authenticated: false, configured: false },
       { status: 503 },

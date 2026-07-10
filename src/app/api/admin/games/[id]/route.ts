@@ -26,7 +26,7 @@ export async function GET(
   _req: Request,
   ctx: { params: Promise<{ id: string }> },
 ) {
-  if (!hasServerEnv()) {
+  if (!(await hasServerEnv())) {
     return NextResponse.json(
       fail("SERVER_NOT_CONFIGURED", "服务端环境变量未配置"),
       { status: 503 },
@@ -53,7 +53,7 @@ export async function PATCH(
   req: Request,
   ctx: { params: Promise<{ id: string }> },
 ) {
-  if (!hasServerEnv()) {
+  if (!(await hasServerEnv())) {
     return NextResponse.json(
       fail("SERVER_NOT_CONFIGURED", "服务端环境变量未配置"),
       { status: 503 },
@@ -156,7 +156,7 @@ export async function DELETE(
   _req: Request,
   ctx: { params: Promise<{ id: string }> },
 ) {
-  if (!hasServerEnv()) {
+  if (!(await hasServerEnv())) {
     return NextResponse.json(
       fail("SERVER_NOT_CONFIGURED", "服务端环境变量未配置"),
       { status: 503 },
@@ -194,7 +194,7 @@ export async function DELETE(
   }
   // 清理封面图和截图（属于 images/ 前缀，不在游戏目录内）
   for (const imgUrl of imageUrls) {
-    const key = extractKeyFromUrl(imgUrl);
+    const key = await extractKeyFromUrl(imgUrl);
     if (!key) continue;
     try {
       await deleteObject(key);

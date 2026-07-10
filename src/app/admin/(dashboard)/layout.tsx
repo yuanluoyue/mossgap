@@ -12,7 +12,7 @@ export default async function AdminDashboardLayout({
   children: React.ReactNode;
 }) {
   // 未配置环境变量时重定向到登录页
-  if (!hasServerEnv()) {
+  if (!(await hasServerEnv())) {
     redirect("/admin/login");
   }
 

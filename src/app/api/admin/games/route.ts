@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 
 /** GET /api/admin/games — 游戏列表（分页/搜索/状态筛选） */
 export async function GET(req: Request) {
-  if (!hasServerEnv()) {
+  if (!(await hasServerEnv())) {
     return NextResponse.json(
       fail("SERVER_NOT_CONFIGURED", "服务端环境变量未配置"),
       { status: 503 },
@@ -57,7 +57,7 @@ export async function GET(req: Request) {
 
 /** POST /api/admin/games — 创建游戏（支持 iframe 外链模式） */
 export async function POST(req: Request) {
-  if (!hasServerEnv()) {
+  if (!(await hasServerEnv())) {
     return NextResponse.json(
       fail("SERVER_NOT_CONFIGURED", "服务端环境变量未配置"),
       { status: 503 },

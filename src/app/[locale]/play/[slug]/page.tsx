@@ -17,7 +17,7 @@ export default async function PlayPage({
   const localeCode = (locale === "zh" ? "zh" : "en") as "en" | "zh";
   const t = await getTranslations("Play");
 
-  const enabled = hasServerEnv();
+  const enabled = await hasServerEnv();
   const game = enabled ? await getPublicGameBySlug(slug, localeCode) : null;
   if (enabled && !game) notFound();
 

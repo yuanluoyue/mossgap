@@ -18,7 +18,7 @@ const MAX_ZIP_SIZE = 200 * 1024 * 1024;
 
 /** POST /api/admin/upload — 上传 zip 游戏包，解压并传到 R2 */
 export async function POST(req: Request) {
-  if (!hasServerEnv()) {
+  if (!(await hasServerEnv())) {
     return NextResponse.json(
       fail("SERVER_NOT_CONFIGURED", "服务端环境变量未配置"),
       { status: 503 },

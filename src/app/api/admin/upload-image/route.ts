@@ -27,7 +27,7 @@ const VALID_CATEGORIES: ImageCategory[] = ["cover", "screenshot"];
  *   - replaceUrl?: 旧图片 URL（上传成功后自动删除旧图）
  */
 export async function POST(req: Request) {
-  if (!hasServerEnv()) {
+  if (!(await hasServerEnv())) {
     return NextResponse.json(
       fail("SERVER_NOT_CONFIGURED", "服务端环境变量未配置"),
       { status: 503 },
@@ -83,7 +83,7 @@ export async function POST(req: Request) {
     // 如果传了 replaceUrl，尝试删除旧图片
     const replaceUrl = formData.get("replaceUrl");
     if (replaceUrl) {
-      const oldKey = extractKeyFromUrl(String(replaceUrl));
+      const oldKey = await extractKeyFromUrl(String(replaceUrl));
       if (oldKey) {
         try {
           await deleteObject(oldKey);

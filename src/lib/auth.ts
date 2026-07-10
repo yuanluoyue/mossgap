@@ -7,8 +7,9 @@ import { verifyPassword } from "@/lib/password";
 const COOKIE_NAME = "mossgap_admin";
 const TOKEN_TTL = 60 * 60 * 24 * 7; // 7 天
 
-function secret(): Uint8Array {
-  return new TextEncoder().encode(getServerEnv().JWT_SECRET);
+async function secret(): Promise<Uint8Array> {
+  const env = await getServerEnv();
+  return new TextEncoder().encode(env.JWT_SECRET);
 }
 
 /** JWT 载荷类型。 */
@@ -35,7 +36,7 @@ export async function signIn(
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(`${TOKEN_TTL}s`)
-    .sign(secret());
+    .sign(await secret());
   return { ok: true, token };
 }
 
@@ -44,7 +45,7 @@ export async function verifyToken(
   token: string,
 ): Promise<boolean> {
   try {
-    await jwtVerify(token, secret());
+    await jwtVerify(token, await secret());
     return true;
   } catch {
     return false;
@@ -68,7 +69,7 @@ export async function getAuthPayload(): Promise<AuthPayload | null> {
   const token = store.get(COOKIE_NAME)?.value;
   if (!token) return null;
   try {
-    const { payload } = await jwtVerify(token, secret());
+    const { payload } = await jwtVerify(token, await secret());
     return payload as unknown as AuthPayload;
   } catch {
     return null;

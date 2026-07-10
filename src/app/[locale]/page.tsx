@@ -16,7 +16,7 @@ export default async function HomePage({
 
   const localeCode = (locale === "zh" ? "zh" : "en") as "en" | "zh";
 
-  const enabled = hasServerEnv();
+  const enabled = await hasServerEnv();
   const empty = {
     items: [] as Awaited<ReturnType<typeof listPublicGames>>["items"],
     total: 0,

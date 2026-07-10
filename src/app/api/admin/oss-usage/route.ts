@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
  * - ?live=1 时实时统计整个 bucket 实际占用（慢，遍历 OSS）
  */
 export async function GET(req: Request) {
-  if (!hasServerEnv()) {
+  if (!(await hasServerEnv())) {
     return NextResponse.json(
       fail("SERVER_NOT_CONFIGURED", "服务端环境变量未配置"),
       { status: 503 },

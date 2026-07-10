@@ -17,7 +17,7 @@ export const dynamic = "force-dynamic";
 
 /** GET /api/admin/feedbacks — 反馈列表（分页/筛选/搜索） */
 export async function GET(req: Request) {
-  if (!hasServerEnv()) {
+  if (!(await hasServerEnv())) {
     return NextResponse.json(
       fail("SERVER_NOT_CONFIGURED", "服务端环境变量未配置"),
       { status: 503 },

@@ -10,8 +10,8 @@ import { getServerEnv } from "@/env";
  * - 本地：Docker MinIO（path-style）
  */
 
-function env() {
-  return getServerEnv();
+async function env() {
+  return await getServerEnv();
 }
 
 /** 构建规范请求并签名，返回完整请求 URL + headers。 */
@@ -23,7 +23,7 @@ async function signRequest(
   contentType: string,
   queryParams: Record<string, string> = {},
 ): Promise<{ url: string; headers: Record<string, string> }> {
-  const e = env();
+  const e = await env();
   const region = e.S3_REGION || "auto";
   const service = "s3";
   const accessKey = e.S3_ACCESS_KEY_ID;
@@ -160,14 +160,15 @@ function bufToHex(buf: Uint8Array): string {
 // ===== 公共 API =====
 
 /** 对象公共访问域名（去尾斜杠）。 */
-export function r2PublicUrl(): string {
-  return env().S3_PUBLIC_URL.replace(/\/$/, "");
+export async function r2PublicUrl(): Promise<string> {
+  const e = await env();
+  return e.S3_PUBLIC_URL.replace(/\/$/, "");
 }
 
 /** 拼接某对象在公共域名下的完整 URL。 */
-export function publicObjectUrl(ossPrefix: string, relativePath: string): string {
+export async function publicObjectUrl(ossPrefix: string, relativePath: string): Promise<string> {
   const key = joinKey(ossPrefix, relativePath);
-  return `${r2PublicUrl()}/${key}`;
+  return `${await r2PublicUrl()}/${key}`;
 }
 
 function joinKey(prefix: string, relative: string): string {
@@ -182,9 +183,10 @@ export async function putObject(
   body: Uint8Array | string,
   contentType: string,
 ): Promise<void> {
+  const e = await env();
   const { url, headers } = await signRequest(
     "PUT",
-    env().S3_BUCKET,
+    e.S3_BUCKET,
     key,
     body,
     contentType,
@@ -214,9 +216,10 @@ export async function putObjects(
 
 /** 删除单个对象。 */
 export async function deleteObject(key: string): Promise<void> {
+  const e = await env();
   const { url, headers } = await signRequest(
     "DELETE",
-    env().S3_BUCKET,
+    e.S3_BUCKET,
     key,
     null,
     "",
@@ -230,7 +233,7 @@ export async function deleteObject(key: string): Promise<void> {
 
 /** 删除某前缀下所有对象（递归清理）。 */
 export async function deletePrefix(prefix: string): Promise<void> {
-  const bucket = env().S3_BUCKET;
+  const bucket = (await env()).S3_BUCKET;
   const p = prefix.replace(/^\/+|\/+$/g, "");
   let continuationToken: string | undefined;
   do {
@@ -269,7 +272,7 @@ export async function deletePrefix(prefix: string): Promise<void> {
 export async function listPrefixObjects(
   prefix: string,
 ): Promise<{ key: string; size: number }[]> {
-  const bucket = env().S3_BUCKET;
+  const bucket = (await env()).S3_BUCKET;
   const p = prefix.replace(/^\/+|\/+$/g, "");
   const items: { key: string; size: number }[] = [];
   let continuationToken: string | undefined;
@@ -404,9 +407,9 @@ export function isAllowedImageExt(filename: string): boolean {
   return (IMAGE_EXTENSIONS as readonly string[]).includes(ext);
 }
 
-export function extractKeyFromUrl(url: string): string | null {
+export async function extractKeyFromUrl(url: string): Promise<string | null> {
   if (!url) return null;
-  const base = r2PublicUrl();
+  const base = await r2PublicUrl();
   if (!url.startsWith(base)) return null;
   return decodeURIComponent(url.slice(base.length + 1));
 }
@@ -420,5 +423,5 @@ export async function putImage(
   const key = imageKey(category, ext);
   const contentType = guessContentType(filename);
   await putObject(key, data, contentType);
-  return { url: `${r2PublicUrl()}/${key}`, key };
+  return { url: `${await r2PublicUrl()}/${key}`, key };
 }

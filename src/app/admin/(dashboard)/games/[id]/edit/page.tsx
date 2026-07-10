@@ -11,7 +11,7 @@ export default async function AdminEditGamePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  if (!hasServerEnv()) {
+  if (!(await hasServerEnv())) {
     notFound();
   }
 

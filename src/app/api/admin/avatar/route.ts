@@ -25,7 +25,7 @@ const MAX_AVATAR_SIZE = 2 * 1024 * 1024;
  *   - file: 图片文件
  */
 export async function POST(req: Request) {
-  if (!hasServerEnv()) {
+  if (!(await hasServerEnv())) {
     return NextResponse.json(
       fail("SERVER_NOT_CONFIGURED", "服务端环境变量未配置"),
       { status: 503 },
@@ -79,7 +79,7 @@ export async function POST(req: Request) {
     // 删除旧头像（如有）
     const admin = await getAdminById(me.sub);
     if (admin?.avatar) {
-      const oldKey = extractKeyFromUrl(admin.avatar);
+      const oldKey = await extractKeyFromUrl(admin.avatar);
       if (oldKey) {
         try {
           await deleteObject(oldKey);

@@ -36,7 +36,7 @@ export default async function GamesPage({
 
   const t = await getTranslations("Games");
 
-  const enabled = hasServerEnv();
+  const enabled = await hasServerEnv();
   const { items, total } = enabled
     ? await listPublicGames(
         { page, pageSize: PAGE_SIZE, category, sort, q },

@@ -30,7 +30,7 @@ export default async function GameDetailPage({
   const t = await getTranslations("GameDetail");
   const tc = await getTranslations("Categories");
 
-  const enabled = hasServerEnv();
+  const enabled = await hasServerEnv();
   const game = enabled ? await getPublicGameBySlug(slug, localeCode) : null;
   if (enabled && !game) notFound();
 

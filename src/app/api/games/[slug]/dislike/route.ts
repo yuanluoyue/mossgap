@@ -14,7 +14,7 @@ export async function GET(
   _req: Request,
   ctx: { params: Promise<{ slug: string }> },
 ) {
-  if (!hasServerEnv()) {
+  if (!(await hasServerEnv())) {
     return NextResponse.json(
       fail("SERVER_NOT_CONFIGURED", "服务端环境变量未配置"),
       { status: 503 },
@@ -44,7 +44,7 @@ export async function POST(
   _req: Request,
   ctx: { params: Promise<{ slug: string }> },
 ) {
-  if (!hasServerEnv()) {
+  if (!(await hasServerEnv())) {
     return NextResponse.json(
       fail("SERVER_NOT_CONFIGURED", "服务端环境变量未配置"),
       { status: 503 },

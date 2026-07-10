@@ -63,7 +63,7 @@ function toAdminGame(row: typeof games.$inferSelect): AdminGame {
   };
 }
 
-function toPublicGame(row: typeof games.$inferSelect, locale: Locale): PublicGame {
+async function toPublicGame(row: typeof games.$inferSelect, locale: Locale): Promise<PublicGame> {
   const loc = row.locale ?? { en: { title: "", description: "" }, zh: { title: "", description: "" } };
   const title = loc[locale]?.title || loc.en?.title || row.title;
   const description = loc[locale]?.description || loc.en?.description || row.description;
@@ -73,7 +73,7 @@ function toPublicGame(row: typeof games.$inferSelect, locale: Locale): PublicGam
   const iframeUrl = row.iframeUrl ?? "";
   const playUrl = sourceType === "iframe" && iframeUrl
     ? iframeUrl
-    : publicObjectUrl(row.ossPrefix, row.entryFile);
+    : await publicObjectUrl(row.ossPrefix, row.entryFile);
   return {
     id: row.id,
     slug: row.slug,
@@ -249,7 +249,7 @@ export async function listFeaturedGames(
     .where(and(eq(games.status, "published"), eq(games.featured, 1)))
     .orderBy(desc(games.createdAt))
     .limit(limit);
-  return rows.map((r) => toPublicGame(r, locale));
+  return Promise.all(rows.map((r) => toPublicGame(r, locale)));
 }
 
 export async function deleteGame(id: string): Promise<void> {
@@ -307,7 +307,7 @@ export async function listPublicGames(
     db.select({ value: count() }).from(games).where(where),
   ]);
 
-  return { items: rows.map((r) => toPublicGame(r, locale)), total: totalRows[0]?.value ?? 0 };
+  return { items: await Promise.all(rows.map((r) => toPublicGame(r, locale))), total: totalRows[0]?.value ?? 0 };
 }
 
 export async function getPublicGameBySlug(
@@ -320,7 +320,7 @@ export async function getPublicGameBySlug(
     .from(games)
     .where(and(eq(games.slug, slug), eq(games.status, "published")))
     .limit(1);
-  return row[0] ? toPublicGame(row[0], locale) : null;
+  return row[0] ? await toPublicGame(row[0], locale) : null;
 }
 
 /** C 端相关推荐：优先使用人工配置的 relatedGameIds，不足再按同分类补齐。 */
@@ -342,7 +342,7 @@ export async function listRelatedGames(
       .where(and(eq(games.status, "published"), inArray(games.id, relatedIds)))
       .limit(limit + 1);
     for (const r of rows) {
-      if (r.id !== excludeId) picked.push(toPublicGame(r, locale));
+      if (r.id !== excludeId) picked.push(await toPublicGame(r, locale));
     }
   }
 
@@ -356,7 +356,7 @@ export async function listRelatedGames(
     const existingIds = new Set(picked.map((g) => g.id));
     for (const r of rows) {
       if (r.id !== excludeId && !existingIds.has(r.id)) {
-        picked.push(toPublicGame(r, locale));
+        picked.push(await toPublicGame(r, locale));
       }
       if (picked.length >= limit) break;
     }

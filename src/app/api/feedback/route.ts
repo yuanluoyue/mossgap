@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 
 /** POST /api/feedback — 用户提交反馈（游戏反馈 / 平台反馈） */
 export async function POST(req: Request) {
-  if (!hasServerEnv()) {
+  if (!(await hasServerEnv())) {
     return NextResponse.json(
       fail("SERVER_NOT_CONFIGURED", "服务端环境变量未配置"),
       { status: 503 },
