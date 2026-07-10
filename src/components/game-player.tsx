@@ -51,7 +51,7 @@ export function GamePlayer({ src, title, loadingLabel }: GamePlayerProps) {
         src={src}
         title={title}
         className="h-full w-full border-0"
-        allow="autoplay; fullscreen; gamepad; pointer-lock; screen-wake-lock; xr-spatial-tracking"
+        allow="autoplay; fullscreen; screen-wake-lock; xr-spatial-tracking"
         sandbox="allow-scripts allow-same-origin allow-pointer-lock allow-forms allow-popups allow-modals allow-presentation"
       />
     </div>

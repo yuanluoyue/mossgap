@@ -89,7 +89,7 @@ export function PlayFrame({
           title={title}
           onLoad={() => setLoaded(true)}
           className="h-full w-full border-0"
-          allow="autoplay; fullscreen; gamepad; pointer-lock; screen-wake-lock; cross-origin-isolated; xr-spatial-tracking"
+          allow="autoplay; fullscreen; screen-wake-lock; xr-spatial-tracking"
           allowFullScreen
           sandbox="allow-scripts allow-same-origin allow-pointer-lock allow-forms allow-popups allow-modals allow-presentation"
         />

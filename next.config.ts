@@ -11,6 +11,10 @@ const nextConfig: NextConfig = {
     // 游戏封面/截图来自 R2 公共域名，Cloudflare Workers 上不做 Next 图片优化
     unoptimized: true,
   },
+  experimental: {
+    // 优化大型库的按需导入，减少构建扫描时间
+    optimizePackageImports: ["lucide-react", "radix-ui"],
+  },
 };
 
 // 仅在本地开发时初始化 OpenNext for Cloudflare（绑定等）
