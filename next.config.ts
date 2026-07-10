@@ -12,9 +12,6 @@ const nextConfig: NextConfig = {
     // 游戏封面/截图来自 R2 公共域名，Cloudflare Workers 上不做 Next 图片优化
     unoptimized: true,
   },
-  // Cloudflare Workers 运行时不支持 edge runtime，所有路由使用默认 nodejs 运行时
-  // 允许在服务端使用 @aws-sdk/client-s3 等 Node 风格包（依赖 nodejs_compat）
-  serverExternalPackages: ["@aws-sdk/client-s3"],
 };
 
 // 仅在本地开发时初始化 OpenNext for Cloudflare（绑定等）

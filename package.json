@@ -21,7 +21,6 @@
     "oss:create-bucket": "tsx scripts/create-bucket.ts"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1079.0",
     "@next/third-parties": "^16.2.10",
     "@radix-ui/react-label": "^2.1.11",
     "@radix-ui/react-separator": "^1.1.11",
@@ -48,6 +47,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@aws-sdk/client-s3": "^3.1079.0",
     "@cloudflare/workers-types": "^4.20260701.1",
     "@opennextjs/cloudflare": "^1.20.1",
     "@tailwindcss/postcss": "^4",
