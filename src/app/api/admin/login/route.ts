@@ -10,8 +10,15 @@ export const runtime = "nodejs";
 
 export async function POST(req: Request) {
   if (!(await hasServerEnv())) {
+    let detail = "服务端环境变量未配置";
+    try {
+      const { getServerEnv } = await import("@/env");
+      await getServerEnv();
+    } catch (e) {
+      detail = e instanceof Error ? e.message : String(e);
+    }
     return NextResponse.json(
-      fail("SERVER_NOT_CONFIGURED", "服务端环境变量未配置"),
+      fail("SERVER_NOT_CONFIGURED", detail),
       { status: 503 },
     );
   }
