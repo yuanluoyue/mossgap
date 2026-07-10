@@ -26,6 +26,11 @@ export default withSentryConfig(withNextIntl(nextConfig), {
   org: "snow-do",
   project: "mossgap",
   silent: !process.env.CI,
-  // 上传更完整的 source map 以获得更清晰的错误堆栈
-  widenClientFileUpload: true,
+  // 关闭 source map 上传以减小 Worker 体积
+  // 错误堆栈会是压缩后代码，但 Sentry 仍能捕获错误
+  sourcemaps: {
+    disable: true,
+  },
+  // 不上传 client source map
+  widenClientFileUpload: false,
 });
