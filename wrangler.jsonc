@@ -24,7 +24,7 @@
       // 主数据库（生产：Cloudflare D1；本地：wrangler 本地 D1 模拟 SQLite）
       "binding": "DB",
       "database_name": "mossgap",
-      "database_id": "local-mossgap-db",
+      "database_id": "44102b0c-1458-473a-87ca-769b6e6a8c13",
       "migrations_dir": "drizzle"
     }
   ],
