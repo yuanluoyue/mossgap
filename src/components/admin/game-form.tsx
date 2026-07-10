@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Save, Trash2, Loader2, Plus, X, ExternalLink } from "lucide-react";
+import Link from "next/link";
+import { Save, Trash2, Loader2, Plus, X, ExternalLink, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 
 import type { AdminGame, GameCategory, GameStatus } from "@/types";
@@ -11,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { ImageUploader } from "@/components/admin/image-uploader";
 import {
   Card,
   CardContent,
@@ -142,6 +144,14 @@ export function GameForm({ game, candidates = [] }: GameFormProps) {
 
   return (
     <div className="space-y-6">
+      {/* 返回按钮 */}
+      <Button asChild variant="ghost" size="sm" className="-ml-2 w-fit">
+        <Link href="/admin/games">
+          <ArrowLeft className="size-4" />
+          返回列表
+        </Link>
+      </Button>
+
       {/* 操作栏 */}
       <div className="flex items-center justify-between">
         <div>
@@ -339,12 +349,21 @@ export function GameForm({ game, candidates = [] }: GameFormProps) {
               </div>
 
               <div className="space-y-1.5">
-                <Label>封面图 URL</Label>
+                <Label>封面图</Label>
+                <ImageUploader
+                  category="cover"
+                  url={coverImage}
+                  onUrlChange={setCoverImage}
+                />
                 <Input
                   value={coverImage}
                   onChange={(e) => setCoverImage(e.target.value)}
-                  placeholder="https://..."
+                  placeholder="或填写图片 URL：https://..."
+                  className="font-mono text-xs"
                 />
+                <p className="text-xs text-muted-foreground">
+                  可直接上传图片，或填写图片 URL
+                </p>
               </div>
             </CardContent>
           </Card>
