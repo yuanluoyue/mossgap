@@ -5,3 +5,6 @@ Sentry.init({
   dsn: "https://a4d9ab3eac3f3ab10cb7dee9de378060@o4508409298026496.ingest.de.sentry.io/4511706435223632",
   environment: process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT ?? process.env.NODE_ENV,
 });
+
+// Sentry SDK 要求导出以启用导航追踪
+export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
