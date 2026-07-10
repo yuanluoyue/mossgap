@@ -4,6 +4,9 @@ import type { NextRequest } from "next/server";
 import { routing } from "./i18n/routing";
 import { AUTH_COOKIE } from "./lib/auth";
 
+// OpenNext (Cloudflare) 要求 middleware 使用 edge runtime
+export const runtime = "edge";
+
 const intlMiddleware = createMiddleware(routing);
 
 export default function proxy(request: NextRequest) {
