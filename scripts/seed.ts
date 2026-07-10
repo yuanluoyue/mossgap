@@ -274,13 +274,9 @@ async function seedRemote() {
 
   const sql = lines.join("\n");
 
-  console.log("===== Remote Seed SQL =====");
-  console.log(sql);
-  console.log();
-  console.log("执行命令（PowerShell，建议保存为文件）：");
-  console.log("wrangler d1 execute mossgap --remote --file=seed-remote.sql");
-  console.log();
-  console.log("注意：执行前请先运行 pnpm db:migrate:remote 创建表结构。");
+  const { writeFileSync } = await import("fs");
+  writeFileSync("seed-remote.sql", sql, "utf-8");
+  console.log("[ok] seed SQL 已写入 seed-remote.sql");
 }
 
 async function main() {

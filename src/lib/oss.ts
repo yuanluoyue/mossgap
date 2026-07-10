@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { getServerEnv } from "@/env";
 
 /**
@@ -396,7 +395,8 @@ const IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "gif", "webp", "svg"] as const;
 export function imageKey(category: ImageCategory, ext: string): string {
   const safeExt = ext.toLowerCase().replace(/^\.+/, "");
   const prefix = IMAGE_PREFIXES[category];
-  return `${prefix}/${randomUUID()}.${safeExt}`;
+  // 使用全局 crypto.randomUUID()（Web Crypto API，edge/node 均可用）
+  return `${prefix}/${crypto.randomUUID()}.${safeExt}`;
 }
 
 export function isAllowedImageExt(filename: string): boolean {
