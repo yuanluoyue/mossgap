@@ -1,6 +1,10 @@
 import { defineCloudflareConfig } from "@opennextjs/cloudflare";
-import r2IncrementalCache from "@opennextjs/cloudflare/overrides/incremental-cache/r2-incremental-cache";
 
 export default defineCloudflareConfig({
-  incrementalCache: r2IncrementalCache,
+  // 禁用 incremental cache，避免需要额外的 R2 bucket
+  // 项目大部分页面是 force-dynamic SSR，不需要 ISR/SSG 缓存
+  dangerous: {
+    disableIncrementalCache: true,
+    disableTagCache: true,
+  },
 });
