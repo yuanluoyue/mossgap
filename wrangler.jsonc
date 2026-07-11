@@ -33,7 +33,7 @@
     "S3_ENDPOINT": "https://52e22ecd5e540612e4c5f2be9d815149.r2.cloudflarestorage.com",
     "S3_REGION": "auto",
     "S3_BUCKET": "giftpro-sg",
-    "S3_KEY_PREFIX": "uploads/2024",
+    "S3_KEY_PREFIX": "uploads/2024/test",
     "S3_PUBLIC_URL": "https://pub-5b122f0dcfde4ba8a4c87f19a48a822c.r2.dev",
     "S3_FORCE_PATH_STYLE": "true",
     "OSS_ADAPTER": "aws-sdk",
