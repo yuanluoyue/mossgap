@@ -1,4 +1,6 @@
+import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
+import { setRequestLocale } from "next-intl/server";
 import { SearchX } from "lucide-react";
 
 import { GameCard } from "@/components/game-card";
@@ -7,6 +9,7 @@ import { listPublicGames } from "@/db/queries";
 import { hasServerEnv } from "@/env";
 import type { GameCategory } from "@/types";
 import { GAME_CATEGORIES } from "@/types";
+import { buildPageMetadata, getSiteUrl } from "@/lib/seo";
 
 const PAGE_SIZE = 12;
 
@@ -17,6 +20,21 @@ function parseCategory(v: string | undefined): GameCategory | undefined {
     : undefined;
 }
 
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "Seo" });
+  return buildPageMetadata({
+    title: t("gamesTitle"),
+    description: t("gamesDescription"),
+    path: "/games",
+    locale,
+  });
+}
+
 export default async function GamesPage({
   params,
   searchParams,
@@ -25,6 +43,7 @@ export default async function GamesPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { locale } = await params;
+  await setRequestLocale(locale);
   const sp = await searchParams;
 
   const category = parseCategory(firstOf(sp.category));
@@ -47,8 +66,34 @@ export default async function GamesPage({
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const hasResults = items.length > 0;
 
+  const siteUrl = await getSiteUrl();
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "Home",
+        item: siteUrl,
+      },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: "Games",
+        item: `${siteUrl}/games`,
+      },
+    ],
+  };
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(breadcrumbJsonLd).replace(/</g, "\\u003c"),
+        }}
+      />
       {/* 页头 */}
       <header className="mb-8">
         <h1 className="font-heading text-4xl font-bold tracking-tight text-foreground sm:text-5xl">

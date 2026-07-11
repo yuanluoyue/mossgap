@@ -1,12 +1,42 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
-import { getTranslations } from "next-intl/server";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 
 import { getPublicGameBySlug, incrementPlayCount } from "@/db/queries";
 import { hasServerEnv } from "@/env";
+import { buildPageMetadata } from "@/lib/seo";
 import { PlayFrame } from "./play-frame";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string; slug: string }>;
+}): Promise<Metadata> {
+  const { locale, slug } = await params;
+  const localeCode = (locale === "zh" ? "zh" : "en") as "en" | "zh";
+  const t = await getTranslations({ locale, namespace: "Seo" });
+
+  const enabled = await hasServerEnv();
+  const game = enabled ? await getPublicGameBySlug(slug, localeCode) : null;
+
+  const title = game
+    ? t("playTitle", { title: game.title })
+    : t("gamesTitle");
+  const description = game
+    ? t("playDescription", { title: game.title })
+    : t("gamesDescription");
+
+  return buildPageMetadata({
+    title,
+    description,
+    path: `/play/${slug}`,
+    locale,
+    noIndex: true,
+  });
+}
 
 export default async function PlayPage({
   params,
@@ -14,6 +44,7 @@ export default async function PlayPage({
   params: Promise<{ locale: string; slug: string }>;
 }) {
   const { locale, slug } = await params;
+  await setRequestLocale(locale);
   const localeCode = (locale === "zh" ? "zh" : "en") as "en" | "zh";
   const t = await getTranslations("Play");
 

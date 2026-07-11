@@ -1,10 +1,28 @@
+import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
+import { setRequestLocale } from "next-intl/server";
 import { ChevronRight, Star, Flame, Clock, Gamepad2 } from "lucide-react";
 
 import { GameCard } from "@/components/game-card";
 import { listPublicGames, listFeaturedGames } from "@/db/queries";
 
 import { hasServerEnv } from "@/env";
+import { buildPageMetadata, getSiteUrl, SITE_NAME } from "@/lib/seo";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "Seo" });
+  return buildPageMetadata({
+    title: t("homeTitle"),
+    description: t("homeDescription"),
+    path: "/",
+    locale,
+  });
+}
 
 export default async function HomePage({
   params,
@@ -12,6 +30,7 @@ export default async function HomePage({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
+  await setRequestLocale(locale);
   const t = await getTranslations("Home");
 
   const localeCode = (locale === "zh" ? "zh" : "en") as "en" | "zh";
@@ -36,8 +55,42 @@ export default async function HomePage({
 
   const hasGames = popular.items.length > 0 || newest.items.length > 0;
 
+  const siteUrl = await getSiteUrl();
+  const websiteJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: SITE_NAME,
+    url: siteUrl,
+    description: t("emptySubtitle"),
+    potentialAction: {
+      "@type": "SearchAction",
+      target: `${siteUrl}/games?q={search_term_string}`,
+      "query-input": "required name=search_term_string",
+    },
+  };
+  const organizationJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: SITE_NAME,
+    url: siteUrl,
+    logo: `${siteUrl}/favicon.ico`,
+    sameAs: [],
+  };
+
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(websiteJsonLd).replace(/</g, "\\u003c"),
+        }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(organizationJsonLd).replace(/</g, "\\u003c"),
+        }}
+      />
       {/* 背景层：贴 <main> 底部、左右占满，不延伸到 footer */}
       <div
         aria-hidden

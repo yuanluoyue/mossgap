@@ -277,6 +277,22 @@ export async function listPublishedGamesForPicker(): Promise<
 
 // ===== C 端公开查询 =====
 
+/** 获取所有已发布游戏的 slug + updatedAt（供 sitemap 使用） */
+export async function listPublishedGameSlugs(): Promise<
+  { slug: string; updatedAt: number | null }[]
+> {
+  const db = await getDb();
+  const rows = await db
+    .select({
+      slug: games.slug,
+      updatedAt: games.updatedAt,
+    })
+    .from(games)
+    .where(eq(games.status, "published"))
+    .orderBy(desc(games.createdAt));
+  return rows;
+}
+
 export async function listPublicGames(
   opts: {
     page: number;

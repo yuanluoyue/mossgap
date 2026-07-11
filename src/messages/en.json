@@ -159,5 +159,16 @@
     "formSubmitting": "Sending...",
     "formSuccess": "Message sent! We'll be in touch soon.",
     "formError": "Please fill in all required fields."
+  },
+  "Seo": {
+    "homeTitle": "Play Free Browser Games Online - MossGap",
+    "homeDescription": "MossGap is a browser game arcade. Play free online games instantly - no downloads, no installs. Discover action, puzzle, arcade, adventure and more.",
+    "gamesTitle": "All Browser Games - MossGap",
+    "gamesDescription": "Browse the full collection of free browser games on MossGap. Action, puzzle, arcade, adventure, strategy and more - play instantly in your browser.",
+    "gameDetailTitle": "{title} - Play Free Online",
+    "gameDetailDescription": "Play {title} for free on MossGap. No downloads, no installs - play instantly in your browser.",
+    "playTitle": "Play {title} - MossGap",
+    "playDescription": "Play {title} instantly on MossGap - no downloads required.",
+    "siteDescription": "MossGap is a browser game arcade. No downloads, no installs - just hit play."
   }
 }

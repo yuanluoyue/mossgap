@@ -159,5 +159,16 @@
     "formSubmitting": "发送中...",
     "formSuccess": "消息已发送！我们会尽快与你联系。",
     "formError": "请填写所有必填字段。"
+  },
+  "Seo": {
+    "homeTitle": "免费在线网页游戏 - MossGap",
+    "homeDescription": "MossGap 是一个网页游戏平台。免费在线玩游戏，无需下载，无需安装。发现动作、解谜、街机、冒险等更多游戏。",
+    "gamesTitle": "全部网页游戏 - MossGap",
+    "gamesDescription": "浏览 MossGap 上的全部免费网页游戏。动作、解谜、街机、冒险、策略等 - 在浏览器中直接游玩。",
+    "gameDetailTitle": "{title} - 免费在线游玩",
+    "gameDetailDescription": "在 MossGap 上免费游玩 {title}。无需下载，无需安装 - 在浏览器中直接游玩。",
+    "playTitle": "游玩 {title} - MossGap",
+    "playDescription": "在 MossGap 上立即游玩 {title} - 无需下载。",
+    "siteDescription": "MossGap 是一个网页游戏平台。无需下载，无需安装 - 点击即玩。"
   }
 }

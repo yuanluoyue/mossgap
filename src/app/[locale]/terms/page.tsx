@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
-import { getTranslations } from "next-intl/server";
+import { getTranslations, setRequestLocale } from "next-intl/server";
+
+import { buildPageMetadata } from "@/lib/seo";
 
 export async function generateMetadata({
   params,
@@ -8,10 +10,12 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "Terms" });
-  return {
+  return buildPageMetadata({
     title: t("title"),
     description: t("subtitle"),
-  };
+    path: "/terms",
+    locale,
+  });
 }
 
 export default async function TermsPage({
@@ -20,6 +24,7 @@ export default async function TermsPage({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
+  await setRequestLocale(locale);
   const t = await getTranslations({ locale, namespace: "Terms" });
   const year = new Date().getFullYear();
 

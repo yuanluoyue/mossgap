@@ -3,15 +3,16 @@ import { getLocale, getMessages } from "next-intl/server";
 import { NextIntlClientProvider } from "next-intl";
 import { Toaster } from "@/components/ui/sonner";
 import { Analytics } from "@/components/analytics";
+import { SITE_NAME } from "@/lib/seo";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "MossGap — Play browser games instantly",
-    template: "%s · MossGap",
+    default: `${SITE_NAME} - Play browser games instantly`,
+    template: `%s · ${SITE_NAME}`,
   },
   description:
-    "MossGap is a browser game arcade. No downloads, no installs — just hit play.",
+    "MossGap is a browser game arcade. No downloads, no installs - just hit play.",
 };
 
 export default async function RootLayout({

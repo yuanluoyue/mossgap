@@ -1,6 +1,7 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getTranslations } from "next-intl/server";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 import { ArrowLeft } from "lucide-react";
 
 import { GamePlayer } from "@/components/game-player";
@@ -16,8 +17,40 @@ import {
 import { getClientIp, getClientUserAgent } from "@/lib/api-guard";
 import { hasServerEnv } from "@/env";
 import { CATEGORY_COLORS } from "@/types";
+import { buildPageMetadata, getSiteUrl } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string; slug: string }>;
+}): Promise<Metadata> {
+  const { locale, slug } = await params;
+  const localeCode = (locale === "zh" ? "zh" : "en") as "en" | "zh";
+  const t = await getTranslations({ locale, namespace: "Seo" });
+
+  const enabled = await hasServerEnv();
+  const game = enabled ? await getPublicGameBySlug(slug, localeCode) : null;
+  if (!game) {
+    return buildPageMetadata({
+      title: t("gamesTitle"),
+      description: t("gamesDescription"),
+      path: `/games/${slug}`,
+      locale,
+    });
+  }
+
+  return buildPageMetadata({
+    title: t("gameDetailTitle", { title: game.title }),
+    description:
+      game.description || t("gameDetailDescription", { title: game.title }),
+    path: `/games/${slug}`,
+    locale,
+    ogImage: game.coverImage || undefined,
+    type: "article",
+  });
+}
 
 export default async function GameDetailPage({
   params,
@@ -25,6 +58,7 @@ export default async function GameDetailPage({
   params: Promise<{ locale: string; slug: string }>;
 }) {
   const { locale, slug } = await params;
+  await setRequestLocale(locale);
   const localeCode = (locale === "zh" ? "zh" : "en") as "en" | "zh";
 
   const t = await getTranslations("GameDetail");
@@ -77,8 +111,68 @@ export default async function GameDetailPage({
     error: tf("error"),
   };
 
+  const siteUrl = await getSiteUrl();
+  const gameUrl = `${siteUrl}/games/${game.slug}`;
+  const videoGameJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "VideoGame",
+    name: game.title,
+    description: game.description || undefined,
+    genre: game.category,
+    url: gameUrl,
+    image: game.coverImage || undefined,
+    playMode: "SinglePlayer",
+    applicationCategory: "Game",
+    operatingSystem: "Web Browser",
+    datePublished: game.createdAt,
+    aggregateRating:
+      game.likeCount > 0
+        ? {
+            "@type": "AggregateRating",
+            ratingValue: game.likeCount,
+            ratingCount: game.likeCount + game.dislikeCount,
+          }
+        : undefined,
+  };
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "Home",
+        item: siteUrl,
+      },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: "Games",
+        item: `${siteUrl}/games`,
+      },
+      {
+        "@type": "ListItem",
+        position: 3,
+        name: game.title,
+        item: gameUrl,
+      },
+    ],
+  };
+
   return (
     <div className="relative">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(videoGameJsonLd).replace(/</g, "\\u003c"),
+        }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(breadcrumbJsonLd).replace(/</g, "\\u003c"),
+        }}
+      />
       <div className="relative mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
         {/* 返回 */}
         <Link
