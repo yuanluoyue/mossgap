@@ -61,20 +61,20 @@ export default async function PlayPage({
     );
   }
 
-  // 记录一次游玩（服务端，不阻塞渲染）
-  if (enabled) {
-    try {
-      const h = await headers();
-      const ip =
-        h.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-        h.get("cf-connecting-ip") ??
-        "0.0.0.0";
-      const ua = h.get("user-agent") ?? "unknown";
-      void incrementPlayCount(game.id, ip, ua);
-    } catch {
-      // 静默失败：play count 不应影响游玩
-    }
-  }
+  // 浏览次数统计已暂时关闭（D1 免费写入次数有限）
+  // if (enabled) {
+  //   try {
+  //     const h = await headers();
+  //     const ip =
+  //       h.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+  //       h.get("cf-connecting-ip") ??
+  //       "0.0.0.0";
+  //     const ua = h.get("user-agent") ?? "unknown";
+  //     void incrementPlayCount(game.id, ip, ua);
+  //   } catch {
+  //     // 静默失败：play count 不应影响游玩
+  //   }
+  // }
 
   return (
     <PlayFrame

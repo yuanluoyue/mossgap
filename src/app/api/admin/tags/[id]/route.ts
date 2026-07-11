@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 
 import {
-  getAdminFeedback,
-  updateFeedbackStatus,
-  deleteFeedback,
+  getAdminTag,
+  updateTag,
+  deleteTag,
+  recalcTagGameCount,
 } from "@/db/queries";
-import { updateFeedbackStatusSchema } from "@/lib/validators";
+import { tagUpdateSchema } from "@/lib/validators";
 import {
   requireAdmin,
   parseJson,
@@ -13,13 +14,11 @@ import {
 import { createAuditLog } from "@/lib/audit-log";
 import { handleApiError, isZodError, collectZodIssues } from "@/lib/api-error";
 import { ok, fail } from "@/types";
-import type { FeedbackStatus } from "@/types";
 import { hasServerEnv } from "@/env";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** GET /api/admin/feedbacks/[id] — 获取单个反馈详情 */
 export async function GET(
   _req: Request,
   ctx: { params: Promise<{ id: string }> },
@@ -34,18 +33,18 @@ export async function GET(
   if (guard) return guard;
 
   const { id } = await ctx.params;
+  let tag;
   try {
-    const feedback = await getAdminFeedback(id);
-    if (!feedback) {
-      return NextResponse.json(fail("NOT_FOUND", "反馈不存在"), { status: 404 });
-    }
-    return NextResponse.json(ok(feedback));
+    tag = await getAdminTag(id);
   } catch (err) {
-    return handleApiError(`GET /api/admin/feedbacks/${id}`, err);
+    return handleApiError(`GET /api/admin/tags/${id} · getAdminTag`, err);
   }
+  if (!tag) {
+    return NextResponse.json(fail("NOT_FOUND", "标签不存在"), { status: 404 });
+  }
+  return NextResponse.json(ok(tag));
 }
 
-/** PATCH /api/admin/feedbacks/[id] — 更新反馈状态 */
 export async function PATCH(
   req: Request,
   ctx: { params: Promise<{ id: string }> },
@@ -60,32 +59,49 @@ export async function PATCH(
   if (guard) return guard;
 
   const { id } = await ctx.params;
-  const existing = await getAdminFeedback(id);
+  const existing = await getAdminTag(id);
   if (!existing) {
-    return NextResponse.json(fail("NOT_FOUND", "反馈不存在"), { status: 404 });
+    return NextResponse.json(fail("NOT_FOUND", "标签不存在"), { status: 404 });
   }
 
   const { data, error } = await parseJson<unknown>(req);
   if (error) return error;
 
   try {
-    const input = updateFeedbackStatusSchema.parse(data);
-    const updated = await updateFeedbackStatus(id, input.status as FeedbackStatus);
+    const input = tagUpdateSchema.parse(data);
+    const updated = await updateTag(id, {
+      slug: input.slug,
+      name: input.name,
+      locale: input.locale,
+      icon: input.icon,
+      color: input.color,
+      sortOrder: input.sortOrder,
+      isVisible: input.isVisible,
+    });
     if (!updated) {
-      return NextResponse.json(fail("NOT_FOUND", "反馈不存在"), { status: 404 });
+      return NextResponse.json(fail("NOT_FOUND", "标签不存在"), { status: 404 });
     }
 
+    try {
+      await recalcTagGameCount(id);
+    } catch {}
+
     await createAuditLog({
-      action: "feedback.status_change",
-      resource: "feedback",
+      action: "tag.update",
+      resource: "tag",
       targetId: id,
-      meta: { from: existing.status, to: input.status },
+      meta: { slug: input.slug ?? existing.slug, name: input.name ?? existing.name },
     });
 
     return NextResponse.json(ok(updated));
   } catch (err) {
     if (isZodError(err)) {
       const issues = collectZodIssues(err);
+      console.error(`[API] PATCH /api/admin/tags/${id} · 校验失败`, {
+        id,
+        issues,
+        raw: (err as { issues?: unknown }).issues,
+      });
       return NextResponse.json(
         fail(
           "VALIDATION_ERROR",
@@ -94,11 +110,10 @@ export async function PATCH(
         { status: 400 },
       );
     }
-    return handleApiError(`PATCH /api/admin/feedbacks/${id}`, err);
+    return handleApiError(`PATCH /api/admin/tags/${id}`, err);
   }
 }
 
-/** DELETE /api/admin/feedbacks/[id] — 删除单个反馈 */
 export async function DELETE(
   _req: Request,
   ctx: { params: Promise<{ id: string }> },
@@ -113,22 +128,31 @@ export async function DELETE(
   if (guard) return guard;
 
   const { id } = await ctx.params;
-  const existing = await getAdminFeedback(id);
+  let existing;
+  try {
+    existing = await getAdminTag(id);
+  } catch (err) {
+    return handleApiError(`DELETE /api/admin/tags/${id} · getAdminTag`, err);
+  }
   if (!existing) {
-    return NextResponse.json(fail("NOT_FOUND", "反馈不存在"), { status: 404 });
+    return NextResponse.json(fail("NOT_FOUND", "标签不存在"), { status: 404 });
   }
 
   try {
-    await deleteFeedback(id);
+    await deleteTag(id);
   } catch (err) {
-    return handleApiError(`DELETE /api/admin/feedbacks/${id} · deleteFeedback`, err);
+    return handleApiError(`DELETE /api/admin/tags/${id} · deleteTag`, err);
   }
 
+  try {
+    await recalcTagGameCount(id);
+  } catch {}
+
   await createAuditLog({
-    action: "feedback.delete",
-    resource: "feedback",
+    action: "tag.delete",
+    resource: "tag",
     targetId: id,
-    meta: { type: existing.type, contentPreview: existing.content.slice(0, 100) },
+    meta: { slug: existing.slug, name: existing.name },
   });
 
   return NextResponse.json(ok({}));

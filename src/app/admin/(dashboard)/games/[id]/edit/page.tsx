@@ -1,6 +1,11 @@
 import { notFound } from "next/navigation";
 
-import { getAdminGame } from "@/db/queries";
+import {
+  getAdminGame,
+  listAllCategoriesForPicker,
+  listAllTagsForPicker,
+  listAllCollectionsForPicker,
+} from "@/db/queries";
 import { hasServerEnv } from "@/env";
 import { GameForm } from "@/components/admin/game-form";
 
@@ -16,10 +21,22 @@ export default async function AdminEditGamePage({
   }
 
   const { id } = await params;
-  const game = await getAdminGame(id);
+  const [game, categories, tags, collections] = await Promise.all([
+    getAdminGame(id),
+    listAllCategoriesForPicker(),
+    listAllTagsForPicker(),
+    listAllCollectionsForPicker(),
+  ]);
   if (!game) {
     notFound();
   }
 
-  return <GameForm game={game} />;
+  return (
+    <GameForm
+      game={game}
+      categories={categories}
+      tags={tags}
+      collections={collections}
+    />
+  );
 }

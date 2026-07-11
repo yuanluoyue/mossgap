@@ -4,15 +4,13 @@ import {
   getAdminGame,
   updateGame,
   deleteGame,
-  writeOperationLog,
 } from "@/db/queries";
 import { upsertGameSchema } from "@/lib/validators";
 import {
   requireAdmin,
   parseJson,
-  getClientIp,
-  getClientUserAgent,
 } from "@/lib/api-guard";
+import { createAuditLog } from "@/lib/audit-log";
 import { handleApiError, isZodError, collectZodIssues } from "@/lib/api-error";
 import { ok, fail } from "@/types";
 import { hasServerEnv } from "@/env";
@@ -95,6 +93,9 @@ export async function PATCH(
       iframeUrl: input.iframeUrl,
       howToPlay: input.howToPlay,
       relatedGameIds: input.relatedGameIds,
+      categoryId: input.categoryId ?? null,
+      tagIds: input.tagIds,
+      collectionIds: input.collectionIds,
     });
     if (!updated) {
       return NextResponse.json(fail("NOT_FOUND", "游戏不存在"), { status: 404 });
@@ -102,32 +103,20 @@ export async function PATCH(
 
     // 状态变更记日志（上架/下架属于敏感操作）
     if (existing.status !== updated.status) {
-      try {
-        const [ip, ua] = await Promise.all([getClientIp(), getClientUserAgent()]);
-        await writeOperationLog({
-          action: "game.status_change",
-          targetId: id,
-          meta: { from: existing.status, to: updated.status },
-          operatorIp: ip,
-          operatorUseragent: ua,
-        });
-      } catch {
-        // 日志失败不阻塞
-      }
+      await createAuditLog({
+        action: "game.status_change",
+        resource: "game",
+        targetId: id,
+        meta: { from: existing.status, to: updated.status },
+      });
     } else {
       // 普通编辑
-      try {
-        const [ip, ua] = await Promise.all([getClientIp(), getClientUserAgent()]);
-        await writeOperationLog({
-          action: "game.update",
-          targetId: id,
-          meta: { slug: input.slug },
-          operatorIp: ip,
-          operatorUseragent: ua,
-        });
-      } catch {
-        // 日志失败不阻塞
-      }
+      await createAuditLog({
+        action: "game.update",
+        resource: "game",
+        targetId: id,
+        meta: { slug: input.slug },
+      });
     }
 
     return NextResponse.json(ok(updated));
@@ -208,18 +197,12 @@ export async function DELETE(
     return handleApiError(`DELETE /api/admin/games/${id} · deleteGame`, err);
   }
 
-  try {
-    const [ip, ua] = await Promise.all([getClientIp(), getClientUserAgent()]);
-    await writeOperationLog({
-      action: "game.delete",
-      targetId: id,
-      meta: { slug: existing.slug, title: existing.title },
-      operatorIp: ip,
-      operatorUseragent: ua,
-    });
-  } catch {
-    // 日志失败不阻塞
-  }
+  await createAuditLog({
+    action: "game.delete",
+    resource: "game",
+    targetId: id,
+    meta: { slug: existing.slug, title: existing.title },
+  });
 
   return NextResponse.json(ok({}));
 }

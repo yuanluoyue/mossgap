@@ -3,11 +3,9 @@ import { NextResponse } from "next/server";
 import { putImage, isAllowedImageExt, deleteObject, extractKeyFromUrl } from "@/lib/oss";
 import {
   requireAdmin,
-  getClientIp,
-  getClientUserAgent,
 } from "@/lib/api-guard";
+import { createAuditLog } from "@/lib/audit-log";
 import { handleApiError } from "@/lib/api-error";
-import { writeOperationLog } from "@/db/queries";
 import { ok, fail } from "@/types";
 import type { ImageCategory } from "@/lib/oss";
 import { hasServerEnv } from "@/env";
@@ -94,18 +92,11 @@ export async function POST(req: Request) {
     }
 
     // 操作日志
-    try {
-      const [ip, ua] = await Promise.all([getClientIp(), getClientUserAgent()]);
-      await writeOperationLog({
-        action: "image.upload",
-        targetType: "image",
-        meta: { category, filename: file.name, size: file.size },
-        operatorIp: ip,
-        operatorUseragent: ua,
-      });
-    } catch {
-      // 日志失败不阻塞
-    }
+    await createAuditLog({
+      action: "image.upload",
+      resource: "upload-image",
+      meta: { category, filename: file.name, size: file.size },
+    });
 
     return NextResponse.json(ok({ url }), { status: 201 });
   } catch (err) {

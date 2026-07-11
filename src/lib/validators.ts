@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { GAME_CATEGORIES, GAME_STATUSES } from "@/types";
+import { GAME_CATEGORIES, GAME_STATUSES, COLLECTION_LAYOUTS } from "@/types";
 
 const localeBlockSchema = z.object({
   title: z.string().min(1, "标题不能为空").max(120),
@@ -32,6 +32,9 @@ export const upsertGameSchema = z.object({
     .default({ en: "", zh: "" }),
   relatedGameIds: z.array(z.string()).default([]),
   featured: z.boolean().default(false),
+  categoryId: z.string().nullable().optional(),
+  tagIds: z.array(z.string()).default([]),
+  collectionIds: z.array(z.string()).default([]),
 });
 
 export type UpsertGameInput = z.infer<typeof upsertGameSchema>;
@@ -273,3 +276,111 @@ export const listAdminsQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(10),
   search: z.string().optional(),
 });
+
+// ─── 分类 / 标签 / 专题 校验 ──────────────────────────────────
+
+const slugRegex = /^[a-z0-9-]+$/;
+const slugMsg = "slug 只能包含小写字母、数字和连字符";
+
+const taxonomyLocaleSchema = z.object({
+  en: z.object({
+    name: z.string().max(120).default(""),
+    description: z.string().max(2000).default(""),
+    seoTitle: z.string().max(200).default(""),
+    seoDescription: z.string().max(500).default(""),
+  }),
+  zh: z.object({
+    name: z.string().max(120).default(""),
+    description: z.string().max(2000).default(""),
+    seoTitle: z.string().max(200).default(""),
+    seoDescription: z.string().max(500).default(""),
+  }),
+});
+
+export type TaxonomyLocaleInput = z.infer<typeof taxonomyLocaleSchema>;
+
+/** 通用列表查询参数（分类/标签/专题）。 */
+export const taxonomyListQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(10),
+  search: z.string().optional(),
+});
+
+/** 分类创建校验。 */
+export const categoryCreateSchema = z.object({
+  slug: z.string().min(1).max(120).regex(slugRegex, slugMsg),
+  name: z.string().min(1, "名称不能为空").max(120),
+  locale: taxonomyLocaleSchema.optional(),
+  icon: z.string().max(64).optional().default(""),
+  coverImage: z.string().max(1000).optional().default(""),
+  color: z.string().max(20).optional().default(""),
+  sortOrder: z.number().int().min(0).max(9999).optional().default(0),
+  isVisible: z.boolean().optional().default(true),
+});
+
+/** 分类更新校验（全字段可选）。 */
+export const categoryUpdateSchema = z.object({
+  slug: z.string().min(1).max(120).regex(slugRegex, slugMsg).optional(),
+  name: z.string().min(1).max(120).optional(),
+  locale: taxonomyLocaleSchema.optional(),
+  icon: z.string().max(64).optional(),
+  coverImage: z.string().max(1000).optional(),
+  color: z.string().max(20).optional(),
+  sortOrder: z.number().int().min(0).max(9999).optional(),
+  isVisible: z.boolean().optional(),
+});
+
+export type CategoryCreateInput = z.infer<typeof categoryCreateSchema>;
+export type CategoryUpdateInput = z.infer<typeof categoryUpdateSchema>;
+
+/** 标签创建校验。 */
+export const tagCreateSchema = z.object({
+  slug: z.string().min(1).max(120).regex(slugRegex, slugMsg),
+  name: z.string().min(1, "名称不能为空").max(120),
+  locale: taxonomyLocaleSchema.optional(),
+  icon: z.string().max(64).optional().default(""),
+  color: z.string().max(20).optional().default(""),
+  sortOrder: z.number().int().min(0).max(9999).optional().default(0),
+  isVisible: z.boolean().optional().default(true),
+});
+
+/** 标签更新校验（全字段可选）。 */
+export const tagUpdateSchema = z.object({
+  slug: z.string().min(1).max(120).regex(slugRegex, slugMsg).optional(),
+  name: z.string().min(1).max(120).optional(),
+  locale: taxonomyLocaleSchema.optional(),
+  icon: z.string().max(64).optional(),
+  color: z.string().max(20).optional(),
+  sortOrder: z.number().int().min(0).max(9999).optional(),
+  isVisible: z.boolean().optional(),
+});
+
+export type TagCreateInput = z.infer<typeof tagCreateSchema>;
+export type TagUpdateInput = z.infer<typeof tagUpdateSchema>;
+
+/** 专题创建校验。 */
+export const collectionCreateSchema = z.object({
+  slug: z.string().min(1).max(120).regex(slugRegex, slugMsg),
+  name: z.string().min(1, "名称不能为空").max(120),
+  locale: taxonomyLocaleSchema.optional(),
+  icon: z.string().max(64).optional().default(""),
+  coverImage: z.string().max(1000).optional().default(""),
+  layout: z.enum(COLLECTION_LAYOUTS as [string, ...string[]]).optional().default("grid"),
+  sortOrder: z.number().int().min(0).max(9999).optional().default(0),
+  isVisible: z.boolean().optional().default(true),
+});
+
+/** 专题更新校验（全字段可选）。 */
+export const collectionUpdateSchema = z.object({
+  slug: z.string().min(1).max(120).regex(slugRegex, slugMsg).optional(),
+  name: z.string().min(1).max(120).optional(),
+  locale: taxonomyLocaleSchema.optional(),
+  icon: z.string().max(64).optional(),
+  coverImage: z.string().max(1000).optional(),
+  layout: z.enum(COLLECTION_LAYOUTS as [string, ...string[]]).optional(),
+  sortOrder: z.number().int().min(0).max(9999).optional(),
+  isVisible: z.boolean().optional(),
+});
+
+export type CollectionCreateInput = z.infer<typeof collectionCreateSchema>;
+export type CollectionUpdateInput = z.infer<typeof collectionUpdateSchema>;

@@ -7,7 +7,7 @@ import {
   primaryKey,
 } from "drizzle-orm/sqlite-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
-import type { GameLocale } from "@/types";
+import type { GameLocale, TaxonomyLocale, CollectionLayout } from "@/types";
 
 /** 生成 UUID（兼容 Cloudflare Workers 与 Node.js 环境）。 */
 function genUuid(): string {
@@ -104,6 +104,8 @@ export const games = sqliteTable(
     dislikeCount: integer("dislike_count").default(0),
     // 是否首页推荐（0/1），nullable 向前兼容
     featured: integer("featured").default(0),
+    // 关联分类表（nullable 向前兼容，旧数据仍可使用 category enum 字段）
+    categoryId: text("category_id"),
     createdAt: integer("created_at")
       .notNull()
       .$defaultFn(nowSeconds),
@@ -115,6 +117,7 @@ export const games = sqliteTable(
     slugIdx: uniqueIndex("games_slug_idx").on(t.slug),
     statusIdx: index("games_status_idx").on(t.status),
     categoryIdx: index("games_category_idx").on(t.category),
+    categoryIdIdx: index("games_category_id_idx").on(t.categoryId),
   }),
 );
 
@@ -388,9 +391,166 @@ export type SysRoleMenu = typeof sysRoleMenus.$inferSelect;
 export type Setting = typeof settings.$inferSelect;
 export type NewSetting = typeof settings.$inferInsert;
 
+// ─── 内容组织：分类 / 标签 / 专题 ───────────────────────────────
+
+/** 分类表（网站骨架，固定不常改） */
+export const categories = sqliteTable(
+  "categories",
+  {
+    id: text("id")
+      .primaryKey()
+      .notNull()
+      .$defaultFn(genUuid),
+    slug: text("slug").notNull(),
+    name: text("name").notNull().default(""),
+    locale: text("locale", { mode: "json" })
+      .$type<TaxonomyLocale>()
+      .default({
+        en: { name: "", description: "", seoTitle: "", seoDescription: "" },
+        zh: { name: "", description: "", seoTitle: "", seoDescription: "" },
+      }),
+    icon: text("icon").default(""),
+    coverImage: text("cover_image").default(""),
+    color: text("color").default(""),
+    sortOrder: integer("sort_order").default(0),
+    isVisible: integer("is_visible").default(1),
+    gameCount: integer("game_count").default(0),
+    createdAt: integer("created_at")
+      .notNull()
+      .$defaultFn(nowSeconds),
+    updatedAt: integer("updated_at")
+      .notNull()
+      .$defaultFn(nowSeconds),
+  },
+  (t) => ({
+    slugIdx: uniqueIndex("categories_slug_idx").on(t.slug),
+    sortIdx: index("categories_sort_idx").on(t.sortOrder),
+  }),
+);
+
+/** 标签表（内容属性，SEO/推荐） */
+export const tags = sqliteTable(
+  "tags",
+  {
+    id: text("id")
+      .primaryKey()
+      .notNull()
+      .$defaultFn(genUuid),
+    slug: text("slug").notNull(),
+    name: text("name").notNull().default(""),
+    locale: text("locale", { mode: "json" })
+      .$type<TaxonomyLocale>()
+      .default({
+        en: { name: "", description: "", seoTitle: "", seoDescription: "" },
+        zh: { name: "", description: "", seoTitle: "", seoDescription: "" },
+      }),
+    icon: text("icon").default(""),
+    color: text("color").default(""),
+    sortOrder: integer("sort_order").default(0),
+    isVisible: integer("is_visible").default(1),
+    gameCount: integer("game_count").default(0),
+    createdAt: integer("created_at")
+      .notNull()
+      .$defaultFn(nowSeconds),
+    updatedAt: integer("updated_at")
+      .notNull()
+      .$defaultFn(nowSeconds),
+  },
+  (t) => ({
+    slugIdx: uniqueIndex("tags_slug_idx").on(t.slug),
+    sortIdx: index("tags_sort_idx").on(t.sortOrder),
+  }),
+);
+
+/** 专题表（运营专题，后台配置） */
+export const collections = sqliteTable(
+  "collections",
+  {
+    id: text("id")
+      .primaryKey()
+      .notNull()
+      .$defaultFn(genUuid),
+    slug: text("slug").notNull(),
+    name: text("name").notNull().default(""),
+    locale: text("locale", { mode: "json" })
+      .$type<TaxonomyLocale>()
+      .default({
+        en: { name: "", description: "", seoTitle: "", seoDescription: "" },
+        zh: { name: "", description: "", seoTitle: "", seoDescription: "" },
+      }),
+    icon: text("icon").default(""),
+    coverImage: text("cover_image").default(""),
+    layout: text("layout", {
+      enum: ["grid", "list", "carousel", "hero"],
+    }).default("grid"),
+    sortOrder: integer("sort_order").default(0),
+    isVisible: integer("is_visible").default(1),
+    createdAt: integer("created_at")
+      .notNull()
+      .$defaultFn(nowSeconds),
+    updatedAt: integer("updated_at")
+      .notNull()
+      .$defaultFn(nowSeconds),
+  },
+  (t) => ({
+    slugIdx: uniqueIndex("collections_slug_idx").on(t.slug),
+    sortIdx: index("collections_sort_idx").on(t.sortOrder),
+  }),
+);
+
+/** 游戏 ↔ 标签 关联表（多对多） */
+export const gameTags = sqliteTable(
+  "game_tags",
+  {
+    gameId: text("game_id")
+      .notNull()
+      .references(() => games.id, { onDelete: "cascade" }),
+    tagId: text("tag_id")
+      .notNull()
+      .references(() => tags.id, { onDelete: "cascade" }),
+    createdAt: integer("created_at")
+      .notNull()
+      .$defaultFn(nowSeconds),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.gameId, t.tagId] }),
+    tagIdx: index("game_tags_tag_idx").on(t.tagId),
+  }),
+);
+
+/** 游戏 ↔ 专题 关联表（多对多，sortOrder 控制专题内排序） */
+export const gameCollections = sqliteTable(
+  "game_collections",
+  {
+    gameId: text("game_id")
+      .notNull()
+      .references(() => games.id, { onDelete: "cascade" }),
+    collectionId: text("collection_id")
+      .notNull()
+      .references(() => collections.id, { onDelete: "cascade" }),
+    sortOrder: integer("sort_order").default(0),
+    createdAt: integer("created_at")
+      .notNull()
+      .$defaultFn(nowSeconds),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.gameId, t.collectionId] }),
+    collectionIdx: index("game_collections_collection_idx").on(t.collectionId),
+  }),
+);
+
+export type Category = typeof categories.$inferSelect;
+export type NewCategory = typeof categories.$inferInsert;
+export type Tag = typeof tags.$inferSelect;
+export type NewTag = typeof tags.$inferInsert;
+export type Collection = typeof collections.$inferSelect;
+export type NewCollection = typeof collections.$inferInsert;
+export type GameTag = typeof gameTags.$inferSelect;
+export type GameCollection = typeof gameCollections.$inferSelect;
+
 // Zod Schemas（前后端共享校验）
 export const insertGameSchema = createInsertSchema(games);
 export const selectGameSchema = createSelectSchema(games);
 
 // 业务类型导出（与 src/types 对齐）
-export type { GameCategory, GameLocale, GameStatus } from "@/types";
+export type { GameCategory, GameLocale, GameStatus, TaxonomyLocale, CollectionLayout } from "@/types";

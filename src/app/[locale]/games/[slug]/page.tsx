@@ -88,15 +88,15 @@ export default async function GameDetailPage({
       ])
     : [[], false, false];
 
-  // 记录一次游玩（不阻塞渲染）
-  if (enabled) {
-    try {
-      const [ip, ua] = await Promise.all([getClientIp(), getClientUserAgent()]);
-      void incrementPlayCount(game.id, ip, ua);
-    } catch {
-      // 静默失败：play count 不应影响游玩
-    }
-  }
+  // 浏览次数统计已暂时关闭（D1 免费写入次数有限）
+  // if (enabled) {
+  //   try {
+  //     const [ip, ua] = await Promise.all([getClientIp(), getClientUserAgent()]);
+  //     void incrementPlayCount(game.id, ip, ua);
+  //   } catch {
+  //     // 静默失败：play count 不应影响游玩
+  //   }
+  // }
 
   const feedbackLabels = {
     title: tf("gameTitle"),

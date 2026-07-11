@@ -13,10 +13,18 @@ import {
   sysUserRoles,
   sysRoleMenus,
   settings,
+  categories,
+  tags,
+  collections,
+  gameTags,
+  gameCollections,
 } from "./schema";
 import type {
   AdminFeedback,
   AdminGame,
+  AdminCategory,
+  AdminTag,
+  AdminCollection,
   FeedbackStatus,
   FeedbackType,
   GameCategory,
@@ -25,6 +33,11 @@ import type {
   GameStatus,
   HowToPlay,
   PublicGame,
+  PublicCategory,
+  PublicTag,
+  PublicCollection,
+  TaxonomyLocale,
+  CollectionLayout,
 } from "@/types";
 import { publicObjectUrl } from "@/lib/oss";
 
@@ -36,7 +49,10 @@ function toIso(seconds: number | null | undefined): string {
   return new Date(seconds * 1000).toISOString();
 }
 
-function toAdminGame(row: typeof games.$inferSelect): AdminGame {
+function toAdminGame(
+  row: typeof games.$inferSelect,
+  opts?: { tagIds?: string[]; collectionIds?: string[] },
+): AdminGame {
   return {
     id: row.id,
     slug: row.slug,
@@ -58,6 +74,9 @@ function toAdminGame(row: typeof games.$inferSelect): AdminGame {
     relatedGameIds: row.relatedGameIds ?? [],
     ossSize: row.ossSize ?? 0,
     featured: row.featured ? true : false,
+    categoryId: row.categoryId ?? null,
+    tagIds: opts?.tagIds ?? [],
+    collectionIds: opts?.collectionIds ?? [],
     createdAt: toIso(row.createdAt),
     updatedAt: toIso(row.updatedAt),
   };
@@ -141,13 +160,21 @@ export async function listAdminGames(opts: {
     db.select({ value: count() }).from(games).where(where),
   ]);
 
-  return { items: rows.map(toAdminGame), total: totalRows[0]?.value ?? 0 };
+  return { items: rows.map((r) => toAdminGame(r)), total: totalRows[0]?.value ?? 0 };
 }
 
 export async function getAdminGame(id: string): Promise<AdminGame | null> {
   const db = await getDb();
   const row = await db.select().from(games).where(eq(games.id, id)).limit(1);
-  return row[0] ? toAdminGame(row[0]) : null;
+  if (!row[0]) return null;
+  const [tagRows, collectionRows] = await Promise.all([
+    db.select({ tagId: gameTags.tagId }).from(gameTags).where(eq(gameTags.gameId, id)),
+    db.select({ collectionId: gameCollections.collectionId }).from(gameCollections).where(eq(gameCollections.gameId, id)),
+  ]);
+  return toAdminGame(row[0], {
+    tagIds: tagRows.map((r) => r.tagId),
+    collectionIds: collectionRows.map((r) => r.collectionId),
+  });
 }
 
 export async function getAdminGameBySlug(slug: string): Promise<AdminGame | null> {
@@ -173,6 +200,9 @@ export async function createGame(input: {
   relatedGameIds?: string[];
   ossSize?: number;
   featured?: boolean;
+  categoryId?: string | null;
+  tagIds?: string[];
+  collectionIds?: string[];
 }): Promise<AdminGame> {
   const db = await getDb();
   const [row] = await db
@@ -198,9 +228,19 @@ export async function createGame(input: {
       relatedGameIds: input.relatedGameIds ?? [],
       ossSize: input.ossSize ?? 0,
       featured: input.featured ? 1 : 0,
+      categoryId: input.categoryId ?? null,
     })
     .returning();
-  return toAdminGame(row!);
+  const gameId = row!.id;
+  const tagIds = input.tagIds ?? [];
+  const collectionIds = input.collectionIds ?? [];
+  if (tagIds.length > 0) {
+    await db.insert(gameTags).values(tagIds.map((tagId) => ({ gameId, tagId })));
+  }
+  if (collectionIds.length > 0) {
+    await db.insert(gameCollections).values(collectionIds.map((collectionId) => ({ gameId, collectionId })));
+  }
+  return toAdminGame(row!, { tagIds, collectionIds });
 }
 
 export async function updateGame(
@@ -221,20 +261,46 @@ export async function updateGame(
     relatedGameIds: string[];
     ossSize: number;
     featured: boolean;
+    categoryId: string | null;
+    tagIds: string[];
+    collectionIds: string[];
   }>,
 ): Promise<AdminGame | null> {
   const db = await getDb();
-  const { featured, ...rest } = input;
+  const { featured, categoryId, tagIds, collectionIds, ...rest } = input;
   const [row] = await db
     .update(games)
     .set({
       ...rest,
       ...(featured !== undefined ? { featured: featured ? 1 : 0 } : {}),
+      ...(categoryId !== undefined ? { categoryId } : {}),
       updatedAt: Math.floor(Date.now() / 1000),
     })
     .where(eq(games.id, id))
     .returning();
-  return row ? toAdminGame(row) : null;
+  if (!row) return null;
+
+  if (tagIds !== undefined) {
+    await db.delete(gameTags).where(eq(gameTags.gameId, id));
+    if (tagIds.length > 0) {
+      await db.insert(gameTags).values(tagIds.map((tagId) => ({ gameId: id, tagId })));
+    }
+  }
+  if (collectionIds !== undefined) {
+    await db.delete(gameCollections).where(eq(gameCollections.gameId, id));
+    if (collectionIds.length > 0) {
+      await db.insert(gameCollections).values(collectionIds.map((collectionId) => ({ gameId: id, collectionId })));
+    }
+  }
+
+  const [tagRows, collectionRows] = await Promise.all([
+    db.select({ tagId: gameTags.tagId }).from(gameTags).where(eq(gameTags.gameId, id)),
+    db.select({ collectionId: gameCollections.collectionId }).from(gameCollections).where(eq(gameCollections.gameId, id)),
+  ]);
+  return toAdminGame(row, {
+    tagIds: tagRows.map((r) => r.tagId),
+    collectionIds: collectionRows.map((r) => r.collectionId),
+  });
 }
 
 /** 获取首页推荐游戏（featured=1 且已发布），按 createdAt 降序。 */
@@ -381,12 +447,32 @@ export async function listRelatedGames(
   return picked.slice(0, limit);
 }
 
+/** 去重时间窗口（秒）：同一 IP 在此时间内重复访问不重复计数。 */
+const PLAY_DEDUP_WINDOW = 30 * 60; // 30 分钟
+
 export async function incrementPlayCount(
   gameId: string,
   ip: string,
   userAgent: string,
 ): Promise<void> {
   const db = await getDb();
+  const now = Math.floor(Date.now() / 1000);
+  const since = now - PLAY_DEDUP_WINDOW;
+
+  // 同一 IP 在时间窗口内已有记录则不重复计数
+  const recent = await db
+    .select({ id: gamePlayLogs.id })
+    .from(gamePlayLogs)
+    .where(
+      and(
+        eq(gamePlayLogs.gameId, gameId),
+        eq(gamePlayLogs.userIp, ip),
+        sql`${gamePlayLogs.playedAt} >= ${since}`,
+      ),
+    )
+    .limit(1);
+  if (recent.length > 0) return;
+
   await db.batch([
     db
       .update(games)
@@ -670,7 +756,7 @@ export async function getDashboardStats(): Promise<{
     published: publishedRow[0]?.value ?? 0,
     draft: draftRow[0]?.value ?? 0,
     archived: archivedRow[0]?.value ?? 0,
-    recent: recentRows.map(toAdminGame),
+    recent: recentRows.map((r) => toAdminGame(r)),
   };
 }
 
@@ -772,7 +858,7 @@ export async function listAdmins(opts: {
 
   // 批量查询每个管理员的角色（取首个）
   const adminIds = rows.map((r) => r.id);
-  let roleMap = new Map<string, { roleId: string; roleName: string; roleCode: string }>();
+  const roleMap = new Map<string, { roleId: string; roleName: string; roleCode: string }>();
   if (adminIds.length > 0) {
     const userRoleRows = await db
       .select({
@@ -782,7 +868,7 @@ export async function listAdmins(opts: {
       .from(sysUserRoles)
       .where(inArray(sysUserRoles.adminId, adminIds));
     const roleIds = Array.from(new Set(userRoleRows.map((r) => r.roleId)));
-    let roleInfoMap = new Map<string, { name: string; code: string }>();
+    const roleInfoMap = new Map<string, { name: string; code: string }>();
     if (roleIds.length > 0) {
       const roleRows = await db
         .select({ id: sysRoles.id, name: sysRoles.name, code: sysRoles.code })
@@ -1247,6 +1333,650 @@ export async function listAuditLogs(opts: {
     })),
     total: totalRows[0]?.value ?? 0,
   };
+}
+
+// ===== 内容组织：分类 / 标签 / 专题 =====
+
+const EMPTY_TAXONOMY_LOCALE: TaxonomyLocale = {
+  en: { name: "", description: "", seoTitle: "", seoDescription: "" },
+  zh: { name: "", description: "", seoTitle: "", seoDescription: "" },
+};
+
+function toAdminCategory(row: typeof categories.$inferSelect): AdminCategory {
+  return {
+    id: row.id,
+    slug: row.slug,
+    name: row.name,
+    locale: (row.locale ?? EMPTY_TAXONOMY_LOCALE) as TaxonomyLocale,
+    icon: row.icon ?? "",
+    coverImage: row.coverImage ?? "",
+    color: row.color ?? "",
+    sortOrder: row.sortOrder ?? 0,
+    isVisible: (row.isVisible ?? 1) === 1,
+    gameCount: row.gameCount ?? 0,
+    createdAt: toIso(row.createdAt),
+    updatedAt: toIso(row.updatedAt),
+  };
+}
+
+function toAdminTag(row: typeof tags.$inferSelect): AdminTag {
+  return {
+    id: row.id,
+    slug: row.slug,
+    name: row.name,
+    locale: (row.locale ?? EMPTY_TAXONOMY_LOCALE) as TaxonomyLocale,
+    icon: row.icon ?? "",
+    color: row.color ?? "",
+    sortOrder: row.sortOrder ?? 0,
+    isVisible: (row.isVisible ?? 1) === 1,
+    gameCount: row.gameCount ?? 0,
+    createdAt: toIso(row.createdAt),
+    updatedAt: toIso(row.updatedAt),
+  };
+}
+
+function toAdminCollection(row: typeof collections.$inferSelect, gameCount = 0): AdminCollection {
+  return {
+    id: row.id,
+    slug: row.slug,
+    name: row.name,
+    locale: (row.locale ?? EMPTY_TAXONOMY_LOCALE) as TaxonomyLocale,
+    icon: row.icon ?? "",
+    coverImage: row.coverImage ?? "",
+    layout: (row.layout ?? "grid") as CollectionLayout,
+    sortOrder: row.sortOrder ?? 0,
+    isVisible: (row.isVisible ?? 1) === 1,
+    gameCount,
+    createdAt: toIso(row.createdAt),
+    updatedAt: toIso(row.updatedAt),
+  };
+}
+
+function toPublicCategory(row: typeof categories.$inferSelect, locale: Locale): PublicCategory {
+  const loc = (row.locale ?? EMPTY_TAXONOMY_LOCALE) as TaxonomyLocale;
+  const l = loc[locale] ?? loc.en;
+  return {
+    id: row.id,
+    slug: row.slug,
+    name: l.name || loc.en.name || row.name,
+    description: l.description || loc.en.description || "",
+    seoTitle: l.seoTitle || loc.en.seoTitle || "",
+    seoDescription: l.seoDescription || loc.en.seoDescription || "",
+    icon: row.icon ?? "",
+    coverImage: row.coverImage ?? "",
+    color: row.color ?? "",
+    gameCount: row.gameCount ?? 0,
+  };
+}
+
+function toPublicTag(row: typeof tags.$inferSelect, locale: Locale): PublicTag {
+  const loc = (row.locale ?? EMPTY_TAXONOMY_LOCALE) as TaxonomyLocale;
+  const l = loc[locale] ?? loc.en;
+  return {
+    id: row.id,
+    slug: row.slug,
+    name: l.name || loc.en.name || row.name,
+    description: l.description || loc.en.description || "",
+    seoTitle: l.seoTitle || loc.en.seoTitle || "",
+    seoDescription: l.seoDescription || loc.en.seoDescription || "",
+    icon: row.icon ?? "",
+    color: row.color ?? "",
+    gameCount: row.gameCount ?? 0,
+  };
+}
+
+function toPublicCollection(row: typeof collections.$inferSelect, locale: Locale, gameCount = 0): PublicCollection {
+  const loc = (row.locale ?? EMPTY_TAXONOMY_LOCALE) as TaxonomyLocale;
+  const l = loc[locale] ?? loc.en;
+  return {
+    id: row.id,
+    slug: row.slug,
+    name: l.name || loc.en.name || row.name,
+    description: l.description || loc.en.description || "",
+    seoTitle: l.seoTitle || loc.en.seoTitle || "",
+    seoDescription: l.seoDescription || loc.en.seoDescription || "",
+    icon: row.icon ?? "",
+    coverImage: row.coverImage ?? "",
+    layout: (row.layout ?? "grid") as CollectionLayout,
+    gameCount,
+  };
+}
+
+// ─── 分类 CRUD ───────────────────────────────────────────────
+
+export async function listAdminCategories(opts: {
+  page: number;
+  pageSize: number;
+  search?: string;
+}): Promise<{ items: AdminCategory[]; total: number }> {
+  const db = await getDb();
+  const conditions = [];
+  if (opts.search) {
+    conditions.push(like(categories.name, `%${opts.search}%`));
+  }
+  const where = conditions.length ? and(...conditions) : undefined;
+  const [rows, totalRows] = await Promise.all([
+    db.select().from(categories).where(where).orderBy(asc(categories.sortOrder), desc(categories.createdAt)).limit(opts.pageSize).offset((opts.page - 1) * opts.pageSize),
+    db.select({ value: count() }).from(categories).where(where),
+  ]);
+  return { items: rows.map(toAdminCategory), total: totalRows[0]?.value ?? 0 };
+}
+
+export async function getAdminCategory(id: string): Promise<AdminCategory | null> {
+  const db = await getDb();
+  const row = await db.select().from(categories).where(eq(categories.id, id)).limit(1);
+  return row[0] ? toAdminCategory(row[0]) : null;
+}
+
+export async function getAdminCategoryBySlug(slug: string): Promise<AdminCategory | null> {
+  const db = await getDb();
+  const row = await db.select().from(categories).where(eq(categories.slug, slug)).limit(1);
+  return row[0] ? toAdminCategory(row[0]) : null;
+}
+
+export async function createCategory(input: {
+  slug: string;
+  name: string;
+  locale?: TaxonomyLocale;
+  icon?: string;
+  coverImage?: string;
+  color?: string;
+  sortOrder?: number;
+  isVisible?: boolean;
+}): Promise<AdminCategory> {
+  const db = await getDb();
+  const [row] = await db
+    .insert(categories)
+    .values({
+      slug: input.slug,
+      name: input.name,
+      locale: input.locale ?? EMPTY_TAXONOMY_LOCALE,
+      icon: input.icon ?? "",
+      coverImage: input.coverImage ?? "",
+      color: input.color ?? "",
+      sortOrder: input.sortOrder ?? 0,
+      isVisible: input.isVisible === false ? 0 : 1,
+    })
+    .returning();
+  return toAdminCategory(row!);
+}
+
+export async function updateCategory(
+  id: string,
+  input: Partial<{
+    slug: string;
+    name: string;
+    locale: TaxonomyLocale;
+    icon: string;
+    coverImage: string;
+    color: string;
+    sortOrder: number;
+    isVisible: boolean;
+  }>,
+): Promise<AdminCategory | null> {
+  const db = await getDb();
+  const set: Record<string, unknown> = { updatedAt: Math.floor(Date.now() / 1000) };
+  if (input.slug !== undefined) set.slug = input.slug;
+  if (input.name !== undefined) set.name = input.name;
+  if (input.locale !== undefined) set.locale = input.locale;
+  if (input.icon !== undefined) set.icon = input.icon;
+  if (input.coverImage !== undefined) set.coverImage = input.coverImage;
+  if (input.color !== undefined) set.color = input.color;
+  if (input.sortOrder !== undefined) set.sortOrder = input.sortOrder;
+  if (input.isVisible !== undefined) set.isVisible = input.isVisible ? 1 : 0;
+  const [row] = await db.update(categories).set(set).where(eq(categories.id, id)).returning();
+  return row ? toAdminCategory(row) : null;
+}
+
+export async function deleteCategory(id: string): Promise<void> {
+  const db = await getDb();
+  await db.update(games).set({ categoryId: null }).where(eq(games.categoryId, id));
+  await db.delete(categories).where(eq(categories.id, id));
+}
+
+/** 重算分类下的游戏数（缓存到 gameCount 字段）。 */
+export async function recalcCategoryGameCount(id: string): Promise<void> {
+  const db = await getDb();
+  const row = await db.select({ value: count() }).from(games).where(and(eq(games.categoryId, id), eq(games.status, "published")));
+  await db.update(categories).set({ gameCount: row[0]?.value ?? 0 }).where(eq(categories.id, id));
+}
+
+// ─── 分类 C 端查询 ───────────────────────────────────────────
+
+export async function listPublicCategories(locale: Locale): Promise<PublicCategory[]> {
+  const db = await getDb();
+  const rows = await db
+    .select()
+    .from(categories)
+    .where(eq(categories.isVisible, 1))
+    .orderBy(asc(categories.sortOrder), desc(categories.createdAt));
+  return rows.map((r) => toPublicCategory(r, locale));
+}
+
+export async function getPublicCategoryBySlug(slug: string, locale: Locale): Promise<PublicCategory | null> {
+  const db = await getDb();
+  const row = await db.select().from(categories).where(and(eq(categories.slug, slug), eq(categories.isVisible, 1))).limit(1);
+  return row[0] ? toPublicCategory(row[0], locale) : null;
+}
+
+export async function listGamesByCategory(
+  categorySlug: string,
+  opts: { page: number; pageSize: number; sort?: "popular" | "newest" },
+  locale: Locale,
+): Promise<{ items: PublicGame[]; total: number; category: PublicCategory | null }> {
+  const db = await getDb();
+  const cat = await db.select().from(categories).where(eq(categories.slug, categorySlug)).limit(1);
+  if (!cat[0]) return { items: [], total: 0, category: null };
+  const category = toPublicCategory(cat[0], locale);
+  const where = and(eq(games.categoryId, cat[0].id), eq(games.status, "published"));
+  const order = opts.sort === "popular" ? desc(games.playCount) : desc(games.createdAt);
+  const [rows, totalRows] = await Promise.all([
+    db.select().from(games).where(where).orderBy(order).limit(opts.pageSize).offset((opts.page - 1) * opts.pageSize),
+    db.select({ value: count() }).from(games).where(where),
+  ]);
+  return {
+    items: await Promise.all(rows.map((r) => toPublicGame(r, locale))),
+    total: totalRows[0]?.value ?? 0,
+    category,
+  };
+}
+
+// ─── 标签 CRUD ───────────────────────────────────────────────
+
+export async function listAdminTags(opts: {
+  page: number;
+  pageSize: number;
+  search?: string;
+}): Promise<{ items: AdminTag[]; total: number }> {
+  const db = await getDb();
+  const conditions = [];
+  if (opts.search) {
+    conditions.push(like(tags.name, `%${opts.search}%`));
+  }
+  const where = conditions.length ? and(...conditions) : undefined;
+  const [rows, totalRows] = await Promise.all([
+    db.select().from(tags).where(where).orderBy(asc(tags.sortOrder), desc(tags.createdAt)).limit(opts.pageSize).offset((opts.page - 1) * opts.pageSize),
+    db.select({ value: count() }).from(tags).where(where),
+  ]);
+  return { items: rows.map(toAdminTag), total: totalRows[0]?.value ?? 0 };
+}
+
+export async function getAdminTag(id: string): Promise<AdminTag | null> {
+  const db = await getDb();
+  const row = await db.select().from(tags).where(eq(tags.id, id)).limit(1);
+  return row[0] ? toAdminTag(row[0]) : null;
+}
+
+export async function getAdminTagBySlug(slug: string): Promise<AdminTag | null> {
+  const db = await getDb();
+  const row = await db.select().from(tags).where(eq(tags.slug, slug)).limit(1);
+  return row[0] ? toAdminTag(row[0]) : null;
+}
+
+export async function createTag(input: {
+  slug: string;
+  name: string;
+  locale?: TaxonomyLocale;
+  icon?: string;
+  color?: string;
+  sortOrder?: number;
+  isVisible?: boolean;
+}): Promise<AdminTag> {
+  const db = await getDb();
+  const [row] = await db
+    .insert(tags)
+    .values({
+      slug: input.slug,
+      name: input.name,
+      locale: input.locale ?? EMPTY_TAXONOMY_LOCALE,
+      icon: input.icon ?? "",
+      color: input.color ?? "",
+      sortOrder: input.sortOrder ?? 0,
+      isVisible: input.isVisible === false ? 0 : 1,
+    })
+    .returning();
+  return toAdminTag(row!);
+}
+
+export async function updateTag(
+  id: string,
+  input: Partial<{
+    slug: string;
+    name: string;
+    locale: TaxonomyLocale;
+    icon: string;
+    color: string;
+    sortOrder: number;
+    isVisible: boolean;
+  }>,
+): Promise<AdminTag | null> {
+  const db = await getDb();
+  const set: Record<string, unknown> = { updatedAt: Math.floor(Date.now() / 1000) };
+  if (input.slug !== undefined) set.slug = input.slug;
+  if (input.name !== undefined) set.name = input.name;
+  if (input.locale !== undefined) set.locale = input.locale;
+  if (input.icon !== undefined) set.icon = input.icon;
+  if (input.color !== undefined) set.color = input.color;
+  if (input.sortOrder !== undefined) set.sortOrder = input.sortOrder;
+  if (input.isVisible !== undefined) set.isVisible = input.isVisible ? 1 : 0;
+  const [row] = await db.update(tags).set(set).where(eq(tags.id, id)).returning();
+  return row ? toAdminTag(row) : null;
+}
+
+export async function deleteTag(id: string): Promise<void> {
+  const db = await getDb();
+  await db.delete(tags).where(eq(tags.id, id));
+}
+
+/** 重算标签关联的游戏数。 */
+export async function recalcTagGameCount(id: string): Promise<void> {
+  const db = await getDb();
+  const rows = await db
+    .select({ gameId: gameTags.gameId })
+    .from(gameTags)
+    .where(eq(gameTags.tagId, id));
+  const gameIds = rows.map((r) => r.gameId);
+  let publishedCount = 0;
+  if (gameIds.length > 0) {
+    const c = await db.select({ value: count() }).from(games).where(and(inArray(games.id, gameIds), eq(games.status, "published")));
+    publishedCount = c[0]?.value ?? 0;
+  }
+  await db.update(tags).set({ gameCount: publishedCount }).where(eq(tags.id, id));
+}
+
+// ─── 标签 C 端查询 ───────────────────────────────────────────
+
+export async function listPublicTags(locale: Locale): Promise<PublicTag[]> {
+  const db = await getDb();
+  const rows = await db
+    .select()
+    .from(tags)
+    .where(eq(tags.isVisible, 1))
+    .orderBy(asc(tags.sortOrder), desc(tags.createdAt));
+  return rows.map((r) => toPublicTag(r, locale));
+}
+
+export async function getPublicTagBySlug(slug: string, locale: Locale): Promise<PublicTag | null> {
+  const db = await getDb();
+  const row = await db.select().from(tags).where(and(eq(tags.slug, slug), eq(tags.isVisible, 1))).limit(1);
+  return row[0] ? toPublicTag(row[0], locale) : null;
+}
+
+export async function listGamesByTag(
+  tagSlug: string,
+  opts: { page: number; pageSize: number; sort?: "popular" | "newest" },
+  locale: Locale,
+): Promise<{ items: PublicGame[]; total: number; tag: PublicTag | null }> {
+  const db = await getDb();
+  const tagRow = await db.select().from(tags).where(eq(tags.slug, tagSlug)).limit(1);
+  if (!tagRow[0]) return { items: [], total: 0, tag: null };
+  const tag = toPublicTag(tagRow[0], locale);
+
+  const gameTagRows = await db.select({ gameId: gameTags.gameId }).from(gameTags).where(eq(gameTags.tagId, tagRow[0].id));
+  const gameIds = gameTagRows.map((r) => r.gameId);
+  if (gameIds.length === 0) return { items: [], total: 0, tag };
+
+  const where = and(inArray(games.id, gameIds), eq(games.status, "published"));
+  const order = opts.sort === "popular" ? desc(games.playCount) : desc(games.createdAt);
+  const [rows, totalRows] = await Promise.all([
+    db.select().from(games).where(where).orderBy(order).limit(opts.pageSize).offset((opts.page - 1) * opts.pageSize),
+    db.select({ value: count() }).from(games).where(where),
+  ]);
+  return {
+    items: await Promise.all(rows.map((r) => toPublicGame(r, locale))),
+    total: totalRows[0]?.value ?? 0,
+    tag,
+  };
+}
+
+// ─── 专题 CRUD ───────────────────────────────────────────────
+
+export async function listAdminCollections(opts: {
+  page: number;
+  pageSize: number;
+  search?: string;
+}): Promise<{ items: AdminCollection[]; total: number }> {
+  const db = await getDb();
+  const conditions = [];
+  if (opts.search) {
+    conditions.push(like(collections.name, `%${opts.search}%`));
+  }
+  const where = conditions.length ? and(...conditions) : undefined;
+  const [rows, totalRows] = await Promise.all([
+    db.select().from(collections).where(where).orderBy(asc(collections.sortOrder), desc(collections.createdAt)).limit(opts.pageSize).offset((opts.page - 1) * opts.pageSize),
+    db.select({ value: count() }).from(collections).where(where),
+  ]);
+
+  const collectionIds = rows.map((r) => r.id);
+  const countMap = new Map<string, number>();
+  if (collectionIds.length > 0) {
+    const gcRows = await db
+      .select({ collectionId: gameCollections.collectionId, gameId: gameCollections.gameId })
+      .from(gameCollections)
+      .where(inArray(gameCollections.collectionId, collectionIds));
+    const gameIdSet = new Set(gcRows.map((r) => r.gameId));
+    const pubMap = new Map<string, number>();
+    if (gameIdSet.size > 0) {
+      const pubRows = await db
+        .select({ id: games.id })
+        .from(games)
+        .where(and(inArray(games.id, Array.from(gameIdSet)), eq(games.status, "published")));
+      for (const r of pubRows) pubMap.set(r.id, 1);
+    }
+    for (const r of gcRows) {
+      const gid = r.gameId;
+      if (pubMap.has(gid)) {
+        countMap.set(r.collectionId, (countMap.get(r.collectionId) ?? 0) + 1);
+      }
+    }
+  }
+
+  return {
+    items: rows.map((r) => toAdminCollection(r, countMap.get(r.id) ?? 0)),
+    total: totalRows[0]?.value ?? 0,
+  };
+}
+
+export async function getAdminCollection(id: string): Promise<AdminCollection | null> {
+  const db = await getDb();
+  const row = await db.select().from(collections).where(eq(collections.id, id)).limit(1);
+  if (!row[0]) return null;
+  const gcRows = await db.select({ gameId: gameCollections.gameId }).from(gameCollections).where(eq(gameCollections.collectionId, id));
+  const gameIds = gcRows.map((r) => r.gameId);
+  let gameCount = 0;
+  if (gameIds.length > 0) {
+    const c = await db.select({ value: count() }).from(games).where(and(inArray(games.id, gameIds), eq(games.status, "published")));
+    gameCount = c[0]?.value ?? 0;
+  }
+  return toAdminCollection(row[0], gameCount);
+}
+
+export async function getAdminCollectionBySlug(slug: string): Promise<AdminCollection | null> {
+  const db = await getDb();
+  const row = await db.select().from(collections).where(eq(collections.slug, slug)).limit(1);
+  if (!row[0]) return null;
+  return toAdminCollection(row[0], 0);
+}
+
+export async function createCollection(input: {
+  slug: string;
+  name: string;
+  locale?: TaxonomyLocale;
+  icon?: string;
+  coverImage?: string;
+  layout?: CollectionLayout;
+  sortOrder?: number;
+  isVisible?: boolean;
+}): Promise<AdminCollection> {
+  const db = await getDb();
+  const [row] = await db
+    .insert(collections)
+    .values({
+      slug: input.slug,
+      name: input.name,
+      locale: input.locale ?? EMPTY_TAXONOMY_LOCALE,
+      icon: input.icon ?? "",
+      coverImage: input.coverImage ?? "",
+      layout: input.layout ?? "grid",
+      sortOrder: input.sortOrder ?? 0,
+      isVisible: input.isVisible === false ? 0 : 1,
+    })
+    .returning();
+  return toAdminCollection(row!, 0);
+}
+
+export async function updateCollection(
+  id: string,
+  input: Partial<{
+    slug: string;
+    name: string;
+    locale: TaxonomyLocale;
+    icon: string;
+    coverImage: string;
+    layout: CollectionLayout;
+    sortOrder: number;
+    isVisible: boolean;
+  }>,
+): Promise<AdminCollection | null> {
+  const db = await getDb();
+  const set: Record<string, unknown> = { updatedAt: Math.floor(Date.now() / 1000) };
+  if (input.slug !== undefined) set.slug = input.slug;
+  if (input.name !== undefined) set.name = input.name;
+  if (input.locale !== undefined) set.locale = input.locale;
+  if (input.icon !== undefined) set.icon = input.icon;
+  if (input.coverImage !== undefined) set.coverImage = input.coverImage;
+  if (input.layout !== undefined) set.layout = input.layout;
+  if (input.sortOrder !== undefined) set.sortOrder = input.sortOrder;
+  if (input.isVisible !== undefined) set.isVisible = input.isVisible ? 1 : 0;
+  const [row] = await db.update(collections).set(set).where(eq(collections.id, id)).returning();
+  return row ? toAdminCollection(row, 0) : null;
+}
+
+export async function deleteCollection(id: string): Promise<void> {
+  const db = await getDb();
+  await db.delete(collections).where(eq(collections.id, id));
+}
+
+// ─── 专题 C 端查询 ───────────────────────────────────────────
+
+export async function listPublicCollections(locale: Locale): Promise<PublicCollection[]> {
+  const db = await getDb();
+  const rows = await db
+    .select()
+    .from(collections)
+    .where(eq(collections.isVisible, 1))
+    .orderBy(asc(collections.sortOrder), desc(collections.createdAt));
+
+  const collectionIds = rows.map((r) => r.id);
+  const countMap = new Map<string, number>();
+  if (collectionIds.length > 0) {
+    const gcRows = await db
+      .select({ collectionId: gameCollections.collectionId, gameId: gameCollections.gameId })
+      .from(gameCollections)
+      .where(inArray(gameCollections.collectionId, collectionIds));
+    const gameIdSet = new Set(gcRows.map((r) => r.gameId));
+    const pubMap = new Set<string>();
+    if (gameIdSet.size > 0) {
+      const pubRows = await db
+        .select({ id: games.id })
+        .from(games)
+        .where(and(inArray(games.id, Array.from(gameIdSet)), eq(games.status, "published")));
+      for (const r of pubRows) pubMap.add(r.id);
+    }
+    for (const r of gcRows) {
+      if (pubMap.has(r.gameId)) {
+        countMap.set(r.collectionId, (countMap.get(r.collectionId) ?? 0) + 1);
+      }
+    }
+  }
+
+  return rows.map((r) => toPublicCollection(r, locale, countMap.get(r.id) ?? 0));
+}
+
+export async function getPublicCollectionBySlug(slug: string, locale: Locale): Promise<PublicCollection | null> {
+  const db = await getDb();
+  const row = await db.select().from(collections).where(and(eq(collections.slug, slug), eq(collections.isVisible, 1))).limit(1);
+  if (!row[0]) return null;
+  const gcRows = await db.select({ gameId: gameCollections.gameId }).from(gameCollections).where(eq(gameCollections.collectionId, row[0].id));
+  const gameIds = gcRows.map((r) => r.gameId);
+  let gameCount = 0;
+  if (gameIds.length > 0) {
+    const c = await db.select({ value: count() }).from(games).where(and(inArray(games.id, gameIds), eq(games.status, "published")));
+    gameCount = c[0]?.value ?? 0;
+  }
+  return toPublicCollection(row[0], locale, gameCount);
+}
+
+export async function listGamesByCollection(
+  collectionSlug: string,
+  opts: { page: number; pageSize: number },
+  locale: Locale,
+): Promise<{ items: PublicGame[]; total: number; collection: PublicCollection | null }> {
+  const db = await getDb();
+  const colRow = await db.select().from(collections).where(eq(collections.slug, collectionSlug)).limit(1);
+  if (!colRow[0]) return { items: [], total: 0, collection: null };
+
+  const gcRows = await db
+    .select({ gameId: gameCollections.gameId, sortOrder: gameCollections.sortOrder })
+    .from(gameCollections)
+    .where(eq(gameCollections.collectionId, colRow[0].id))
+    .orderBy(asc(gameCollections.sortOrder), desc(gameCollections.createdAt));
+  const gameIds = gcRows.map((r) => r.gameId);
+  if (gameIds.length === 0) {
+    return { items: [], total: 0, collection: toPublicCollection(colRow[0], locale, 0) };
+  }
+
+  const where = and(inArray(games.id, gameIds), eq(games.status, "published"));
+  const [rows, totalRows] = await Promise.all([
+    db.select().from(games).where(where).orderBy(desc(games.createdAt)).limit(opts.pageSize).offset((opts.page - 1) * opts.pageSize),
+    db.select({ value: count() }).from(games).where(where),
+  ]);
+
+  const sortOrderMap = new Map<string, number>();
+  gcRows.forEach((r, i) => { if (!sortOrderMap.has(r.gameId)) sortOrderMap.set(r.gameId, i); });
+  const items = await Promise.all(rows.map((r) => toPublicGame(r, locale)));
+  items.sort((a, b) => (sortOrderMap.get(a.id) ?? 0) - (sortOrderMap.get(b.id) ?? 0));
+
+  return {
+    items,
+    total: totalRows[0]?.value ?? 0,
+    collection: toPublicCollection(colRow[0], locale, totalRows[0]?.value ?? 0),
+  };
+}
+
+// ─── 游戏关联查询（供 B 端表单使用） ─────────────────────────
+
+export async function listAllCategoriesForPicker(): Promise<
+  { id: string; slug: string; name: string; color: string | null }[]
+> {
+  const db = await getDb();
+  const rows = await db
+    .select({ id: categories.id, slug: categories.slug, name: categories.name, color: categories.color })
+    .from(categories)
+    .orderBy(asc(categories.sortOrder), desc(categories.createdAt));
+  return rows;
+}
+
+export async function listAllTagsForPicker(): Promise<
+  { id: string; slug: string; name: string; color: string | null }[]
+> {
+  const db = await getDb();
+  const rows = await db
+    .select({ id: tags.id, slug: tags.slug, name: tags.name, color: tags.color })
+    .from(tags)
+    .orderBy(asc(tags.sortOrder), desc(tags.createdAt));
+  return rows;
+}
+
+export async function listAllCollectionsForPicker(): Promise<
+  { id: string; slug: string; name: string }[]
+> {
+  const db = await getDb();
+  const rows = await db
+    .select({ id: collections.id, slug: collections.slug, name: collections.name })
+    .from(collections)
+    .orderBy(asc(collections.sortOrder), desc(collections.createdAt));
+  return rows;
 }
 
 export { schema, asc };

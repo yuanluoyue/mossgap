@@ -1,20 +1,22 @@
 import { NextResponse } from "next/server";
 
-import { listAdminGames, createGame } from "@/db/queries";
 import {
-  listGamesQuerySchema,
-  createIframeGameSchema,
+  listAdminCollections,
+  createCollection,
+} from "@/db/queries";
+import {
+  taxonomyListQuerySchema,
+  collectionCreateSchema,
 } from "@/lib/validators";
 import { requireAdmin, parseJson } from "@/lib/api-guard";
 import { createAuditLog } from "@/lib/audit-log";
 import { handleApiError, isZodError, collectZodIssues } from "@/lib/api-error";
-import { ok, fail } from "@/types";
+import { ok, fail, type CollectionLayout } from "@/types";
 import { hasServerEnv } from "@/env";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** GET /api/admin/games — 游戏列表（分页/搜索/状态筛选） */
 export async function GET(req: Request) {
   if (!(await hasServerEnv())) {
     return NextResponse.json(
@@ -26,11 +28,10 @@ export async function GET(req: Request) {
   if (guard) return guard;
 
   const url = new URL(req.url);
-  const parsed = listGamesQuerySchema.safeParse({
+  const parsed = taxonomyListQuerySchema.safeParse({
     page: url.searchParams.get("page") ?? 1,
-    pageSize: url.searchParams.get("pageSize") ?? 20,
+    pageSize: url.searchParams.get("pageSize") ?? 10,
     search: url.searchParams.get("search") ?? undefined,
-    status: url.searchParams.get("status") ?? undefined,
   });
   if (!parsed.success) {
     return NextResponse.json(
@@ -40,23 +41,17 @@ export async function GET(req: Request) {
   }
 
   try {
-    const result = await listAdminGames({
+    const result = await listAdminCollections({
       page: parsed.data.page,
       pageSize: parsed.data.pageSize,
       search: parsed.data.search,
-      status: parsed.data.status as
-        | "draft"
-        | "published"
-        | "archived"
-        | undefined,
     });
     return NextResponse.json(ok(result));
   } catch (err) {
-    return handleApiError("GET /api/admin/games", err);
+    return handleApiError("GET /api/admin/collections", err);
   }
 }
 
-/** POST /api/admin/games — 创建游戏（支持 iframe 外链模式） */
 export async function POST(req: Request) {
   if (!(await hasServerEnv())) {
     return NextResponse.json(
@@ -71,46 +66,30 @@ export async function POST(req: Request) {
   if (error) return error;
 
   try {
-    const input = createIframeGameSchema.parse(data);
-    const game = await createGame({
+    const input = collectionCreateSchema.parse(data);
+    const collection = await createCollection({
       slug: input.slug,
-      title: input.title,
-      description: "",
-      category: input.category as
-        | "action"
-        | "puzzle"
-        | "arcade"
-        | "adventure"
-        | "strategy"
-        | "sports"
-        | "racing"
-        | "other",
+      name: input.name,
+      locale: input.locale,
+      icon: input.icon,
       coverImage: input.coverImage,
-      screenshots: [],
-      entryFile: "index.html",
-      ossPrefix: "", // iframe 模式无 OSS 资源
-      status: "draft",
-      locale: {
-        en: { title: input.title, description: "" },
-        zh: { title: input.title, description: "" },
-      },
-      sourceType: "iframe",
-      iframeUrl: input.iframeUrl,
-      ossSize: 0,
+      layout: input.layout as CollectionLayout,
+      sortOrder: input.sortOrder,
+      isVisible: input.isVisible,
     });
 
     await createAuditLog({
-      action: "game.create.iframe",
-      resource: "game",
-      targetId: game.id,
-      meta: { slug: input.slug, iframeUrl: input.iframeUrl },
+      action: "collection.create",
+      resource: "collection",
+      targetId: collection.id,
+      meta: { slug: input.slug, name: input.name },
     });
 
-    return NextResponse.json(ok(game), { status: 201 });
+    return NextResponse.json(ok(collection), { status: 201 });
   } catch (err) {
     if (isZodError(err)) {
       const issues = collectZodIssues(err);
-      console.error("[API] POST /api/admin/games · 校验失败", {
+      console.error("[API] POST /api/admin/collections · 校验失败", {
         issues,
         raw: (err as { issues?: unknown }).issues,
       });
@@ -122,6 +101,6 @@ export async function POST(req: Request) {
         { status: 400 },
       );
     }
-    return handleApiError("POST /api/admin/games", err);
+    return handleApiError("POST /api/admin/collections", err);
   }
 }

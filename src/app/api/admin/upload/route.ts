@@ -3,8 +3,9 @@ import { randomUUID } from "crypto";
 
 import { extractZip } from "@/lib/zip";
 import { putObjects, deletePrefix } from "@/lib/oss";
-import { createGame, writeOperationLog } from "@/db/queries";
-import { requireAdmin, getClientIp, getClientUserAgent } from "@/lib/api-guard";
+import { createGame } from "@/db/queries";
+import { requireAdmin } from "@/lib/api-guard";
+import { createAuditLog } from "@/lib/audit-log";
 import { handleApiError } from "@/lib/api-error";
 import { ok, fail } from "@/types";
 import type { UploadGameResponse } from "@/types";
@@ -136,19 +137,12 @@ export async function POST(req: Request) {
   }
 
   // 记录操作日志
-  try {
-    const [ip, ua] = await Promise.all([getClientIp(), getClientUserAgent()]);
-    await writeOperationLog({
-      action: "game.upload",
-      targetId: game.id,
-      meta: { ossPrefix, ossSize: totalSize, fileName: file.name },
-      operatorIp: ip,
-      operatorUseragent: ua,
-    });
-  } catch (err) {
-    // 日志失败不阻塞主流程，但打印日志便于排查
-    console.error("[API] POST /api/admin/upload · 操作日志写入失败", err);
-  }
+  await createAuditLog({
+    action: "game.upload",
+    resource: "upload",
+    targetId: game.id,
+    meta: { ossPrefix, ossSize: totalSize, fileName: file.name },
+  });
 
   const payload: UploadGameResponse = {
     id: game.id,

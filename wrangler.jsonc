@@ -36,7 +36,6 @@
     "S3_KEY_PREFIX": "uploads/2024/test",
     "S3_PUBLIC_URL": "https://pub-5b122f0dcfde4ba8a4c87f19a48a822c.r2.dev",
     "S3_FORCE_PATH_STYLE": "true",
-    "OSS_ADAPTER": "aws-sdk",
   },
   "images": {
     "binding": "IMAGES"

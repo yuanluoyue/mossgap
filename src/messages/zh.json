@@ -56,7 +56,38 @@
     "strategy": "策略",
     "sports": "体育",
     "racing": "竞速",
-    "other": "其他"
+    "other": "其他",
+    "title": "按分类浏览",
+    "subtitle": "探索按分类组织的游戏",
+    "empty": "该分类下暂无游戏。",
+    "emptyHint": "稍后再来看看新增的游戏吧。",
+    "games": "{count, plural, =0 {暂无游戏} other {# 个游戏}}",
+    "allCategories": "全部分类",
+    "notFound": "分类不存在"
+  },
+  "Tags": {
+    "title": "按标签浏览",
+    "subtitle": "通过标签发现游戏",
+    "empty": "该标签下暂无游戏。",
+    "emptyHint": "试试其他标签吧。",
+    "games": "{count, plural, =0 {暂无游戏} other {# 个游戏}}",
+    "notFound": "标签不存在"
+  },
+  "Collections": {
+    "title": "游戏专题",
+    "subtitle": "精心策划的游戏合集",
+    "empty": "暂无专题。",
+    "emptyHint": "稍后再来看看新的游戏专题吧。",
+    "games": "{count, plural, =0 {暂无游戏} other {# 个游戏}}",
+    "viewCollection": "查看专题",
+    "gameCount": "{count, plural, =0 {暂无游戏} other {# 个游戏}}"
+  },
+  "CollectionDetail": {
+    "games": "专题游戏",
+    "back": "返回专题列表",
+    "empty": "该专题下暂无游戏。",
+    "emptyHint": "稍后再来看看新增的游戏吧。",
+    "notFound": "合集不存在"
   },
   "Footer": {
     "tagline": "网页游戏，触手可及。",
@@ -169,6 +200,34 @@
     "gameDetailDescription": "在 MossGap 上免费游玩 {title}。无需下载，无需安装 - 在浏览器中直接游玩。",
     "playTitle": "游玩 {title} - MossGap",
     "playDescription": "在 MossGap 上立即游玩 {title} - 无需下载。",
+    "categoriesTitle": "浏览游戏分类 - MossGap",
+    "categoriesDescription": "在 MossGap 按分类浏览游戏。发现动作、解谜、街机、冒险等更多网页游戏。",
+    "categoryTitle": "{name} 游戏 - MossGap",
+    "categoryDescription": "在 MossGap 免费游玩 {name} 类游戏。浏览最好的 {name} 网页游戏。",
+    "categoryDetailTitle": "{name} 游戏 - MossGap",
+    "categoryDetailDescription": "在 MossGap 上免费游玩{name}游戏。无需下载，无需安装 - 在浏览器中直接游玩。",
+    "tagsTitle": "浏览游戏标签 - MossGap",
+    "tagsDescription": "在 MossGap 按标签发现游戏。按主题、风格和特色找到完美的游戏。",
+    "tagTitle": "{name} 游戏 - MossGap",
+    "tagDescription": "在 MossGap 免费游玩 {name} 标签的游戏。",
+    "tagDetailTitle": "{name} 标签游戏 - MossGap",
+    "tagDetailDescription": "在 MossGap 上免费游玩{name}标签的游戏。无需下载，无需安装 - 在浏览器中直接游玩。",
+    "collectionsTitle": "游戏专题 - MossGap",
+    "collectionsDescription": "浏览 MossGap 精选游戏专题。为每种心情和时刻精选的游戏。",
+    "collectionTitle": "{name} - 游戏专题 - MossGap",
+    "collectionDescription": "在 MossGap 游玩 {name} 专题的游戏。",
+    "collectionDetailTitle": "{name} - 游戏专题 | MossGap",
+    "collectionDetailDescription": "在 MossGap 上免费游玩{name}专题精选游戏。无需下载，无需安装。",
     "siteDescription": "MossGap 是一个网页游戏平台。无需下载，无需安装 - 点击即玩。"
+  },
+  "Taxonomy": {
+    "back": "返回",
+    "gamesCount": "{count, plural, =0 {暂无游戏} other {# 个游戏}}",
+    "noGames": "这里还没有游戏",
+    "noGamesHint": "稍后再来看看新增的内容吧。",
+    "sortPopular": "最热",
+    "sortNewest": "最新",
+    "collectionsEmpty": "暂无专题。",
+    "viewCollection": "查看专题"
   }
 }

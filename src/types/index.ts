@@ -52,6 +52,107 @@ export const CATEGORY_COLORS: Record<GameCategory, string> = {
   other: "#64748b",
 };
 
+// ─── 内容组织：分类 / 标签 / 专题 ───────────────────────────────
+
+/** 多语言元信息（分类/标签/专题通用） */
+export interface TaxonomyLocale {
+  en: { name: string; description: string; seoTitle: string; seoDescription: string };
+  zh: { name: string; description: string; seoTitle: string; seoDescription: string };
+}
+
+/** 专题布局类型 */
+export type CollectionLayout = "grid" | "list" | "carousel" | "hero";
+
+export const COLLECTION_LAYOUTS: CollectionLayout[] = ["grid", "list", "carousel", "hero"];
+
+/** Admin 端分类数据（完整） */
+export interface AdminCategory {
+  id: string;
+  slug: string;
+  name: string;
+  locale: TaxonomyLocale;
+  icon: string;
+  coverImage: string;
+  color: string;
+  sortOrder: number;
+  isVisible: boolean;
+  gameCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Admin 端标签数据（完整） */
+export interface AdminTag {
+  id: string;
+  slug: string;
+  name: string;
+  locale: TaxonomyLocale;
+  icon: string;
+  color: string;
+  sortOrder: number;
+  isVisible: boolean;
+  gameCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Admin 端专题数据（完整） */
+export interface AdminCollection {
+  id: string;
+  slug: string;
+  name: string;
+  locale: TaxonomyLocale;
+  icon: string;
+  coverImage: string;
+  layout: CollectionLayout;
+  sortOrder: number;
+  isVisible: boolean;
+  gameCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** C 端公开分类数据（已按 locale 解析） */
+export interface PublicCategory {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  seoTitle: string;
+  seoDescription: string;
+  icon: string;
+  coverImage: string;
+  color: string;
+  gameCount: number;
+}
+
+/** C 端公开标签数据（已按 locale 解析） */
+export interface PublicTag {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  seoTitle: string;
+  seoDescription: string;
+  icon: string;
+  color: string;
+  gameCount: number;
+}
+
+/** C 端公开专题数据（已按 locale 解析） */
+export interface PublicCollection {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  seoTitle: string;
+  seoDescription: string;
+  icon: string;
+  coverImage: string;
+  layout: CollectionLayout;
+  gameCount: number;
+}
+
 /** C 端公开游戏数据（已按 locale 解析） */
 export interface PublicGame {
   id: string;
@@ -93,6 +194,9 @@ export interface AdminGame {
   relatedGameIds: string[];
   ossSize: number;
   featured: boolean;
+  categoryId: string | null;
+  tagIds: string[];
+  collectionIds: string[];
   createdAt: string;
   updatedAt: string;
 }

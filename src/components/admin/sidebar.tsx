@@ -15,6 +15,9 @@ import {
   UserCog,
   Settings,
   ScrollText,
+  FolderTree,
+  Tags,
+  LayoutGrid,
   Menu as MenuIcon,
   ChevronRight,
   ChevronDown,
@@ -40,6 +43,9 @@ const ICON_MAP: Record<string, LucideIcon> = {
   UserCog,
   Settings,
   ScrollText,
+  FolderTree,
+  Tags,
+  LayoutGrid,
   Menu: MenuIcon,
 };
 

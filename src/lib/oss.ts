@@ -1,14 +1,12 @@
 import { getServerEnv } from "@/env";
 import type { OssAdapter } from "./oss-adapter";
-import { awsSdkAdapter } from "./oss-adapter-aws-sdk";
-import { customS3Adapter } from "./oss-adapter-custom-s3";
+import { aws4FetchAdapter } from "./oss-adapter-aws4fetch";
 
 /**
  * S3 兼容对象存储客户端。
  *
- * 通过适配器模式支持两种实现：
- * - aws-sdk（默认）：使用 @aws-sdk/client-s3，功能完整、自动重试
- * - custom：手写 AWS Signature V4 + fetch，无第三方依赖、体积最小
+ * 使用 aws4fetch（基于 fetch + Web Crypto 的 AWS Signature V4 实现），
+ * 不依赖 Node.js fs，可在 Cloudflare Workers 上安全运行。
  *
  * 所有对外暴露的 key 均为逻辑 key（不含 S3_KEY_PREFIX），
  * 适配器接收的是完整 key（已拼接前缀）。
@@ -18,15 +16,10 @@ async function env() {
   return await getServerEnv();
 }
 
-// ===== 适配器选择 =====
+// ===== 适配器 =====
 
-let cachedAdapter: OssAdapter | null = null;
-
-async function getAdapter(): Promise<OssAdapter> {
-  if (cachedAdapter) return cachedAdapter;
-  const e = await env();
-  cachedAdapter = e.OSS_ADAPTER === "custom" ? customS3Adapter : awsSdkAdapter;
-  return cachedAdapter;
+function getAdapter(): OssAdapter {
+  return aws4FetchAdapter;
 }
 
 // ===== Key 前缀工具 =====
@@ -73,7 +66,7 @@ export async function putObject(
   contentType: string,
 ): Promise<void> {
   const e = await env();
-  const adapter = await getAdapter();
+  const adapter = getAdapter();
   await adapter.putObject(fullKey(e.S3_KEY_PREFIX, key), body, contentType);
 }
 
@@ -92,14 +85,14 @@ export async function putObjects(
 /** 删除单个对象。 */
 export async function deleteObject(key: string): Promise<void> {
   const e = await env();
-  const adapter = await getAdapter();
+  const adapter = getAdapter();
   await adapter.deleteObject(fullKey(e.S3_KEY_PREFIX, key));
 }
 
 /** 删除某前缀下所有对象（递归清理）。 */
 export async function deletePrefix(prefix: string): Promise<void> {
   const e = await env();
-  const adapter = await getAdapter();
+  const adapter = getAdapter();
   const fullPrefix = fullKey(e.S3_KEY_PREFIX, prefix).replace(/^\/+|\/+$/g, "");
   const objects = await adapter.listObjects(fullPrefix);
   if (objects.length > 0) {
@@ -112,7 +105,7 @@ export async function listPrefixObjects(
   prefix: string,
 ): Promise<{ key: string; size: number }[]> {
   const e = await env();
-  const adapter = await getAdapter();
+  const adapter = getAdapter();
   const fullPrefix = fullKey(e.S3_KEY_PREFIX, prefix).replace(/^\/+|\/+$/g, "");
   const objects = await adapter.listObjects(fullPrefix);
   // 去除存储前缀，返回逻辑 key

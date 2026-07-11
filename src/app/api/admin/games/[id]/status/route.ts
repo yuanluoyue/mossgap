@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
 
-import { getAdminGame, updateGame, writeOperationLog } from "@/db/queries";
+import { getAdminGame, updateGame } from "@/db/queries";
 import { updateGameStatusSchema } from "@/lib/validators";
 import {
   requireAdmin,
   parseJson,
-  getClientIp,
-  getClientUserAgent,
 } from "@/lib/api-guard";
+import { createAuditLog } from "@/lib/audit-log";
 import { handleApiError, isZodError, collectZodIssues } from "@/lib/api-error";
 import { ok, fail } from "@/types";
 import { hasServerEnv } from "@/env";
@@ -87,18 +86,12 @@ export async function PATCH(
   }
 
   // 敏感操作留痕
-  try {
-    const [ip, ua] = await Promise.all([getClientIp(), getClientUserAgent()]);
-    await writeOperationLog({
-      action: "game.status_change",
-      targetId: id,
-      meta: { from: existing.status, to: input.status, slug: existing.slug },
-      operatorIp: ip,
-      operatorUseragent: ua,
-    });
-  } catch (err) {
-    console.error(`[API] PATCH /api/admin/games/${id}/status · 操作日志写入失败`, err);
-  }
+  await createAuditLog({
+    action: "game.status_change",
+    resource: "game",
+    targetId: id,
+    meta: { from: existing.status, to: input.status, slug: existing.slug },
+  });
 
   return NextResponse.json(ok({ status: updated.status }));
 }

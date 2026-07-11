@@ -56,7 +56,38 @@
     "strategy": "Strategy",
     "sports": "Sports",
     "racing": "Racing",
-    "other": "Other"
+    "other": "Other",
+    "title": "Browse by Category",
+    "subtitle": "Explore games organized by category",
+    "empty": "No games in this category yet.",
+    "emptyHint": "Check back later for new additions.",
+    "games": "{count, plural, =0 {No games} one {# game} other {# games}}",
+    "allCategories": "All Categories",
+    "notFound": "Category not found"
+  },
+  "Tags": {
+    "title": "Browse by Tag",
+    "subtitle": "Find games by tags",
+    "empty": "No games found with this tag.",
+    "emptyHint": "Try a different tag.",
+    "games": "{count, plural, =0 {No games} one {# game} other {# games}}",
+    "notFound": "Tag not found"
+  },
+  "Collections": {
+    "title": "Game Collections",
+    "subtitle": "Curated selections of the best games",
+    "empty": "No collections available yet.",
+    "emptyHint": "Check back later for curated game collections.",
+    "games": "{count, plural, =0 {No games} one {# game} other {# games}}",
+    "viewCollection": "View collection",
+    "gameCount": "{count, plural, =0 {No games} one {# game} other {# games}}"
+  },
+  "CollectionDetail": {
+    "games": "Games in this collection",
+    "back": "Back to collections",
+    "empty": "No games in this collection yet.",
+    "emptyHint": "Check back later for new additions.",
+    "notFound": "Collection not found"
   },
   "Footer": {
     "tagline": "Browser games, delivered.",
@@ -79,17 +110,17 @@
     "title": "About MossGap",
     "subtitle": "A cozy corner of the internet for browser games. We curate, you play.",
     "missionTitle": "Our mission",
-    "missionBody": "We believe great games should be one click away. No downloads, no installers, no friction — just open a page and start playing. MossGap brings together a handpicked collection of browser games that run anywhere, on any device, in seconds.",
+    "missionBody": "We believe great games should be one click away. No downloads, no installers, no friction - just open a page and start playing. MossGap brings together a handpicked collection of browser games that run anywhere, on any device, in seconds.",
     "storyTitle": "Our story",
-    "storyBody": "MossGap started as a weekend project to make browser games easier to discover and play. Built on Cloudflare's global edge network, every game loads fast no matter where you are. We're a small team obsessed with playtime — and we're just getting started.",
+    "storyBody": "MossGap started as a weekend project to make browser games easier to discover and play. Built on Cloudflare's global edge network, every game loads fast no matter where you are. We're a small team obsessed with playtime - and we're just getting started.",
     "feature1Title": "Instant play",
-    "feature1Desc": "No downloads. No installs. Click and play — games run right in your browser.",
+    "feature1Desc": "No downloads. No installs. Click and play - games run right in your browser.",
     "feature2Title": "Safe & secure",
     "feature2Desc": "Every game is reviewed and sandboxed. Your data stays yours, always.",
     "feature3Title": "Curated quality",
-    "feature3Desc": "We handpick each title. No filler, no clutter — just games worth your time.",
+    "feature3Desc": "We handpick each title. No filler, no clutter - just games worth your time.",
     "feature4Title": "Works everywhere",
-    "feature4Desc": "Desktop, tablet, phone — any device with a modern browser can join the fun."
+    "feature4Desc": "Desktop, tablet, phone - any device with a modern browser can join the fun."
   },
   "Privacy": {
     "title": "Privacy Policy",
@@ -169,6 +200,34 @@
     "gameDetailDescription": "Play {title} for free on MossGap. No downloads, no installs - play instantly in your browser.",
     "playTitle": "Play {title} - MossGap",
     "playDescription": "Play {title} instantly on MossGap - no downloads required.",
+    "categoriesTitle": "Browse Game Categories - MossGap",
+    "categoriesDescription": "Explore games by category on MossGap. Find action, puzzle, arcade, adventure and more browser games.",
+    "categoryTitle": "{name} Games - MossGap",
+    "categoryDescription": "Play {name} games for free on MossGap. Browse the best {name} browser games.",
+    "categoryDetailTitle": "{name} Games - MossGap",
+    "categoryDetailDescription": "Play {name} games for free on MossGap. No downloads, no installs - play instantly in your browser.",
+    "tagsTitle": "Browse Game Tags - MossGap",
+    "tagsDescription": "Discover games by tags on MossGap. Find the perfect game by topic, style, and features.",
+    "tagTitle": "{name} Games - MossGap",
+    "tagDescription": "Play {name} tagged games for free on MossGap.",
+    "tagDetailTitle": "{name} Games - MossGap",
+    "tagDetailDescription": "Play {name} tagged games for free on MossGap. No downloads, no installs - play instantly in your browser.",
+    "collectionsTitle": "Game Collections - MossGap",
+    "collectionsDescription": "Browse curated game collections on MossGap. Handpicked games for every mood and moment.",
+    "collectionTitle": "{name} - Game Collection - MossGap",
+    "collectionDescription": "Play games in the {name} collection on MossGap.",
+    "collectionDetailTitle": "{name} - Game Collection | MossGap",
+    "collectionDetailDescription": "Play curated {name} games for free on MossGap. No downloads, no installs - play instantly.",
     "siteDescription": "MossGap is a browser game arcade. No downloads, no installs - just hit play."
+  },
+  "Taxonomy": {
+    "back": "Back",
+    "gamesCount": "{count, plural, =0 {No games} one {# game} other {# games}}",
+    "noGames": "No games here yet",
+    "noGamesHint": "Check back later for new additions.",
+    "sortPopular": "Most popular",
+    "sortNewest": "Newest",
+    "collectionsEmpty": "No collections available yet.",
+    "viewCollection": "View collection"
   }
 }

@@ -7,10 +7,10 @@ import { Save, Trash2, Loader2, Plus, X, ExternalLink, ArrowLeft } from "lucide-
 import { toast } from "sonner";
 
 import type { AdminGame, GameCategory, GameStatus } from "@/types";
-import { GAME_CATEGORIES } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { ImageUploader } from "@/components/admin/image-uploader";
 import {
@@ -37,17 +37,6 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 
-const CATEGORY_LABELS: Record<GameCategory, string> = {
-  action: "动作",
-  puzzle: "解谜",
-  arcade: "街机",
-  adventure: "冒险",
-  strategy: "策略",
-  sports: "体育",
-  racing: "竞速",
-  other: "其他",
-};
-
 const STATUS_LABELS: Record<GameStatus, string> = {
   draft: "草稿",
   published: "已发布",
@@ -57,9 +46,12 @@ const STATUS_LABELS: Record<GameStatus, string> = {
 interface GameFormProps {
   game: AdminGame;
   candidates?: { id: string; title: string; slug: string; coverImage: string }[];
+  categories?: { id: string; slug: string; name: string; color: string | null }[];
+  tags?: { id: string; slug: string; name: string; color: string | null }[];
+  collections?: { id: string; slug: string; name: string }[];
 }
 
-export function GameForm({ game, candidates = [] }: GameFormProps) {
+export function GameForm({ game, candidates = [], categories, tags, collections }: GameFormProps) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -75,6 +67,9 @@ export function GameForm({ game, candidates = [] }: GameFormProps) {
   const [enDesc, setEnDesc] = useState(game.locale.en.description);
   const [zhTitle, setZhTitle] = useState(game.locale.zh.title);
   const [zhDesc, setZhDesc] = useState(game.locale.zh.description);
+  const [categoryId, setCategoryId] = useState<string>(game.categoryId ?? "");
+  const [tagIds, setTagIds] = useState<string[]>(game.tagIds ?? []);
+  const [collectionIds, setCollectionIds] = useState<string[]>(game.collectionIds ?? []);
 
   async function onSave() {
     if (saving) return;
@@ -94,6 +89,9 @@ export function GameForm({ game, candidates = [] }: GameFormProps) {
             en: { title: enTitle, description: enDesc },
             zh: { title: zhTitle, description: zhDesc },
           },
+          categoryId: categoryId || null,
+          tagIds,
+          collectionIds,
         }),
       });
       const data = (await res.json()) as {
@@ -317,22 +315,6 @@ export function GameForm({ game, candidates = [] }: GameFormProps) {
               </div>
 
               <div className="space-y-1.5">
-                <Label>分类</Label>
-                <Select value={category} onValueChange={(v) => setCategory(v as GameCategory)}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {GAME_CATEGORIES.map((c) => (
-                      <SelectItem key={c} value={c}>
-                        {CATEGORY_LABELS[c]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
                 <Label>状态</Label>
                 <Select value={status} onValueChange={(v) => setStatus(v as GameStatus)}>
                   <SelectTrigger className="w-full">
@@ -346,6 +328,64 @@ export function GameForm({ game, candidates = [] }: GameFormProps) {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>关联分类</Label>
+                <Select value={categoryId} onValueChange={setCategoryId}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="不关联" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories?.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>标签</Label>
+                <div className="max-h-40 space-y-2 overflow-y-auto rounded-lg border p-3">
+                  {tags?.map((tag) => (
+                    <div key={tag.id} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`tag-${tag.id}`}
+                        checked={tagIds.includes(tag.id)}
+                        onCheckedChange={(checked) => {
+                          if (checked) setTagIds([...tagIds, tag.id]);
+                          else setTagIds(tagIds.filter((id) => id !== tag.id));
+                        }}
+                      />
+                      <Label htmlFor={`tag-${tag.id}`} className="cursor-pointer text-sm font-normal">
+                        {tag.name}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>专题</Label>
+                <div className="max-h-40 space-y-2 overflow-y-auto rounded-lg border p-3">
+                  {collections?.map((collection) => (
+                    <div key={collection.id} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`collection-${collection.id}`}
+                        checked={collectionIds.includes(collection.id)}
+                        onCheckedChange={(checked) => {
+                          if (checked) setCollectionIds([...collectionIds, collection.id]);
+                          else setCollectionIds(collectionIds.filter((id) => id !== collection.id));
+                        }}
+                      />
+                      <Label htmlFor={`collection-${collection.id}`} className="cursor-pointer text-sm font-normal">
+                        {collection.name}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <div className="space-y-1.5">

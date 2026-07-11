@@ -36,8 +36,11 @@ const menuTree = [
     sort_order: 1,
     children: [
       { name: "游戏管理", path: "/admin/games", icon: "Gamepad2", sort_order: 0 },
-      { name: "反馈管理", path: "/admin/feedbacks", icon: "MessageSquare", sort_order: 1 },
-      { name: "OSS 用量", path: "/admin/oss-usage", icon: "HardDrive", sort_order: 2 },
+      { name: "分类管理", path: "/admin/categories", icon: "FolderTree", sort_order: 1 },
+      { name: "标签管理", path: "/admin/tags", icon: "Tags", sort_order: 2 },
+      { name: "专题管理", path: "/admin/collections", icon: "LayoutGrid", sort_order: 3 },
+      { name: "反馈管理", path: "/admin/feedbacks", icon: "MessageSquare", sort_order: 4 },
+      { name: "OSS 用量", path: "/admin/oss-usage", icon: "HardDrive", sort_order: 5 },
     ],
   },
   {

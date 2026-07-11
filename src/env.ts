@@ -21,8 +21,6 @@ const serverEnvSchema = z.object({
     .string()
     .optional()
     .transform((v) => v === "true"),
-  // OSS 适配器选择：aws-sdk（默认，使用 @aws-sdk/client-s3）| custom（手写签名）
-  OSS_ADAPTER: z.string().optional().default("aws-sdk"),
   JWT_SECRET: z.string().min(16, "JWT_SECRET 至少 16 个字符"),
   NEXT_PUBLIC_APP_URL: z.string().url().optional(),
 });
