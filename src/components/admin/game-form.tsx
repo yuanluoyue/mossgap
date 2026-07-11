@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Save, Trash2, Loader2, Plus, X, ExternalLink, ArrowLeft } from "lucide-react";
+import { Save, Trash2, Loader2, Plus, X, ExternalLink, ArrowLeft, UploadCloud } from "lucide-react";
 import { toast } from "sonner";
 
 import type { AdminGame, GameCategory, GameStatus } from "@/types";
@@ -70,6 +70,8 @@ export function GameForm({ game, candidates = [], categories, tags, collections 
   const [categoryId, setCategoryId] = useState<string>(game.categoryId ?? "");
   const [tagIds, setTagIds] = useState<string[]>(game.tagIds ?? []);
   const [collectionIds, setCollectionIds] = useState<string[]>(game.collectionIds ?? []);
+  const [reuploading, setReuploading] = useState(false);
+  const reuploadInputRef = useRef<HTMLInputElement>(null);
 
   async function onSave() {
     if (saving) return;
@@ -133,6 +135,40 @@ export function GameForm({ game, candidates = [], categories, tags, collections 
       toast.error("网络错误");
     } finally {
       setDeleting(false);
+    }
+  }
+
+  async function onReupload(file: File) {
+    if (reuploading) return;
+    if (!file.name.toLowerCase().endsWith(".zip")) {
+      toast.error("仅支持 .zip 文件");
+      return;
+    }
+    setReuploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch(`/api/admin/games/${game.id}/reupload`, {
+        method: "POST",
+        body: fd,
+      });
+      const data = (await res.json()) as {
+        success?: boolean;
+        error?: { message?: string };
+        data?: { entryFile?: string };
+      };
+      if (!res.ok || !data.success) {
+        toast.error(data?.error?.message ?? "重新上传失败");
+        return;
+      }
+      if (data.data?.entryFile) setEntryFile(data.data.entryFile);
+      toast.success("资源已更新，旧资源已清理");
+      router.refresh();
+    } catch {
+      toast.error("网络错误");
+    } finally {
+      setReuploading(false);
+      if (reuploadInputRef.current) reuploadInputRef.current.value = "";
     }
   }
 
@@ -423,6 +459,38 @@ export function GameForm({ game, candidates = [], categories, tags, collections 
                   className="font-mono"
                 />
               </div>
+
+              <div className="space-y-1.5">
+                <Label>重新上传资源</Label>
+                <input
+                  ref={reuploadInputRef}
+                  type="file"
+                  accept=".zip"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void onReupload(f);
+                  }}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  disabled={reuploading || game.sourceType !== "zip"}
+                  onClick={() => reuploadInputRef.current?.click()}
+                >
+                  {reuploading ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <UploadCloud className="size-4" />
+                  )}
+                  {reuploading ? "上传中…" : "选择新 zip 包"}
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  上传新包后会自动切换到新资源并删除旧资源
+                </p>
+              </div>
+
               <div className="rounded-lg bg-slate-50 p-3 text-xs text-muted-foreground">
                 <p className="mb-1 font-medium text-foreground">OSS 路径</p>
                 <p className="break-all font-mono">{game.ossPrefix || "（无）"}</p>

@@ -264,6 +264,7 @@ export async function updateGame(
     categoryId: string | null;
     tagIds: string[];
     collectionIds: string[];
+    ossPrefix: string;
   }>,
 ): Promise<AdminGame | null> {
   const db = await getDb();
