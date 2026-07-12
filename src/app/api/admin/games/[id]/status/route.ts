@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getAdminGame, updateGame } from "@/db/queries";
+import { getAdminGame, updateGame, recalcCategoryGameCount, recalcTagGameCount } from "@/db/queries";
 import { updateGameStatusSchema } from "@/lib/validators";
 import {
   requireAdmin,
@@ -92,6 +92,14 @@ export async function PATCH(
     targetId: id,
     meta: { from: existing.status, to: input.status, slug: existing.slug },
   });
+
+  // 重算分类/标签游戏数（gameCount 只统计 published）
+  if (updated.categoryId) {
+    await recalcCategoryGameCount(updated.categoryId);
+  }
+  for (const tagId of updated.tagIds ?? []) {
+    await recalcTagGameCount(tagId);
+  }
 
   return NextResponse.json(ok({ status: updated.status }));
 }

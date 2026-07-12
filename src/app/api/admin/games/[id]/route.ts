@@ -4,6 +4,8 @@ import {
   getAdminGame,
   updateGame,
   deleteGame,
+  recalcCategoryGameCount,
+  recalcTagGameCount,
 } from "@/db/queries";
 import { upsertGameSchema } from "@/lib/validators";
 import {
@@ -99,6 +101,28 @@ export async function PATCH(
     });
     if (!updated) {
       return NextResponse.json(fail("NOT_FOUND", "游戏不存在"), { status: 404 });
+    }
+
+    // 重算分类游戏数：categoryId 变化时重算新旧分类；status 变化时重算当前分类
+    const oldCatId = existing.categoryId ?? null;
+    const newCatId = updated.categoryId ?? null;
+    const catChanged = oldCatId !== newCatId;
+    const statusChanged = existing.status !== updated.status;
+    if (catChanged) {
+      if (oldCatId) await recalcCategoryGameCount(oldCatId);
+      if (newCatId) await recalcCategoryGameCount(newCatId);
+    } else if (statusChanged && newCatId) {
+      await recalcCategoryGameCount(newCatId);
+    }
+
+    // 重算标签游戏数：tagIds 变化时重算受影响的标签
+    const oldTagIds = new Set(existing.tagIds ?? []);
+    const newTagIds = new Set(updated.tagIds ?? []);
+    if (catChanged || statusChanged || oldTagIds.size !== newTagIds.size || [...oldTagIds].some((t) => !newTagIds.has(t))) {
+      const affectedTags = new Set<string>([...oldTagIds, ...newTagIds]);
+      for (const tagId of affectedTags) {
+        await recalcTagGameCount(tagId);
+      }
     }
 
     // 状态变更记日志（上架/下架属于敏感操作）

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Gamepad2, Upload, Search, Eye } from "lucide-react";
 
-import { listAdminGames } from "@/db/queries";
+import { listAdminGames, listAllCategoriesForPicker } from "@/db/queries";
 import { publicObjectUrl } from "@/lib/oss";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -53,6 +53,10 @@ export default async function AdminGamesPage({
     search: search || undefined,
     status: status === "all" ? undefined : (status as "draft" | "published" | "archived"),
   });
+
+  // 加载所有分类，用于在列表中按 categoryId 显示分类名
+  const allCategories = await listAllCategoriesForPicker();
+  const categoryNameMap = new Map(allCategories.map((c) => [c.id, c.name]));
 
   const totalPages = Math.max(1, Math.ceil(result.total / PAGE_SIZE));
 
@@ -168,7 +172,9 @@ export default async function AdminGamesPage({
                       {g.slug}
                     </p>
                   </TableCell>
-                  <TableCell className="text-sm">{g.category}</TableCell>
+                  <TableCell className="text-sm">
+                    {g.categoryId ? (categoryNameMap.get(g.categoryId) ?? "-") : "-"}
+                  </TableCell>
                   <TableCell>
                     <StatusBadge status={g.status} />
                   </TableCell>
