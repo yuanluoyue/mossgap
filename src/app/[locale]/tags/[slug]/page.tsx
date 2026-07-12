@@ -5,11 +5,26 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { ArrowLeft, SearchX } from "lucide-react";
 
 import { GameCard } from "@/components/game-card";
-import { getPublicTagBySlug, listGamesByTag } from "@/db/queries";
-import { hasServerEnv } from "@/env";
+import {
+  getPublicTagBySlug,
+  listGamesByTag,
+  listPublicTagSlugs,
+} from "@/db/queries";
+import { routing } from "@/i18n/routing";
 import { buildPageMetadata, getSiteUrl } from "@/lib/seo";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
+
+export async function generateStaticParams() {
+  try {
+    const slugs = await listPublicTagSlugs();
+    return routing.locales.flatMap((locale) =>
+      slugs.map((c) => ({ locale, slug: c.slug })),
+    );
+  } catch {
+    return [];
+  }
+}
 
 const PAGE_SIZE = 12;
 
@@ -22,8 +37,7 @@ export async function generateMetadata({
   const localeCode = (locale === "zh" ? "zh" : "en") as "en" | "zh";
   const t = await getTranslations({ locale, namespace: "Seo" });
 
-  const enabled = await hasServerEnv();
-  const tag = enabled ? await getPublicTagBySlug(slug, localeCode) : null;
+  const tag = await getPublicTagBySlug(slug, localeCode);
 
   if (!tag) {
     return buildPageMetadata({
@@ -61,16 +75,13 @@ export default async function TagDetailPage({
 
   const t = await getTranslations("Taxonomy");
 
-  const enabled = await hasServerEnv();
-  const { items, total, tag } = enabled
-    ? await listGamesByTag(
-        slug,
-        { page, pageSize: PAGE_SIZE, sort },
-        localeCode,
-      )
-    : { items: [], total: 0, tag: null };
+  const { items, total, tag } = await listGamesByTag(
+    slug,
+    { page, pageSize: PAGE_SIZE, sort },
+    localeCode,
+  );
 
-  if (enabled && !tag) notFound();
+  if (!tag) notFound();
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const hasResults = items.length > 0;

@@ -6,10 +6,11 @@ import { SearchX } from "lucide-react";
 import { GameCard } from "@/components/game-card";
 import { GamesFilter } from "@/components/games-filter";
 import { listPublicGames } from "@/db/queries";
-import { hasServerEnv } from "@/env";
 import type { GameCategory } from "@/types";
 import { GAME_CATEGORIES } from "@/types";
 import { buildPageMetadata, getSiteUrl } from "@/lib/seo";
+
+export const revalidate = 300;
 
 const PAGE_SIZE = 12;
 
@@ -55,13 +56,10 @@ export default async function GamesPage({
 
   const t = await getTranslations("Games");
 
-  const enabled = await hasServerEnv();
-  const { items, total } = enabled
-    ? await listPublicGames(
-        { page, pageSize: PAGE_SIZE, category, sort, q },
-        localeCode,
-      )
-    : { items: [], total: 0 };
+  const { items, total } = await listPublicGames(
+    { page, pageSize: PAGE_SIZE, category, sort, q },
+    localeCode,
+  );
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const hasResults = items.length > 0;

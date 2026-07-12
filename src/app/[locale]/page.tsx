@@ -6,8 +6,9 @@ import { ChevronRight, Star, Flame, Clock, Gamepad2 } from "lucide-react";
 import { GameCard } from "@/components/game-card";
 import { listPublicGames, listFeaturedGames } from "@/db/queries";
 
-import { hasServerEnv } from "@/env";
 import { buildPageMetadata, getSiteUrl, SITE_NAME } from "@/lib/seo";
+
+export const revalidate = 300;
 
 export async function generateMetadata({
   params,
@@ -35,23 +36,14 @@ export default async function HomePage({
 
   const localeCode = (locale === "zh" ? "zh" : "en") as "en" | "zh";
 
-  const enabled = await hasServerEnv();
-  const empty = {
-    items: [] as Awaited<ReturnType<typeof listPublicGames>>["items"],
-    total: 0,
-  };
-  const popular = enabled
-    ? await listPublicGames(
-        { page: 1, pageSize: 12, sort: "popular" },
-        localeCode,
-      )
-    : empty;
-  const newest = enabled
-    ? await listPublicGames(
-        { page: 1, pageSize: 12, sort: "newest" },
-        localeCode,
-      )
-    : empty;
+  const popular = await listPublicGames(
+    { page: 1, pageSize: 12, sort: "popular" },
+    localeCode,
+  );
+  const newest = await listPublicGames(
+    { page: 1, pageSize: 12, sort: "newest" },
+    localeCode,
+  );
 
   const hasGames = popular.items.length > 0 || newest.items.length > 0;
 

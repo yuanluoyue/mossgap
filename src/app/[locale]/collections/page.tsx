@@ -4,10 +4,11 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { SearchX, Gamepad2 } from "lucide-react";
 
 import { listPublicCollections } from "@/db/queries";
-import { hasServerEnv } from "@/env";
 import { buildPageMetadata, getSiteUrl } from "@/lib/seo";
 import { formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
+
+export const revalidate = 300;
 
 const COVER_GRADIENTS = [
   "from-sky-100 via-cyan-100 to-teal-100",
@@ -52,10 +53,7 @@ export default async function CollectionsPage({
   const t = await getTranslations("Taxonomy");
   const tc = await getTranslations("Collections");
 
-  const enabled = await hasServerEnv();
-  const collections = enabled
-    ? await listPublicCollections(localeCode)
-    : [];
+  const collections = await listPublicCollections(localeCode);
 
   const hasResults = collections.length > 0;
 

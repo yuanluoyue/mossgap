@@ -5,11 +5,26 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { ArrowLeft, SearchX } from "lucide-react";
 
 import { GameCard } from "@/components/game-card";
-import { getPublicCategoryBySlug, listGamesByCategory } from "@/db/queries";
-import { hasServerEnv } from "@/env";
+import {
+  getPublicCategoryBySlug,
+  listGamesByCategory,
+  listPublicCategorySlugs,
+} from "@/db/queries";
+import { routing } from "@/i18n/routing";
 import { buildPageMetadata, getSiteUrl } from "@/lib/seo";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
+
+export async function generateStaticParams() {
+  try {
+    const slugs = await listPublicCategorySlugs();
+    return routing.locales.flatMap((locale) =>
+      slugs.map((c) => ({ locale, slug: c.slug })),
+    );
+  } catch {
+    return [];
+  }
+}
 
 const PAGE_SIZE = 12;
 
@@ -22,10 +37,7 @@ export async function generateMetadata({
   const localeCode = (locale === "zh" ? "zh" : "en") as "en" | "zh";
   const t = await getTranslations({ locale, namespace: "Seo" });
 
-  const enabled = await hasServerEnv();
-  const category = enabled
-    ? await getPublicCategoryBySlug(slug, localeCode)
-    : null;
+  const category = await getPublicCategoryBySlug(slug, localeCode);
 
   if (!category) {
     return buildPageMetadata({
@@ -65,16 +77,13 @@ export default async function CategoryDetailPage({
 
   const t = await getTranslations("Taxonomy");
 
-  const enabled = await hasServerEnv();
-  const { items, total, category } = enabled
-    ? await listGamesByCategory(
-        slug,
-        { page, pageSize: PAGE_SIZE, sort },
-        localeCode,
-      )
-    : { items: [], total: 0, category: null };
+  const { items, total, category } = await listGamesByCategory(
+    slug,
+    { page, pageSize: PAGE_SIZE, sort },
+    localeCode,
+  );
 
-  if (enabled && !category) notFound();
+  if (!category) notFound();
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const hasResults = items.length > 0;

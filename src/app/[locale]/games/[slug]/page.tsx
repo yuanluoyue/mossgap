@@ -13,13 +13,25 @@ import {
   hasLiked,
   hasDisliked,
   incrementPlayCount,
+  listPublishedGameSlugs,
 } from "@/db/queries";
 import { getClientIp, getClientUserAgent } from "@/lib/api-guard";
-import { hasServerEnv } from "@/env";
+import { routing } from "@/i18n/routing";
 import { CATEGORY_COLORS } from "@/types";
 import { buildPageMetadata, getSiteUrl } from "@/lib/seo";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
+
+export async function generateStaticParams() {
+  try {
+    const slugs = await listPublishedGameSlugs();
+    return routing.locales.flatMap((locale) =>
+      slugs.map((g) => ({ locale, slug: g.slug })),
+    );
+  } catch {
+    return [];
+  }
+}
 
 export async function generateMetadata({
   params,
@@ -30,8 +42,7 @@ export async function generateMetadata({
   const localeCode = (locale === "zh" ? "zh" : "en") as "en" | "zh";
   const t = await getTranslations({ locale, namespace: "Seo" });
 
-  const enabled = await hasServerEnv();
-  const game = enabled ? await getPublicGameBySlug(slug, localeCode) : null;
+  const game = await getPublicGameBySlug(slug, localeCode);
   if (!game) {
     return buildPageMetadata({
       title: t("gamesTitle"),
@@ -64,29 +75,16 @@ export default async function GameDetailPage({
   const t = await getTranslations("GameDetail");
   const tf = await getTranslations("Feedback");
 
-  const enabled = await hasServerEnv();
-  const game = enabled ? await getPublicGameBySlug(slug, localeCode) : null;
-  if (enabled && !game) notFound();
-
-  // 数据库未配置时显示占位
-  if (!game) {
-    return (
-      <div className="mx-auto max-w-4xl px-4 py-20 text-center sm:px-6 lg:px-8">
-        <p className="font-heading text-2xl text-foreground">{t("notFound")}</p>
-        <p className="mt-2 text-sm text-muted-foreground">DATABASE_URL not configured.</p>
-      </div>
-    );
-  }
+  const game = await getPublicGameBySlug(slug, localeCode);
+  if (!game) notFound();
 
   // 服务端并行：相关推荐 + 点赞/点踩初始状态 + 记录一次游玩
   const accent = CATEGORY_COLORS[game.category] ?? "#7c3aed";
-  const [related, liked, disliked] = enabled
-    ? await Promise.all([
-        listRelatedGames(game.category, game.id, localeCode, [], 6),
-        hasLiked(game.id, await getClientIp()),
-        hasDisliked(game.id, await getClientIp()),
-      ])
-    : [[], false, false];
+  const [related, liked, disliked] = await Promise.all([
+    listRelatedGames(game.category, game.id, localeCode, [], 6),
+    hasLiked(game.id, await getClientIp()),
+    hasDisliked(game.id, await getClientIp()),
+  ]);
 
   // 浏览次数统计已暂时关闭（D1 免费写入次数有限）
   // if (enabled) {

@@ -8,11 +8,23 @@ import { GameCard } from "@/components/game-card";
 import {
   getPublicCollectionBySlug,
   listGamesByCollection,
+  listPublicCollectionSlugs,
 } from "@/db/queries";
-import { hasServerEnv } from "@/env";
+import { routing } from "@/i18n/routing";
 import { buildPageMetadata, getSiteUrl } from "@/lib/seo";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
+
+export async function generateStaticParams() {
+  try {
+    const slugs = await listPublicCollectionSlugs();
+    return routing.locales.flatMap((locale) =>
+      slugs.map((c) => ({ locale, slug: c.slug })),
+    );
+  } catch {
+    return [];
+  }
+}
 
 const PAGE_SIZE = 12;
 
@@ -25,10 +37,7 @@ export async function generateMetadata({
   const localeCode = (locale === "zh" ? "zh" : "en") as "en" | "zh";
   const t = await getTranslations({ locale, namespace: "Seo" });
 
-  const enabled = await hasServerEnv();
-  const collection = enabled
-    ? await getPublicCollectionBySlug(slug, localeCode)
-    : null;
+  const collection = await getPublicCollectionBySlug(slug, localeCode);
 
   if (!collection) {
     return buildPageMetadata({
@@ -67,16 +76,13 @@ export default async function CollectionDetailPage({
 
   const t = await getTranslations("Taxonomy");
 
-  const enabled = await hasServerEnv();
-  const { items, total, collection } = enabled
-    ? await listGamesByCollection(
-        slug,
-        { page, pageSize: PAGE_SIZE },
-        localeCode,
-      )
-    : { items: [], total: 0, collection: null };
+  const { items, total, collection } = await listGamesByCollection(
+    slug,
+    { page, pageSize: PAGE_SIZE },
+    localeCode,
+  );
 
-  if (enabled && !collection) notFound();
+  if (!collection) notFound();
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const hasResults = items.length > 0;

@@ -40,6 +40,15 @@
   "images": {
     "binding": "IMAGES"
   },
+  // ISR 增量缓存使用的 R2 bucket（需要开通 R2 后取消注释）
+  // 开启 ISR：1) 取消下方 r2_buckets 注释  2) 设置环境变量 ENABLE_ISR=true
+  // 未开通 R2 时保持注释，C 端页面仍会构建时预渲染，但不支持运行时 revalidation
+  // "r2_buckets": [
+  //   {
+  //     "binding": "NEXT_INC_CACHE_R2_BUCKET",
+  //     "bucket_name": "giftpro-sg"
+  //   }
+  // ],
   // 启用代码压缩以减小 Worker 体积
   "minify": true
 }
