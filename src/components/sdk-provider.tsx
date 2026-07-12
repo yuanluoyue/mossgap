@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { analytics, bridge, dispatcher, logger } from "@/sdk";
+import { GA_MEASUREMENT_ID } from "@/lib/ga";
 import type { AnalyticsMessage, LogMessage } from "@/sdk";
 
 /**
@@ -17,13 +18,8 @@ import type { AnalyticsMessage, LogMessage } from "@/sdk";
 export function SDKProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // 1. 初始化 Analytics
-    const measurementId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
-    if (measurementId) {
-      analytics.init(measurementId);
-      logger.info("[SDK] analytics initialized", { id: measurementId });
-    } else {
-      logger.warn("[SDK] NEXT_PUBLIC_GA_MEASUREMENT_ID not set");
-    }
+    analytics.init(GA_MEASUREMENT_ID);
+    logger.info("[SDK] analytics initialized", { id: GA_MEASUREMENT_ID });
 
     // 2. 启动 Bridge 监听
     const stopBridge = bridge.listen();
