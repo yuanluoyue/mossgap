@@ -2,18 +2,17 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
+import { GamePlayer } from "@/components/game-player";
 import {
   getPublicGameBySlug,
-  listPublishedGameSlugs,
 } from "@/db/queries";
 import { hasServerEnv } from "@/env";
-import { routing } from "@/i18n/routing";
 import { buildPageMetadata } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
 export async function generateStaticParams() {
-  return routing.locales.map((locale) => ({ locale }));
+  return [{ locale: "en" }, { locale: "zh" }];
 }
 
 export async function generateMetadata({
@@ -58,13 +57,10 @@ export default async function GameDetailPage({
 
   const t = await getTranslations("GameDetail");
 
-  // 加回 DB 查询，但只用最小渲染
   const enabled = await hasServerEnv();
-  console.log("[GameDetail] enabled:", enabled, "slug:", slug);
   let game = null;
   try {
     game = enabled ? await getPublicGameBySlug(slug, localeCode) : null;
-    console.log("[GameDetail] game found:", !!game, game ? { id: game.id, title: game.title, playUrl: game.playUrl } : null);
   } catch (err) {
     console.error("[GameDetail] getPublicGameBySlug error:", err);
     return (
@@ -78,16 +74,16 @@ export default async function GameDetailPage({
   }
   if (!game) notFound();
 
+  // 加回 GamePlayer 组件
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
-      <h1 className="text-2xl font-bold">[Debug] Game Loaded</h1>
-      <p className="mt-4 text-sm">id: {game.id}</p>
-      <p className="text-sm">title: {game.title}</p>
-      <p className="text-sm">slug: {game.slug}</p>
-      <p className="text-sm">category: {game.category}</p>
+      <h1 className="text-2xl font-bold">[Debug] With GamePlayer</h1>
+      <p className="mt-4 text-sm">title: {game.title}</p>
       <p className="text-sm">playUrl: {game.playUrl || "(empty)"}</p>
-      <p className="text-sm">likeCount: {game.likeCount}</p>
-      <p className="mt-4 text-sm text-muted-foreground">{t("back")}</p>
+      <div className="mt-4">
+        <GamePlayer src={game.playUrl} title={game.title} loadingLabel={t("loading")} />
+      </div>
+      <p className="mt-4 text-sm text-muted-foreground">GamePlayer rendered above</p>
     </div>
   );
 }
