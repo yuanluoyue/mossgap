@@ -12,6 +12,7 @@ import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
 import { FeedbackDialog } from "@/components/feedback-dialog";
+import { analytics } from "@/sdk";
 
 interface GameToolbarProps {
   /** 游戏 slug，用于调用点赞/点踩 API */
@@ -80,9 +81,19 @@ export function GameToolbar({
     if (document.fullscreenElement) {
       document.exitFullscreen();
       setFullscreen(false);
+      analytics.platform("toolbar_button_click", {
+        button: "fullscreen",
+        action: "exit",
+        slug,
+      });
     } else {
       el.requestFullscreen();
       setFullscreen(true);
+      analytics.platform("toolbar_button_click", {
+        button: "fullscreen",
+        action: "enter",
+        slug,
+      });
     }
   }
 
@@ -90,6 +101,11 @@ export function GameToolbar({
     if (pending) return;
     const prevLiked = liked;
     const prevCount = likeCount;
+    analytics.platform("toolbar_button_click", {
+      button: "like",
+      action: liked ? "unlike" : "like",
+      slug,
+    });
     // 乐观更新
     setLiked(!prevLiked);
     setLikeCount(prevLiked ? Math.max(0, prevCount - 1) : prevCount + 1);
@@ -127,6 +143,11 @@ export function GameToolbar({
     if (pending) return;
     const prevDisliked = disliked;
     const prevCount = dislikeCount;
+    analytics.platform("toolbar_button_click", {
+      button: "dislike",
+      action: disliked ? "undislike" : "dislike",
+      slug,
+    });
     // 乐观更新
     setDisliked(!prevDisliked);
     setDislikeCount(prevDisliked ? Math.max(0, prevCount - 1) : prevCount + 1);
@@ -192,6 +213,12 @@ export function GameToolbar({
           trigger={
             <button
               type="button"
+              onClick={() =>
+                analytics.platform("toolbar_button_click", {
+                  button: "feedback",
+                  slug,
+                })
+              }
               className="btn-press inline-flex items-center justify-center rounded-full p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               aria-label="feedback"
             >

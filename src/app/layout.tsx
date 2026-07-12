@@ -3,6 +3,7 @@ import { getLocale, getMessages } from "next-intl/server";
 import { NextIntlClientProvider } from "next-intl";
 import { Toaster } from "@/components/ui/sonner";
 import { Analytics } from "@/components/analytics";
+import { SDKProvider } from "@/components/sdk-provider";
 import { SITE_NAME } from "@/lib/seo";
 import "./globals.css";
 
@@ -25,9 +26,11 @@ export default async function RootLayout({
     <html lang={locale} suppressHydrationWarning className="h-full antialiased">
       <body className="min-h-full flex flex-col">
         <NextIntlClientProvider locale={locale} messages={messages}>
-          {children}
-          <Toaster position="top-center" />
-          <Analytics />
+          <SDKProvider>
+            {children}
+            <Toaster position="top-center" />
+            <Analytics />
+          </SDKProvider>
         </NextIntlClientProvider>
       </body>
     </html>
