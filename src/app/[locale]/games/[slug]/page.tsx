@@ -3,10 +3,12 @@ import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
 import { GamePlayer } from "@/components/game-player";
+import { GameToolbar } from "@/components/game-toolbar";
 import {
   getPublicGameBySlug,
 } from "@/db/queries";
 import { hasServerEnv } from "@/env";
+import { CATEGORY_COLORS } from "@/types";
 import { buildPageMetadata } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
@@ -56,6 +58,7 @@ export default async function GameDetailPage({
   const localeCode = (locale === "zh" ? "zh" : "en") as "en" | "zh";
 
   const t = await getTranslations("GameDetail");
+  const tf = await getTranslations("Feedback");
 
   const enabled = await hasServerEnv();
   let game = null;
@@ -74,16 +77,42 @@ export default async function GameDetailPage({
   }
   if (!game) notFound();
 
-  // 加回 GamePlayer 组件
+  const accent = CATEGORY_COLORS[game.category] ?? "#7c3aed";
+  const feedbackLabels = {
+    title: tf("gameTitle"),
+    description: tf("gameDescription"),
+    contentLabel: tf("contentLabel"),
+    contentPlaceholder: tf("contentPlaceholder"),
+    contactLabel: tf("contactLabel"),
+    contactPlaceholder: tf("contactPlaceholder"),
+    submit: tf("submit"),
+    submitting: tf("submitting"),
+    success: tf("success"),
+    error: tf("error"),
+  };
+
+  // 加回 GameToolbar，但不加点赞查询（用 false 兜底）
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
-      <h1 className="text-2xl font-bold">[Debug] With GamePlayer</h1>
+      <h1 className="text-2xl font-bold">[Debug] With GameToolbar</h1>
       <p className="mt-4 text-sm">title: {game.title}</p>
-      <p className="text-sm">playUrl: {game.playUrl || "(empty)"}</p>
-      <div className="mt-4">
+      <div className="mt-4 flex flex-col items-center">
         <GamePlayer src={game.playUrl} title={game.title} loadingLabel={t("loading")} />
+        <GameToolbar
+          slug={game.slug}
+          gameId={game.id}
+          coverImage={game.coverImage}
+          title={game.title}
+          creator=""
+          initialLiked={false}
+          initialLikeCount={game.likeCount}
+          initialDisliked={false}
+          initialDislikeCount={game.dislikeCount}
+          accent={accent}
+          feedbackLabels={feedbackLabels}
+        />
       </div>
-      <p className="mt-4 text-sm text-muted-foreground">GamePlayer rendered above</p>
+      <p className="mt-4 text-sm text-muted-foreground">GameToolbar rendered above</p>
     </div>
   );
 }
