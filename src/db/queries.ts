@@ -424,42 +424,116 @@ export async function getPublicGameBySlug(
   return row[0] ? await toPublicGame(row[0], locale) : null;
 }
 
-/** C 端相关推荐：优先使用人工配置的 relatedGameIds，不足再按同分类补齐。 */
+/**
+ * C 端相关推荐（MVP）。
+ *
+ * 推荐顺序：
+ * 1. 同分类（categoryId）的已发布游戏
+ * 2. 标签相同数越多的越靠前
+ * 3. 不足则用其他已发布游戏补齐
+ *
+ * @param gameId 当前游戏 ID
+ * @param category 旧枚举分类（保留参数兼容，不再用于推荐）
+ * @param locale 语言
+ * @param _relatedIds 人工配置的相关游戏 ID（保留参数兼容，MVP 暂不使用）
+ * @param limit 返回数量，默认 6
+ */
 export async function listRelatedGames(
-  category: GameCategory,
-  excludeId: string,
+  _category: GameCategory,
+  gameId: string,
   locale: Locale,
-  relatedIds: string[] = [],
+  _relatedIds: string[] = [],
   limit = 6,
 ): Promise<PublicGame[]> {
   const db = await getDb();
-  const picked: PublicGame[] = [];
 
-  // 1. 人工选择的相关游戏
-  if (relatedIds.length > 0) {
+  // 查当前游戏的 categoryId 和 tagIds
+  const current = await db
+    .select({ categoryId: games.categoryId })
+    .from(games)
+    .where(eq(games.id, gameId))
+    .limit(1);
+  const categoryId = current[0]?.categoryId ?? null;
+
+  let currentTagIds: string[] = [];
+  {
+    const tagRows = await db
+      .select({ tagId: gameTags.tagId })
+      .from(gameTags)
+      .where(eq(gameTags.gameId, gameId));
+    currentTagIds = tagRows.map((r) => r.tagId);
+  }
+
+  const picked: PublicGame[] = [];
+  const pickedIds = new Set<string>([gameId]);
+
+  // 1. 同分类游戏
+  if (categoryId) {
     const rows = await db
       .select()
       .from(games)
-      .where(and(eq(games.status, "published"), inArray(games.id, relatedIds)))
+      .where(and(eq(games.categoryId, categoryId), eq(games.status, "published")))
+      .orderBy(desc(games.playCount))
       .limit(limit + 1);
     for (const r of rows) {
-      if (r.id !== excludeId) picked.push(await toPublicGame(r, locale));
+      if (picked.length >= limit) break;
+      if (pickedIds.has(r.id)) continue;
+      picked.push(await toPublicGame(r, locale));
+      pickedIds.add(r.id);
     }
   }
 
-  // 2. 不足则按同分类补齐
+  // 2. 标签相同的游戏（按相同标签数排序）
+  if (picked.length < limit && currentTagIds.length > 0) {
+    // 查所有共享至少一个标签的游戏 ID
+    const tagMatchRows = await db
+      .select({
+        gameId: gameTags.gameId,
+        tagId: gameTags.tagId,
+      })
+      .from(gameTags)
+      .where(inArray(gameTags.tagId, currentTagIds));
+    // 统计每个游戏的相同标签数
+    const matchCount = new Map<string, number>();
+    for (const r of tagMatchRows) {
+      if (r.gameId === gameId || pickedIds.has(r.gameId)) continue;
+      matchCount.set(r.gameId, (matchCount.get(r.gameId) ?? 0) + 1);
+    }
+    // 按相同标签数降序
+    const sortedIds = [...matchCount.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map((e) => e[0]);
+    if (sortedIds.length > 0) {
+      const rows = await db
+        .select()
+        .from(games)
+        .where(and(inArray(games.id, sortedIds), eq(games.status, "published")))
+        .limit(limit - picked.length);
+      // 按相同标签数排序
+      const rowMap = new Map(rows.map((r) => [r.id, r]));
+      for (const id of sortedIds) {
+        if (picked.length >= limit) break;
+        const r = rowMap.get(id);
+        if (!r || pickedIds.has(r.id)) continue;
+        picked.push(await toPublicGame(r, locale));
+        pickedIds.add(r.id);
+      }
+    }
+  }
+
+  // 3. 不足则用其他已发布游戏补齐（按游玩数降序）
   if (picked.length < limit) {
     const rows = await db
       .select()
       .from(games)
-      .where(and(eq(games.category, category), eq(games.status, "published")))
-      .limit(limit + 1);
-    const existingIds = new Set(picked.map((g) => g.id));
+      .where(eq(games.status, "published"))
+      .orderBy(desc(games.playCount))
+      .limit(limit - picked.length + pickedIds.size);
     for (const r of rows) {
-      if (r.id !== excludeId && !existingIds.has(r.id)) {
-        picked.push(await toPublicGame(r, locale));
-      }
       if (picked.length >= limit) break;
+      if (pickedIds.has(r.id)) continue;
+      picked.push(await toPublicGame(r, locale));
+      pickedIds.add(r.id);
     }
   }
 

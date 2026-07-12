@@ -55,11 +55,15 @@ export const aws4FetchAdapter: OssAdapter = {
     const { client, bucket } = await getClient();
     const e = await getServerEnv();
     const url = buildUrl(e.S3_ENDPOINT, bucket, key, e.S3_FORCE_PATH_STYLE);
+    // R2 要求 PUT 带 Content-Length，手动计算字节数
+    const bodyBytes =
+      typeof body === "string" ? new TextEncoder().encode(body) : body;
     const res = await client.fetch(url, {
       method: "PUT",
-      body: body as BodyInit,
+      body: bodyBytes as BodyInit,
       headers: {
         "Content-Type": contentType,
+        "Content-Length": String(bodyBytes.byteLength),
         "x-amz-acl": "public-read",
       },
     });
