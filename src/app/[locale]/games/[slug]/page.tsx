@@ -12,10 +12,9 @@ import {
   listRelatedGames,
   hasLiked,
   hasDisliked,
-  incrementPlayCount,
   listPublishedGameSlugs,
 } from "@/db/queries";
-import { getClientIp, getClientUserAgent } from "@/lib/api-guard";
+import { getClientIp } from "@/lib/api-guard";
 import { routing } from "@/i18n/routing";
 import { CATEGORY_COLORS } from "@/types";
 import { buildPageMetadata, getSiteUrl } from "@/lib/seo";
@@ -78,13 +77,27 @@ export default async function GameDetailPage({
   const game = await getPublicGameBySlug(slug, localeCode);
   if (!game) notFound();
 
-  // 服务端并行：相关推荐 + 点赞/点踩初始状态 + 记录一次游玩
+  // 服务端并行：相关推荐 + 点赞/点踩初始状态
+  // 注意：ISR 构建时 headers() 不可用，getClientIp 会抛错，需 try/catch 兜底
   const accent = CATEGORY_COLORS[game.category] ?? "#7c3aed";
-  const [related, liked, disliked] = await Promise.all([
-    listRelatedGames(game.category, game.id, localeCode, [], 6),
-    hasLiked(game.id, await getClientIp()),
-    hasDisliked(game.id, await getClientIp()),
+  const clientIp = await getClientIp().catch(() => "0.0.0.0");
+  const [relatedResult, likedResult, dislikedResult] = await Promise.all([
+    listRelatedGames(game.category, game.id, localeCode, [], 6).then(
+      (r) => r,
+      () => [] as Awaited<ReturnType<typeof listRelatedGames>>,
+    ),
+    hasLiked(game.id, clientIp).then(
+      (v) => v,
+      () => false,
+    ),
+    hasDisliked(game.id, clientIp).then(
+      (v) => v,
+      () => false,
+    ),
   ]);
+  const related = relatedResult;
+  const liked = likedResult;
+  const disliked = dislikedResult;
 
   // 浏览次数统计已暂时关闭（D1 免费写入次数有限）
   // if (enabled) {
