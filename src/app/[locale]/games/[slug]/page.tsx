@@ -14,7 +14,8 @@ import {
   hasDisliked,
   listPublishedGameSlugs,
 } from "@/db/queries";
-import { getClientIp } from "@/lib/api-guard";
+// 二分法排查：暂时不用 getClientIp
+// import { getClientIp } from "@/lib/api-guard";
 import { routing } from "@/i18n/routing";
 import { CATEGORY_COLORS } from "@/types";
 import { buildPageMetadata, getSiteUrl } from "@/lib/seo";
@@ -97,21 +98,24 @@ export default async function GameDetailPage({
     }
 
     const accent = CATEGORY_COLORS[game.category] ?? "#7c3aed";
-    const clientIp = await getClientIp().catch(() => "0.0.0.0");
-    const [related, liked, disliked] = await Promise.all([
-      listRelatedGames(game.category, game.id, localeCode, [], 6).then(
-        (r) => r,
-        () => [] as Awaited<ReturnType<typeof listRelatedGames>>,
-      ),
-      hasLiked(game.id, clientIp).then(
-        (v) => v,
-        () => false,
-      ),
-      hasDisliked(game.id, clientIp).then(
-        (v) => v,
-        () => false,
-      ),
-    ]);
+    // 二分法排查：先注释推荐和点赞查询，确认是否还白屏
+    // const [related, liked, disliked] = await Promise.all([
+    //   listRelatedGames(game.category, game.id, localeCode, [], 6).then(
+    //     (r) => r,
+    //     () => [] as Awaited<ReturnType<typeof listRelatedGames>>,
+    //   ),
+    //   hasLiked(game.id, clientIp).then(
+    //     (v) => v,
+    //     () => false,
+    //   ),
+    //   hasDisliked(game.id, clientIp).then(
+    //     (v) => v,
+    //     () => false,
+    //   ),
+    // ]);
+    const related: Awaited<ReturnType<typeof listRelatedGames>> = [];
+    const liked = false;
+    const disliked = false;
 
     const feedbackLabels = {
       title: tf("gameTitle"),
