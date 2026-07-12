@@ -218,7 +218,7 @@ export default async function CollectionDetailPage({
                 ))}
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+              <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,200px)] justify-center">
                 {restGames.map((g) => (
                   <GameCard key={g.id} game={g} />
                 ))}

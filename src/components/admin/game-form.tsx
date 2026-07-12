@@ -200,7 +200,7 @@ export function GameForm({ game, candidates = [], categories, tags, collections 
           {game.status === "published" && game.ossPrefix ? (
             <Button asChild variant="outline">
               <a
-                href={`/play/${game.slug}`}
+                href={`/games/${game.slug}`}
                 target="_blank"
                 rel="noreferrer"
               >
