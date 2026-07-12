@@ -41,7 +41,13 @@ export async function generateMetadata({
   const localeCode = (locale === "zh" ? "zh" : "en") as "en" | "zh";
   const t = await getTranslations({ locale, namespace: "Seo" });
 
-  const game = await getPublicGameBySlug(slug, localeCode);
+  // try/catch：环境变量缺失或 DB 异常时回退到默认 metadata，避免 generateMetadata 抛错导致白屏
+  let game = null;
+  try {
+    game = await getPublicGameBySlug(slug, localeCode);
+  } catch {
+    game = null;
+  }
   if (!game) {
     return buildPageMetadata({
       title: t("gamesTitle"),
@@ -74,14 +80,20 @@ export default async function GameDetailPage({
   const t = await getTranslations("GameDetail");
   const tf = await getTranslations("Feedback");
 
-  const game = await getPublicGameBySlug(slug, localeCode);
+  // try/catch：环境变量缺失或 DB 异常时回退到 404，避免 Server Components 抛错白屏
+  let game = null;
+  try {
+    game = await getPublicGameBySlug(slug, localeCode);
+  } catch (err) {
+    console.error("[GameDetail] getPublicGameBySlug failed:", err);
+  }
   if (!game) notFound();
 
   // 服务端并行：相关推荐 + 点赞/点踩初始状态
   // 注意：ISR 构建时 headers() 不可用，getClientIp 会抛错，需 try/catch 兜底
   const accent = CATEGORY_COLORS[game.category] ?? "#7c3aed";
   const clientIp = await getClientIp().catch(() => "0.0.0.0");
-  const [relatedResult, likedResult, dislikedResult] = await Promise.all([
+  const [related, liked, disliked] = await Promise.all([
     listRelatedGames(game.category, game.id, localeCode, [], 6).then(
       (r) => r,
       () => [] as Awaited<ReturnType<typeof listRelatedGames>>,
@@ -95,19 +107,6 @@ export default async function GameDetailPage({
       () => false,
     ),
   ]);
-  const related = relatedResult;
-  const liked = likedResult;
-  const disliked = dislikedResult;
-
-  // 浏览次数统计已暂时关闭（D1 免费写入次数有限）
-  // if (enabled) {
-  //   try {
-  //     const [ip, ua] = await Promise.all([getClientIp(), getClientUserAgent()]);
-  //     void incrementPlayCount(game.id, ip, ua);
-  //   } catch {
-  //     // 静默失败：play count 不应影响游玩
-  //   }
-  // }
 
   const feedbackLabels = {
     title: tf("gameTitle"),

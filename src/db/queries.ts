@@ -90,9 +90,15 @@ async function toPublicGame(row: typeof games.$inferSelect, locale: Locale): Pro
   const howToPlay = howToPlayRaw[locale] || howToPlayRaw.en || "";
   const sourceType = (row.sourceType ?? "zip") as GameSourceType;
   const iframeUrl = row.iframeUrl ?? "";
-  const playUrl = sourceType === "iframe" && iframeUrl
-    ? iframeUrl
-    : await publicObjectUrl(row.ossPrefix, row.entryFile);
+  let playUrl = "";
+  try {
+    playUrl = sourceType === "iframe" && iframeUrl
+      ? iframeUrl
+      : await publicObjectUrl(row.ossPrefix, row.entryFile);
+  } catch {
+    // 环境变量缺失等情况，用空字符串兜底，不影响页面渲染
+    playUrl = "";
+  }
   return {
     id: row.id,
     slug: row.slug,
