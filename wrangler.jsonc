@@ -50,5 +50,14 @@
   //   }
   // ],
   // 启用代码压缩以减小 Worker 体积
-  "minify": true
+  "minify": true,
+  "observability": {
+    "logs": {
+      "enabled": true,
+      "invocation_logs": true
+    },
+    "traces": {
+      "enabled": false
+    }
+  }
 }
