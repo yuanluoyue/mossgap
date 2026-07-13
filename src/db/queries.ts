@@ -51,7 +51,7 @@ function toIso(seconds: number | null | undefined): string {
 
 function toAdminGame(
   row: typeof games.$inferSelect,
-  opts?: { tagIds?: string[]; collectionIds?: string[] },
+  opts?: { tagIds?: string[]; collectionIds?: string[]; uploaderName?: string | null },
 ): AdminGame {
   return {
     id: row.id,
@@ -75,6 +75,8 @@ function toAdminGame(
     ossSize: row.ossSize ?? 0,
     featured: row.featured ? true : false,
     categoryId: row.categoryId ?? null,
+    uploaderId: row.uploaderId ?? null,
+    uploaderName: opts?.uploaderName ?? null,
     tagIds: opts?.tagIds ?? [],
     collectionIds: opts?.collectionIds ?? [],
     createdAt: toIso(row.createdAt),
@@ -166,7 +168,29 @@ export async function listAdminGames(opts: {
     db.select({ value: count() }).from(games).where(where),
   ]);
 
-  return { items: rows.map((r) => toAdminGame(r)), total: totalRows[0]?.value ?? 0 };
+  // 批量联查上传者名称（参考 listAdmins 的批量关联模式）
+  const uploaderIds = rows
+    .map((r) => r.uploaderId)
+    .filter((id): id is string => Boolean(id));
+  const uploaderNameMap = new Map<string, string>();
+  if (uploaderIds.length > 0) {
+    const uploaderRows = await db
+      .select({ id: admins.id, username: admins.username, name: admins.name })
+      .from(admins)
+      .where(inArray(admins.id, uploaderIds));
+    for (const u of uploaderRows) {
+      uploaderNameMap.set(u.id, u.name || u.username);
+    }
+  }
+
+  return {
+    items: rows.map((r) =>
+      toAdminGame(r, {
+        uploaderName: r.uploaderId ? uploaderNameMap.get(r.uploaderId) ?? null : null,
+      }),
+    ),
+    total: totalRows[0]?.value ?? 0,
+  };
 }
 
 export async function getAdminGame(id: string): Promise<AdminGame | null> {
@@ -207,6 +231,7 @@ export async function createGame(input: {
   ossSize?: number;
   featured?: boolean;
   categoryId?: string | null;
+  uploaderId?: string | null;
   tagIds?: string[];
   collectionIds?: string[];
 }): Promise<AdminGame> {
@@ -235,6 +260,7 @@ export async function createGame(input: {
       ossSize: input.ossSize ?? 0,
       featured: input.featured ? 1 : 0,
       categoryId: input.categoryId ?? null,
+      uploaderId: input.uploaderId ?? null,
     })
     .returning();
   const gameId = row!.id;

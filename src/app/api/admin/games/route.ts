@@ -6,6 +6,7 @@ import {
   createIframeGameSchema,
 } from "@/lib/validators";
 import { requireAdmin, parseJson } from "@/lib/api-guard";
+import { getAuthPayload } from "@/lib/auth";
 import { createAuditLog } from "@/lib/audit-log";
 import { handleApiError, isZodError, collectZodIssues } from "@/lib/api-error";
 import { ok, fail } from "@/types";
@@ -72,6 +73,7 @@ export async function POST(req: Request) {
 
   try {
     const input = createIframeGameSchema.parse(data);
+    const authPayload = await getAuthPayload();
     const game = await createGame({
       slug: input.slug,
       title: input.title,
@@ -97,6 +99,7 @@ export async function POST(req: Request) {
       sourceType: "iframe",
       iframeUrl: input.iframeUrl,
       ossSize: 0,
+      uploaderId: authPayload?.sub ?? null,
     });
 
     await createAuditLog({

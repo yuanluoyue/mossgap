@@ -134,6 +134,7 @@ export default async function AdminGamesPage({
               <TableHead className="w-[100px]">分类</TableHead>
               <TableHead className="w-[100px]">状态</TableHead>
               <TableHead className="w-[80px]">游玩次数</TableHead>
+              <TableHead className="w-[100px]">上传者</TableHead>
               <TableHead className="w-[120px]">创建时间</TableHead>
               <TableHead className="w-[160px] text-right">操作</TableHead>
             </TableRow>
@@ -141,7 +142,7 @@ export default async function AdminGamesPage({
           <TableBody>
             {result.items.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="h-32 text-center">
+                <TableCell colSpan={8} className="h-32 text-center">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <Gamepad2 className="size-8" />
                     <p className="text-sm">暂无游戏</p>
@@ -183,6 +184,9 @@ export default async function AdminGamesPage({
                       <Eye className="size-3 text-muted-foreground" />
                       {formatNumber(g.playCount)}
                     </span>
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {g.uploaderName ?? "-"}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {formatDate(g.createdAt)}

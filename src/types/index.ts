@@ -195,6 +195,8 @@ export interface AdminGame {
   ossSize: number;
   featured: boolean;
   categoryId: string | null;
+  uploaderId: string | null;
+  uploaderName: string | null;
   tagIds: string[];
   collectionIds: string[];
   createdAt: string;

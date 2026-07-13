@@ -37,11 +37,11 @@ export function GamePlayer({ src, title, loadingLabel }: GamePlayerProps) {
   return (
     <div
       id="game-player-container"
-      className="relative overflow-hidden"
+      className="relative overflow-hidden border border-border/60 bg-black"
       style={{ width: 836, height: 470 }}
     >
       {loading ? (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-white">
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-black">
           <Loader2 className="size-8 animate-spin text-primary" />
           <span className="sr-only">{loadingLabel}</span>
         </div>

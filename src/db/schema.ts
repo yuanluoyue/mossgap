@@ -106,6 +106,8 @@ export const games = sqliteTable(
     featured: integer("featured").default(0),
     // 关联分类表（nullable 向前兼容，旧数据仍可使用 category enum 字段）
     categoryId: text("category_id"),
+    // 上传者（关联 admins 表，nullable 向前兼容，旧数据为空）
+    uploaderId: text("uploader_id"),
     createdAt: integer("created_at")
       .notNull()
       .$defaultFn(nowSeconds),
@@ -118,6 +120,7 @@ export const games = sqliteTable(
     statusIdx: index("games_status_idx").on(t.status),
     categoryIdx: index("games_category_idx").on(t.category),
     categoryIdIdx: index("games_category_id_idx").on(t.categoryId),
+    uploaderIdIdx: index("games_uploader_id_idx").on(t.uploaderId),
   }),
 );
 

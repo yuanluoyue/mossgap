@@ -5,6 +5,7 @@ import { extractZip } from "@/lib/zip";
 import { putObjects, deletePrefix } from "@/lib/oss";
 import { createGame } from "@/db/queries";
 import { requireAdmin } from "@/lib/api-guard";
+import { getAuthPayload } from "@/lib/auth";
 import { createAuditLog } from "@/lib/audit-log";
 import { handleApiError } from "@/lib/api-error";
 import { ok, fail } from "@/types";
@@ -107,6 +108,7 @@ export async function POST(req: Request) {
   const totalSize = extracted.files.reduce((sum, f) => sum + f.size, 0);
 
   // 创建草稿游戏记录（此处失败需明确报错，避免静默 500）
+  const authPayload = await getAuthPayload();
   let game;
   try {
     game = await createGame({
@@ -125,6 +127,7 @@ export async function POST(req: Request) {
       },
       sourceType: "zip",
       ossSize: totalSize,
+      uploaderId: authPayload?.sub ?? null,
     });
   } catch (err) {
     // 数据库写入失败，回滚已上传的 OSS 资源
