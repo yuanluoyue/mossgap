@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Lock, User, Gamepad2 } from "lucide-react";
 import { toast } from "sonner";
@@ -8,12 +8,33 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+
+const REMEMBER_KEY = "mossgap_admin_remember";
+const USERNAME_KEY = "mossgap_admin_username";
+const PASSWORD_KEY = "mossgap_admin_password";
 
 export default function AdminLoginPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [remember, setRemember] = useState(false);
+
+  // 进入页面时读取本地保存的账号密码（在 effect 中读取以避免 SSR hydration 不一致）
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(REMEMBER_KEY) !== "1") return;
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setRemember(true);
+      const u = localStorage.getItem(USERNAME_KEY);
+      const p = localStorage.getItem(PASSWORD_KEY);
+      setUsername(u ?? "");
+      setPassword(p ?? "");
+    } catch {
+      // localStorage 不可用时静默忽略
+    }
+  }, []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -32,6 +53,20 @@ export default function AdminLoginPage() {
       if (!res.ok || !data.success) {
         toast.error(data?.error?.message ?? "登录失败");
         return;
+      }
+      // 登录成功后处理记住密码
+      try {
+        if (remember) {
+          localStorage.setItem(REMEMBER_KEY, "1");
+          localStorage.setItem(USERNAME_KEY, username);
+          localStorage.setItem(PASSWORD_KEY, password);
+        } else {
+          localStorage.removeItem(REMEMBER_KEY);
+          localStorage.removeItem(USERNAME_KEY);
+          localStorage.removeItem(PASSWORD_KEY);
+        }
+      } catch {
+        // 忽略存储异常
       }
       toast.success("登录成功");
       router.replace("/admin");
@@ -96,6 +131,17 @@ export default function AdminLoginPage() {
                   className="pl-9"
                 />
               </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="remember"
+                checked={remember}
+                onCheckedChange={(v) => setRemember(v === true)}
+              />
+              <Label htmlFor="remember" className="cursor-pointer text-sm">
+                记住密码
+              </Label>
             </div>
 
             <Button

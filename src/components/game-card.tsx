@@ -28,7 +28,7 @@ export function GameCard({ game, className, size }: GameCardProps) {
     <Link
       href={`/games/${game.slug}`}
       className={cn(
-        "group relative block overflow-hidden rounded-xl border border-border shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-md",
+        "group relative block overflow-hidden rounded-xl border border-border shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md",
         className,
       )}
       style={{ width: 200, height: 200 }}
@@ -62,8 +62,6 @@ export function GameCard({ game, className, size }: GameCardProps) {
           {game.title}
         </h3>
       </div>
-      {/* 顶部扫描线动画 */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
     </Link>
   );
 }

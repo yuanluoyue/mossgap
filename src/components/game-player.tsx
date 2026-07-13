@@ -37,7 +37,7 @@ export function GamePlayer({ src, title, loadingLabel }: GamePlayerProps) {
   return (
     <div
       id="game-player-container"
-      className="relative overflow-hidden border border-border/60 bg-black"
+      className="relative overflow-hidden"
       style={{ width: 836, height: 470 }}
     >
       {loading ? (

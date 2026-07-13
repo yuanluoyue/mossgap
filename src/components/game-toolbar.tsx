@@ -183,7 +183,7 @@ export function GameToolbar({
 
   return (
     <div
-      className="flex items-center justify-between border border-t-0 border-border/60 bg-card px-4"
+      className="flex items-center justify-between bg-card px-4"
       style={{ width: 836, height: 64 }}
     >
       {/* 左：游戏 icon + 名字 + 制作方 */}

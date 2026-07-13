@@ -167,8 +167,9 @@ export default async function GameDetailPage({
         </Link>
 
         <div className="mt-4 flex flex-col items-center">
-          <GamePlayer src={game.playUrl} title={game.title} loadingLabel={t("loading")} />
-          <GameToolbar
+          <div className="overflow-hidden rounded-md shadow-sm">
+            <GamePlayer src={game.playUrl} title={game.title} loadingLabel={t("loading")} />
+            <GameToolbar
             slug={game.slug}
             gameId={game.id}
             coverImage={game.coverImage}
@@ -181,6 +182,7 @@ export default async function GameDetailPage({
             accent={accent}
             feedbackLabels={feedbackLabels}
           />
+          </div>
         </div>
 
         {game.description ? (
