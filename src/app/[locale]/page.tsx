@@ -93,7 +93,7 @@ export default async function HomePage({
         {/* ===== 最新游戏 ===== */}
         {newest.items.length > 0 ? (
           <section className="mb-10">
-            <div className="mt-4 grid gap-4 [grid-template-columns:repeat(auto-fill,200px)] justify-center">
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:gap-4 sm:[grid-template-columns:repeat(auto-fill,200px)] sm:justify-center">
               {newest.items.map((g) => (
                 <GameCard key={g.id} game={g} size="compact" />
               ))}

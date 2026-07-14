@@ -6,4 +6,6 @@ export const routing = defineRouting({
   defaultLocale: "en",
   // 不使用 URL 前缀，仅通过 cookie 切换语言（单 URL）
   localePrefix: "never",
+  // 关闭基于浏览器 Accept-Language 的自动探测，强制首次访问走 defaultLocale (en)
+  localeDetection: false,
 });

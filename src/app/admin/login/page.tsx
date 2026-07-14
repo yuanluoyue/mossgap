@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Lock, User, Gamepad2 } from "lucide-react";
+import { Loader2, Lock, User } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -83,9 +83,12 @@ export default function AdminLoginPage() {
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-            <Gamepad2 className="size-6" />
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo.png"
+            alt="MossGap"
+            className="mx-auto mb-3 size-12 rounded-xl shadow-sm"
+          />
           <h1 className="font-heading text-2xl font-bold tracking-tight">
             MossGap 控制台
           </h1>

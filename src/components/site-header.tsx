@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Gamepad2 } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 import { LanguageSwitcher } from "@/components/language-switcher";
@@ -13,9 +12,12 @@ export async function SiteHeader() {
       <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-4 sm:px-6 lg:px-8">
         {/* Logo */}
         <Link href="/" className="group flex items-center gap-2.5">
-          <span className="flex size-9 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-sm transition-transform group-hover:scale-105">
-            <Gamepad2 className="size-5" />
-          </span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo.png"
+            alt="MossGap"
+            className="size-9 rounded-md transition-transform group-hover:scale-105"
+          />
           <span className="font-heading text-lg font-bold tracking-tight">
             Moss<span className="text-primary">Gap</span>
           </span>

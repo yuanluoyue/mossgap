@@ -136,9 +136,8 @@ export function AdminSidebar({ collapsed }: AdminSidebarProps) {
         )}
       >
         <Link href="/admin" className="flex items-center gap-2">
-          <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <Gamepad2 className="size-5" />
-          </span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="MossGap" className="size-8 rounded-lg" />
           {!collapsed && (
             <span className="font-heading text-sm font-bold tracking-wider">
               MOSS<span className="text-primary">GAP</span>

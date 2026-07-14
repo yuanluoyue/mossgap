@@ -1,6 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
-import { Gamepad2, MessageSquare } from "lucide-react";
+import { MessageSquare } from "lucide-react";
 
 import { FeedbackDialog } from "@/components/feedback-dialog";
 
@@ -30,9 +30,8 @@ export async function SiteFooter() {
         <div className="flex flex-col gap-8 md:flex-row md:items-start md:justify-between">
           <div className="max-w-sm">
             <Link href="/" className="inline-flex items-center gap-2.5">
-              <span className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
-                <Gamepad2 className="size-4" />
-              </span>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/logo.png" alt="MossGap" className="size-7 rounded-md" />
               <span className="font-heading text-base font-bold tracking-wider text-foreground">
                 MOSS
                 <span className="text-primary">GAP</span>

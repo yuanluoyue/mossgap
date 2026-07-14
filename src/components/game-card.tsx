@@ -29,9 +29,9 @@ export function GameCard({ game, className, size }: GameCardProps) {
       href={`/games/${game.slug}`}
       className={cn(
         "group relative block overflow-hidden rounded-xl border border-border shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md",
+        size === "compact" ? "aspect-square w-full" : "h-[200px] w-[200px]",
         className,
       )}
-      style={{ width: 200, height: 200 }}
     >
       {/* 渐变占位背景 */}
       <div
