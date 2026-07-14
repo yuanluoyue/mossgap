@@ -30,17 +30,24 @@ export type ServerEnv = z.infer<typeof serverEnvSchema>;
 /**
  * 合并 process.env 和 Cloudflare env，确保能从两个来源读取。
  * Cloudflare env 优先（包含 bindings 和 vars），process.env 作为回退。
+ *
+ * 结果在模块级别缓存：同一 Worker 实例的多次请求共享，避免重复调用 getCloudflareContext
+ * （该调用涉及 async context 切换，在 Cloudflare Workers 上有 CPU 开销）。
  */
-async function getRawEnv(): Promise<Record<string, string | undefined>> {
+let _rawEnvCache: Record<string, string | undefined> | null = null;
+
+export async function getRawEnv(): Promise<Record<string, string | undefined>> {
+  if (_rawEnvCache) return _rawEnvCache;
   const fromProcess = process.env as Record<string, string | undefined>;
   try {
     const { getCloudflareContext } = await import("@opennextjs/cloudflare");
     const ctx = await getCloudflareContext({ async: true });
     const fromCtx = ctx.env as unknown as Record<string, string | undefined>;
-    return { ...fromProcess, ...fromCtx };
+    _rawEnvCache = { ...fromProcess, ...fromCtx };
   } catch {
-    return fromProcess;
+    _rawEnvCache = fromProcess;
   }
+  return _rawEnvCache;
 }
 
 let cached: ServerEnv | null = null;

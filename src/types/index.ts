@@ -172,6 +172,14 @@ export interface PublicGame {
   howToPlay: string;
 }
 
+/** 首页/列表卡片轻量数据（只含渲染卡片必需字段） */
+export interface GameCardItem {
+  id: string;
+  slug: string;
+  title: string;
+  coverImage: string;
+}
+
 /** Admin 端游戏数据（完整） */
 export interface AdminGame {
   id: string;

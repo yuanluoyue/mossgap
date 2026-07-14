@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { setRequestLocale } from "next-intl/server";
-import { ChevronRight, Star, Flame, Clock, Gamepad2 } from "lucide-react";
+import { Gamepad2 } from "lucide-react";
 
 import { GameCard } from "@/components/game-card";
-import { listPublicGames, listFeaturedGames } from "@/db/queries";
+import { listGameCards } from "@/db/queries";
 
 import { buildPageMetadata, getSiteUrl, SITE_NAME } from "@/lib/seo";
 
@@ -37,16 +37,12 @@ export default async function HomePage({
 
   const localeCode = (locale === "zh" ? "zh" : "en") as "en" | "zh";
 
-  const popular = await listPublicGames(
-    { page: 1, pageSize: 12, sort: "popular" },
-    localeCode,
-  );
-  const newest = await listPublicGames(
-    { page: 1, pageSize: 12, sort: "newest" },
+  const newest = await listGameCards(
+    { page: 1, pageSize: 8, sort: "newest" },
     localeCode,
   );
 
-  const hasGames = popular.items.length > 0 || newest.items.length > 0;
+  const hasGames = newest.items.length > 0;
 
   const siteUrl = await getSiteUrl();
   const websiteJsonLd = {

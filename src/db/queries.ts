@@ -38,6 +38,7 @@ import type {
   PublicCollection,
   TaxonomyLocale,
   CollectionLayout,
+  GameCardItem,
 } from "@/types";
 import { publicObjectUrl } from "@/lib/oss";
 
@@ -443,6 +444,53 @@ export async function listPublicGames(
   ]);
 
   return { items: await Promise.all(rows.map((r) => toPublicGame(r, locale))), total: totalRows[0]?.value ?? 0 };
+}
+
+/**
+ * 首页/列表卡片轻量查询：只取渲染卡片必需字段（id/slug/title/coverImage），
+ * 不查 screenshots/locale JSON 等重字段，不调 toPublicGame（避免 publicObjectUrl 等开销）。
+ * title 按 locale 从 locale JSON 解析，回退到默认 title。
+ */
+export async function listGameCards(
+  opts: {
+    page: number;
+    pageSize: number;
+    sort?: "popular" | "newest";
+    category?: GameCategory;
+  },
+  locale: Locale,
+): Promise<{ items: GameCardItem[]; total: number }> {
+  const db = await getDb();
+  const conditions = [eq(games.status, "published")];
+  if (opts.category) conditions.push(eq(games.category, opts.category));
+  const where = and(...conditions);
+  const order =
+    opts.sort === "popular" ? desc(games.playCount) : desc(games.createdAt);
+
+  const [rows, totalRows] = await Promise.all([
+    db
+      .select({
+        id: games.id,
+        slug: games.slug,
+        title: games.title,
+        coverImage: games.coverImage,
+        locale: games.locale,
+      })
+      .from(games)
+      .where(where)
+      .orderBy(order)
+      .limit(opts.pageSize)
+      .offset((opts.page - 1) * opts.pageSize),
+    db.select({ value: count() }).from(games).where(where),
+  ]);
+
+  const items: GameCardItem[] = rows.map((r) => {
+    const loc = r.locale ?? { en: { title: "" }, zh: { title: "" } };
+    const title = loc[locale]?.title || loc.en?.title || r.title;
+    return { id: r.id, slug: r.slug, title, coverImage: r.coverImage };
+  });
+
+  return { items, total: totalRows[0]?.value ?? 0 };
 }
 
 export async function getPublicGameBySlug(

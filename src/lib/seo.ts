@@ -8,18 +8,20 @@ export const DEFAULT_LOCALE = "en";
 
 const FALLBACK_URL = "http://localhost:3000";
 
+/**
+ * 读取单个环境变量。
+ * 复用 getRawEnv 缓存的 env，避免重复调用 getCloudflareContext。
+ */
 async function readEnvVar(key: string): Promise<string | undefined> {
   const fromProcess = process.env[key];
   if (fromProcess) return fromProcess;
   try {
-    const { getCloudflareContext } = await import("@opennextjs/cloudflare");
-    const ctx = await getCloudflareContext({ async: true });
-    const val = (ctx.env as unknown as Record<string, string | undefined>)[key];
-    if (val) return val;
+    const { getRawEnv } = await import("@/env");
+    const env = await getRawEnv();
+    return env[key];
   } catch {
-    // 非 Cloudflare 运行时，忽略
+    return undefined;
   }
-  return undefined;
 }
 
 export async function getSiteUrl(): Promise<string> {

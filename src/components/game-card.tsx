@@ -1,10 +1,10 @@
 import Link from "next/link";
 
-import type { PublicGame } from "@/types";
+import type { GameCardItem, PublicGame } from "@/types";
 import { cn } from "@/lib/utils";
 
 interface GameCardProps {
-  game: PublicGame;
+  game: GameCardItem | PublicGame;
   className?: string;
   size?: "default" | "compact";
 }
