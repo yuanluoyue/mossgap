@@ -15,7 +15,7 @@
     "viewAll": "View all",
     "allCategories": "All",
     "emptyTitle": "No games yet",
-    "emptySubtitle": "Games uploaded from the admin panel will appear here."
+    "emptySubtitle": "We're adding new games soon — check back shortly."
   },
   "Games": {
     "title": "All games",
@@ -91,12 +91,21 @@
   },
   "Footer": {
     "tagline": "Browser games, delivered.",
-    "rights": "All rights reserved.",
-    "madeWith": "Built with Next.js on Cloudflare"
+    "rights": "All rights reserved."
   },
   "Common": {
     "loading": "Loading...",
     "error": "Something went wrong"
+  },
+  "NotFound": {
+    "title": "Page not found",
+    "subtitle": "The page you're looking for doesn't exist or has been moved.",
+    "backHome": "Back to home"
+  },
+  "ErrorPage": {
+    "title": "Something went wrong",
+    "subtitle": "An unexpected error occurred. Please try again.",
+    "tryAgain": "Try again"
   },
   "Legal": {
     "navigate": "Navigate",
@@ -112,7 +121,7 @@
     "missionTitle": "Our mission",
     "missionBody": "We believe great games should be one click away. No downloads, no installers, no friction - just open a page and start playing. MossGap brings together a handpicked collection of browser games that run anywhere, on any device, in seconds.",
     "storyTitle": "Our story",
-    "storyBody": "MossGap started as a weekend project to make browser games easier to discover and play. Built on Cloudflare's global edge network, every game loads fast no matter where you are. We're a small team obsessed with playtime - and we're just getting started.",
+    "storyBody": "MossGap started as a weekend project to make browser games easier to discover and play. Every game loads fast no matter where you are, on any device. We're a small team obsessed with playtime - and we're just getting started.",
     "feature1Title": "Instant play",
     "feature1Desc": "No downloads. No installs. Click and play - games run right in your browser.",
     "feature2Title": "Safe & secure",

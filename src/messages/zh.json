@@ -15,7 +15,7 @@
     "viewAll": "查看全部",
     "allCategories": "全部",
     "emptyTitle": "暂无游戏",
-    "emptySubtitle": "从后台发布的游戏会显示在这里。"
+    "emptySubtitle": "我们正在添加新游戏，敬请期待。"
   },
   "Games": {
     "title": "全部游戏",
@@ -91,12 +91,21 @@
   },
   "Footer": {
     "tagline": "网页游戏，触手可及。",
-    "rights": "保留所有权利。",
-    "madeWith": "基于 Next.js 构建，部署于 Cloudflare"
+    "rights": "保留所有权利。"
   },
   "Common": {
     "loading": "加载中...",
     "error": "出错了"
+  },
+  "NotFound": {
+    "title": "页面不存在",
+    "subtitle": "你访问的页面不存在或已被移动。",
+    "backHome": "返回首页"
+  },
+  "ErrorPage": {
+    "title": "出错了",
+    "subtitle": "发生了意外错误，请重试。",
+    "tryAgain": "重试"
   },
   "Legal": {
     "navigate": "导航",
@@ -112,7 +121,7 @@
     "missionTitle": "我们的使命",
     "missionBody": "我们相信好游戏应该触手可及。无需下载，无需安装，无需门槛——打开页面就能玩。MossGap 收录了一批能在任何设备上、几秒钟内启动的网页游戏。",
     "storyTitle": "我们的故事",
-    "storyBody": "MossGap 起初是一个周末项目，想让网页游戏更容易被发现和游玩。基于 Cloudflare 全球边缘网络构建，无论你在哪里，游戏都能快速加载。我们是一群热爱游戏的小团队——一切才刚刚开始。",
+    "storyBody": "MossGap 起初是一个周末项目，想让网页游戏更容易被发现和游玩。无论你在哪里、用什么设备，游戏都能快速加载。我们是一群热爱游戏的小团队——一切才刚刚开始。",
     "feature1Title": "即点即玩",
     "feature1Desc": "无需下载，无需安装。点击就玩——游戏直接在浏览器中运行。",
     "feature2Title": "安全可信",

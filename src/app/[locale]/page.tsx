@@ -33,6 +33,7 @@ export default async function HomePage({
   const { locale } = await params;
   await setRequestLocale(locale);
   const t = await getTranslations("Home");
+  const tSeo = await getTranslations("Seo");
 
   const localeCode = (locale === "zh" ? "zh" : "en") as "en" | "zh";
 
@@ -53,7 +54,7 @@ export default async function HomePage({
     "@type": "WebSite",
     name: SITE_NAME,
     url: siteUrl,
-    description: t("emptySubtitle"),
+    description: tSeo("homeDescription"),
     potentialAction: {
       "@type": "SearchAction",
       target: `${siteUrl}/games?q={search_term_string}`,
@@ -65,7 +66,7 @@ export default async function HomePage({
     "@type": "Organization",
     name: SITE_NAME,
     url: siteUrl,
-    logo: `${siteUrl}/favicon.ico`,
+    logo: `${siteUrl}/logo.png`,
     sameAs: [],
   };
 

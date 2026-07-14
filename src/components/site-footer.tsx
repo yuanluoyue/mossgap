@@ -40,9 +40,6 @@ export async function SiteFooter() {
             <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
               {t("tagline")}
             </p>
-            <p className="mt-2 font-mono text-[11px] uppercase tracking-widest text-muted-foreground/70">
-              {t("madeWith")}
-            </p>
           </div>
 
           <div className="flex flex-col gap-6 sm:flex-row sm:gap-12">
@@ -62,6 +59,18 @@ export async function SiteFooter() {
               >
                 {tn("games")}
               </Link>
+              <Link
+                href="/about"
+                className="text-sm text-muted-foreground transition-colors hover:text-primary"
+              >
+                {tn("about")}
+              </Link>
+              <Link
+                href="/contact"
+                className="text-sm text-muted-foreground transition-colors hover:text-primary"
+              >
+                {tl("contact")}
+              </Link>
             </nav>
 
             <nav className="flex flex-col gap-2">
@@ -73,6 +82,12 @@ export async function SiteFooter() {
                 className="text-sm text-muted-foreground transition-colors hover:text-primary"
               >
                 {tl("privacy")}
+              </Link>
+              <Link
+                href="/terms"
+                className="text-sm text-muted-foreground transition-colors hover:text-primary"
+              >
+                {tl("terms")}
               </Link>
               <FeedbackDialog
                 type="platform"
@@ -94,9 +109,6 @@ export async function SiteFooter() {
         <div className="mt-10 flex flex-col items-start justify-between gap-2 border-t border-border pt-6 text-xs text-muted-foreground sm:flex-row sm:items-center">
           <p>
             © {year} MossGap. {t("rights")}
-          </p>
-          <p className="font-mono uppercase tracking-widest text-muted-foreground/70">
-            v1.0.0
           </p>
         </div>
       </div>

@@ -73,14 +73,7 @@ export default async function GameDetailPage({
     game = enabled ? await getPublicGameBySlug(slug, localeCode) : null;
   } catch (err) {
     console.error("[GameDetail] getPublicGameBySlug error:", err);
-    return (
-      <div className="mx-auto max-w-3xl px-4 py-8">
-        <h1 className="text-2xl font-bold text-red-600">[Debug] DB Query Error</h1>
-        <pre className="mt-4 whitespace-pre-wrap break-all rounded-lg border border-red-200 bg-red-50 p-4 font-mono text-xs text-red-900">
-{err instanceof Error ? `${err.name}: ${err.message}\n${err.stack ?? ""}` : String(err)}
-        </pre>
-      </div>
-    );
+    notFound();
   }
   if (!game) notFound();
 

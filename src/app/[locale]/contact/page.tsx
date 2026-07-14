@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { Mail, MessageCircle, Globe } from "lucide-react";
+import { Mail } from "lucide-react";
 
 import { buildPageMetadata } from "@/lib/seo";
 import { ContactForm } from "./contact-form";
@@ -36,20 +36,6 @@ export default async function ContactPage({
       value: "hello@mossgap.com",
       href: "mailto:hello@mossgap.com",
       color: "#7c3aed",
-    },
-    {
-      icon: MessageCircle,
-      label: t("discordLabel"),
-      value: t("discordValue"),
-      href: "#",
-      color: "#6366f1",
-    },
-    {
-      icon: Globe,
-      label: t("communityLabel"),
-      value: t("communityValue"),
-      href: "#",
-      color: "#14b8a6",
     },
   ];
 
