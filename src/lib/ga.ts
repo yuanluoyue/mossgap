@@ -5,4 +5,4 @@
  * 直接写死在前端，避免环境变量配置开销。
  * 如需切换 ID，修改此处即可。
  */
-export const GA_MEASUREMENT_ID = "G-3PKYSFXGX5";
+export const GA_MEASUREMENT_ID = "G-Q5JHMJFX1J";
