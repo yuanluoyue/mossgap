@@ -1,11 +1,8 @@
 "use client";
 
 import { useLocale } from "next-intl";
-import { useRouter } from "next/navigation";
-import { useTransition } from "react";
 import { Globe } from "lucide-react";
 
-import { setLocale } from "@/i18n/actions";
 import { routing } from "@/i18n/routing";
 import {
   Select,
@@ -25,22 +22,20 @@ const SHORT: Record<string, string> = {
   zh: "中",
 };
 
+const COOKIE_NAME = "NEXT_LOCALE";
+
 export function LanguageSwitcher() {
   const locale = useLocale();
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
 
   function onSelect(next: string) {
     if (next === locale) return;
-    startTransition(async () => {
-      await setLocale(next);
-      // 刷新当前路由以应用新语言
-      router.refresh();
-    });
+    // 客户端直接写 cookie，然后整页刷新触发 middleware 重新判定 locale
+    document.cookie = `${COOKIE_NAME}=${next};path=/;max-age=${60 * 60 * 24 * 365};samesite=lax`;
+    window.location.reload();
   }
 
   return (
-    <Select value={locale} onValueChange={onSelect} disabled={isPending}>
+    <Select value={locale} onValueChange={onSelect}>
       <SelectTrigger
         size="sm"
         className="gap-1.5 text-xs uppercase tracking-widest"

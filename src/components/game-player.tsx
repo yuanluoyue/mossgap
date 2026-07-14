@@ -37,8 +37,7 @@ export function GamePlayer({ src, title, loadingLabel }: GamePlayerProps) {
   return (
     <div
       id="game-player-container"
-      className="relative overflow-hidden"
-      style={{ width: 836, height: 470 }}
+      className="relative aspect-[836/470] w-full overflow-hidden sm:h-[470px] sm:w-[836px]"
     >
       {loading ? (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-black">
