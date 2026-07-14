@@ -95,6 +95,7 @@ export async function PATCH(
       iframeUrl: input.iframeUrl,
       howToPlay: input.howToPlay,
       relatedGameIds: input.relatedGameIds,
+      internalNotes: input.internalNotes,
       categoryId: input.categoryId ?? null,
       tagIds: input.tagIds,
       collectionIds: input.collectionIds,

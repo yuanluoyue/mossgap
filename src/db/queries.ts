@@ -73,6 +73,7 @@ function toAdminGame(
     howToPlay: (row.howToPlay ?? { en: "", zh: "" }) as HowToPlay,
     relatedGameIds: row.relatedGameIds ?? [],
     ossSize: row.ossSize ?? 0,
+    internalNotes: row.internalNotes ?? "",
     featured: row.featured ? true : false,
     categoryId: row.categoryId ?? null,
     uploaderId: row.uploaderId ?? null,
@@ -292,6 +293,7 @@ export async function updateGame(
     howToPlay: HowToPlay;
     relatedGameIds: string[];
     ossSize: number;
+    internalNotes: string;
     featured: boolean;
     categoryId: string | null;
     tagIds: string[];

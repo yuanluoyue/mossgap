@@ -1,0 +1,1 @@
+ALTER TABLE `games` ADD `internal_notes` text DEFAULT '';

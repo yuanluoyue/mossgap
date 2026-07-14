@@ -193,6 +193,8 @@ export interface AdminGame {
   howToPlay: HowToPlay;
   relatedGameIds: string[];
   ossSize: number;
+  /** 内部备注（仅 B 端展示） */
+  internalNotes: string;
   featured: boolean;
   categoryId: string | null;
   uploaderId: string | null;

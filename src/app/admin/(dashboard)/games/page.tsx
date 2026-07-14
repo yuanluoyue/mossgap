@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Gamepad2, Upload, Search, Eye } from "lucide-react";
+import { Gamepad2, Upload, Search, HardDrive, StickyNote } from "lucide-react";
 
 import { listAdminGames, listAllCategoriesForPicker } from "@/db/queries";
 import { publicObjectUrl } from "@/lib/oss";
@@ -21,10 +21,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Pagination } from "@/components/admin/pagination";
 import { UploadGameDialog } from "@/components/admin/upload-game-dialog";
 import { GameRowActions } from "@/components/admin/game-row-actions";
-import { formatDate, formatNumber } from "@/lib/format";
+import { formatDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -133,7 +138,8 @@ export default async function AdminGamesPage({
               <TableHead>名称 / Slug</TableHead>
               <TableHead className="w-[100px]">分类</TableHead>
               <TableHead className="w-[100px]">状态</TableHead>
-              <TableHead className="w-[80px]">游玩次数</TableHead>
+              <TableHead className="w-[100px]">游戏体积</TableHead>
+              <TableHead className="w-[160px]">内部备注</TableHead>
               <TableHead className="w-[100px]">上传者</TableHead>
               <TableHead className="w-[120px]">创建时间</TableHead>
               <TableHead className="w-[160px] text-right">操作</TableHead>
@@ -142,7 +148,7 @@ export default async function AdminGamesPage({
           <TableBody>
             {result.items.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="h-32 text-center">
+                <TableCell colSpan={9} className="h-32 text-center">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <Gamepad2 className="size-8" />
                     <p className="text-sm">暂无游戏</p>
@@ -179,11 +185,28 @@ export default async function AdminGamesPage({
                   <TableCell>
                     <StatusBadge status={g.status} />
                   </TableCell>
-                  <TableCell className="tabular-nums">
-                    <span className="inline-flex items-center gap-1 text-sm">
-                      <Eye className="size-3 text-muted-foreground" />
-                      {formatNumber(g.playCount)}
+                  <TableCell className="tabular-nums text-sm">
+                    <span className="inline-flex items-center gap-1">
+                      <HardDrive className="size-3 text-muted-foreground" />
+                      {formatBytes(g.ossSize)}
                     </span>
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    {g.internalNotes ? (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="inline-flex max-w-[150px] cursor-help items-center gap-1 truncate text-muted-foreground">
+                            <StickyNote className="size-3 shrink-0" />
+                            <span className="truncate">{g.internalNotes}</span>
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-sm whitespace-pre-wrap text-left">
+                          {g.internalNotes}
+                        </TooltipContent>
+                      </Tooltip>
+                    ) : (
+                      <span className="text-muted-foreground">-</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {g.uploaderName ?? "-"}
@@ -230,4 +253,12 @@ function StatusBadge({ status }: { status: string }) {
 function firstOf(v: string | string[] | undefined): string | undefined {
   if (Array.isArray(v)) return v[0];
   return v;
+}
+
+/** 格式化字节数为人类可读字符串。 */
+function formatBytes(bytes: number | null | undefined): string {
+  if (!bytes || bytes <= 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return `${(bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 2)} ${units[i]}`;
 }

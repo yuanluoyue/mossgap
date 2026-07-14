@@ -100,6 +100,8 @@ export const games = sqliteTable(
       .$type<string[]>()
       .default([]),
     ossSize: integer("oss_size").default(0),
+    // 内部备注（仅 B 端展示，nullable 向前兼容）
+    internalNotes: text("internal_notes").default(""),
     likeCount: integer("like_count").default(0),
     dislikeCount: integer("dislike_count").default(0),
     // 是否首页推荐（0/1），nullable 向前兼容

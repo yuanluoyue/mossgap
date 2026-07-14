@@ -70,6 +70,7 @@ export function GameForm({ game, candidates = [], categories, tags, collections 
   const [categoryId, setCategoryId] = useState<string>(game.categoryId ?? "");
   const [tagIds, setTagIds] = useState<string[]>(game.tagIds ?? []);
   const [collectionIds, setCollectionIds] = useState<string[]>(game.collectionIds ?? []);
+  const [internalNotes, setInternalNotes] = useState<string>(game.internalNotes ?? "");
   const [reuploading, setReuploading] = useState(false);
   const reuploadInputRef = useRef<HTMLInputElement>(null);
 
@@ -94,6 +95,7 @@ export function GameForm({ game, candidates = [], categories, tags, collections 
           categoryId: categoryId || null,
           tagIds,
           collectionIds,
+          internalNotes,
         }),
       });
       const data = (await res.json()) as {
@@ -105,6 +107,8 @@ export function GameForm({ game, candidates = [], categories, tags, collections 
         return;
       }
       toast.success("保存成功");
+      // 保存成功后返回列表页
+      router.push("/admin/games");
       router.refresh();
     } catch {
       toast.error("网络错误");
@@ -504,6 +508,21 @@ export function GameForm({ game, candidates = [], categories, tags, collections 
                 <span className="text-muted-foreground">游玩次数</span>
                 <span className="font-mono tabular-nums">{game.playCount}</span>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>内部备注</CardTitle>
+              <CardDescription>仅在后台展示，C 端用户不可见</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Textarea
+                value={internalNotes}
+                onChange={(e) => setInternalNotes(e.target.value)}
+                placeholder="可记录游戏来源、版权信息、运营注意事项等"
+                rows={4}
+              />
             </CardContent>
           </Card>
         </div>

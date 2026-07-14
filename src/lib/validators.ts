@@ -32,6 +32,8 @@ export const upsertGameSchema = z.object({
     .default({ en: "", zh: "" }),
   relatedGameIds: z.array(z.string()).default([]),
   featured: z.boolean().default(false),
+  // 内部备注（仅 B 端展示）
+  internalNotes: z.string().max(2000).default(""),
   categoryId: z.string().nullable().optional(),
   tagIds: z.array(z.string()).default([]),
   collectionIds: z.array(z.string()).default([]),
