@@ -70,8 +70,49 @@ export async function putObject(
   await adapter.putObject(fullKey(e.S3_KEY_PREFIX, key), body, contentType);
 }
 
-/** 批量上传多个文件。 */
-export async function putObjects(
+/** 每批最大文件数（Cloudflare Workers 免费版 50 subrequest 限制，留余量给 DB 查询） */
+const OSS_BATCH_SIZE = 40;
+
+/** Cloudflare service binding Fetcher 类型 */
+type ServiceBinding = {
+  fetch: (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
+};
+
+/**
+ * 获取 WORKER_SELF_REFERENCE service binding。
+ *
+ * service binding 的 fetch 不计入当前 invocation 的 subrequest 限制，
+ * 每个内部调用是独立的 Worker invocation，有自己的 50 subrequest 预算。
+ *
+ * 本地开发（wrangler dev / OpenNext）可能不会正确暴露这个 binding，
+ * 此时返回 null，调用方回退到直接执行（本地无 subrequest 限制）。
+ */
+async function getServiceBinding(): Promise<ServiceBinding | null> {
+  try {
+    const { getCloudflareContext } = await import("@opennextjs/cloudflare");
+    const ctx = await getCloudflareContext({ async: true });
+    const binding = (
+      ctx.env as unknown as Record<string, unknown>
+    ).WORKER_SELF_REFERENCE;
+    // 严格校验是 Fetcher 对象（有 fetch 函数），避免误把字符串/其他类型当成 binding
+    if (
+      binding &&
+      typeof binding === "object" &&
+      typeof (binding as { fetch?: unknown }).fetch === "function"
+    ) {
+      return binding as ServiceBinding;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 直接并发上传（不做分批），供 upload-internal 内部 route 调用。
+ * 外部请使用 putObjects，它会自动分批。
+ */
+export async function putObjectsDirect(
   prefix: string,
   files: { path: string; data: Uint8Array }[],
 ): Promise<void> {
@@ -82,6 +123,48 @@ export async function putObjects(
   );
 }
 
+/**
+ * 批量上传多个文件，统一分批。
+ *
+ * 生产环境（有 WORKER_SELF_REFERENCE binding）：每批通过 service binding fetch
+ * 触发新 Worker invocation，每批有独立的 50 subrequest 预算。
+ *
+ * 本地开发（无 binding）：直接并发上传，无 subrequest 限制。
+ */
+export async function putObjects(
+  prefix: string,
+  files: { path: string; data: Uint8Array }[],
+): Promise<void> {
+  const worker = await getServiceBinding();
+  if (!worker) {
+    await putObjectsDirect(prefix, files);
+    return;
+  }
+
+  const e = await env();
+  for (let i = 0; i < files.length; i += OSS_BATCH_SIZE) {
+    const batch = files.slice(i, i + OSS_BATCH_SIZE);
+    const formData = new FormData();
+    formData.append("prefix", prefix);
+    for (const f of batch) {
+      formData.append(f.path, new Blob([f.data as BlobPart]));
+    }
+
+    // URL 用 0.0.0.0：service binding 路由只看 path，host 无所谓；
+    // 如果 binding 没生效会立即连接失败，而不是 DNS 超时
+    const response = await worker.fetch("http://0.0.0.0/api/admin/upload-internal", {
+      method: "POST",
+      body: formData,
+      headers: { "x-internal-key": e.JWT_SECRET },
+    });
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => response.statusText);
+      throw new Error(`批次上传失败 (${i}-${i + batch.length}): ${text}`);
+    }
+  }
+}
+
 /** 删除单个对象。 */
 export async function deleteObject(key: string): Promise<void> {
   const e = await env();
@@ -89,14 +172,41 @@ export async function deleteObject(key: string): Promise<void> {
   await adapter.deleteObject(fullKey(e.S3_KEY_PREFIX, key));
 }
 
-/** 删除某前缀下所有对象（递归清理）。 */
+/**
+ * 删除某前缀下所有对象（递归清理），统一分批。
+ * 分批逻辑同 putObjects。
+ */
 export async function deletePrefix(prefix: string): Promise<void> {
   const e = await env();
   const adapter = getAdapter();
   const fullPrefix = fullKey(e.S3_KEY_PREFIX, prefix).replace(/^\/+|\/+$/g, "");
   const objects = await adapter.listObjects(fullPrefix);
-  if (objects.length > 0) {
-    await adapter.deleteObjects(objects.map((o) => o.key));
+  if (objects.length === 0) return;
+
+  const keys = objects.map((o) => o.key);
+
+  const worker = await getServiceBinding();
+  if (!worker) {
+    // 本地开发：直接删除
+    await adapter.deleteObjects(keys);
+    return;
+  }
+
+  for (let i = 0; i < keys.length; i += OSS_BATCH_SIZE) {
+    const batch = keys.slice(i, i + OSS_BATCH_SIZE);
+    const response = await worker.fetch("http://0.0.0.0/api/admin/delete-internal", {
+      method: "POST",
+      body: JSON.stringify({ keys: batch }),
+      headers: {
+        "Content-Type": "application/json",
+        "x-internal-key": e.JWT_SECRET,
+      },
+    });
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => response.statusText);
+      throw new Error(`批次删除失败 (${i}-${i + batch.length}): ${text}`);
+    }
   }
 }
 

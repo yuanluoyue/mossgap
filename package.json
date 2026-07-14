@@ -6,13 +6,13 @@
     "dev": "next dev",
     "docker:dev": "docker-compose -f docker-compose.dev.yml up -d",
     "clean": "node -e \"const fs=require('fs');['.next','.open-next'].forEach(d=>fs.rmSync(d,{recursive:true,force:true}))\"",
-    "build": "next build && opennextjs-cloudflare build --skipNextBuild",
-    "build:deploy": "pnpm db:setup:remote && next build && opennextjs-cloudflare build --skipNextBuild",
+    "build": "next build && opennextjs-cloudflare build --skipNextBuild && pnpm fix:opennext",
+    "build:deploy": "pnpm db:setup:remote && next build && opennextjs-cloudflare build --skipNextBuild && pnpm fix:opennext",
     "start": "next start",
     "lint": "eslint",
-    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "preview": "opennextjs-cloudflare build && pnpm fix:opennext && opennextjs-cloudflare preview",
     "deploy": "pnpm db:setup:remote && wrangler deploy",
-    "upload": "opennextjs-cloudflare build && opennextjs-cloudflare upload",
+    "upload": "opennextjs-cloudflare build && pnpm fix:opennext && opennextjs-cloudflare upload",
     "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
     "db:generate": "drizzle-kit generate",
     "db:studio": "drizzle-kit studio",
@@ -22,7 +22,8 @@
     "db:seed:local": "tsx scripts/seed.ts --local",
     "db:seed:remote": "tsx scripts/seed.ts --remote",
     "oss:create-bucket": "tsx scripts/create-bucket.ts",
-    "setup:secrets": "bash scripts/setup-secrets.sh"
+    "setup:secrets": "bash scripts/setup-secrets.sh",
+    "fix:opennext": "node -e \"const fs=require('fs'),p='.open-next/cloudflare/next-env.mjs';try{const c=fs.readFileSync(p,'utf8'),s=new Set(),o=[];for(const l of c.split('\\n')){if(!s.has(l)){s.add(l);o.push(l)}}fs.writeFileSync(p,o.join('\\n')+'\\n')}catch{}\""
   },
   "dependencies": {
     "@next/third-parties": "^16.2.10",
@@ -64,6 +65,6 @@
     "tailwindcss": "^4",
     "tsx": "^4.19.2",
     "typescript": "^5",
-    "wrangler": "^4.107.0"
+    "wrangler": "^4.110.0"
   }
 }
