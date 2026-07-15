@@ -13,7 +13,8 @@ import {
 import { routing } from "@/i18n/routing";
 import { buildPageMetadata, getSiteUrl } from "@/lib/seo";
 
-export const revalidate = 300;
+export const revalidate = 0;
+export const dynamic = "force-dynamic";
 
 export async function generateStaticParams() {
   try {

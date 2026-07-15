@@ -8,7 +8,8 @@ import { buildPageMetadata, getSiteUrl } from "@/lib/seo";
 import { formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-export const revalidate = 300;
+export const revalidate = 0;
+export const dynamic = "force-dynamic";
 
 const COVER_GRADIENTS = [
   "from-sky-100 via-cyan-100 to-teal-100",

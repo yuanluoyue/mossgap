@@ -8,7 +8,8 @@ import { listGameCards } from "@/db/queries";
 
 import { buildPageMetadata, getSiteUrl, SITE_NAME } from "@/lib/seo";
 
-export const revalidate = 300;
+export const revalidate = 0;
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
   params,

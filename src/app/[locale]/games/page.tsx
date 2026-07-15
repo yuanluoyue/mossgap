@@ -10,7 +10,8 @@ import type { GameCategory } from "@/types";
 import { GAME_CATEGORIES } from "@/types";
 import { buildPageMetadata, getSiteUrl } from "@/lib/seo";
 
-export const revalidate = 300;
+export const revalidate = 0;
+export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 12;
 

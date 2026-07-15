@@ -1,6 +1,7 @@
 "use client";
 
 import { useLocale } from "next-intl";
+import { useRouter } from "next/navigation";
 import { Globe } from "lucide-react";
 
 import { routing } from "@/i18n/routing";
@@ -26,12 +27,13 @@ const COOKIE_NAME = "NEXT_LOCALE";
 
 export function LanguageSwitcher() {
   const locale = useLocale();
+  const router = useRouter();
 
   function onSelect(next: string) {
     if (next === locale) return;
-    // 客户端直接写 cookie，然后整页刷新触发 middleware 重新判定 locale
+    // 写 cookie，然后 refresh 触发 middleware 和 request.ts 重新读取 locale
     document.cookie = `${COOKIE_NAME}=${next};path=/;max-age=${60 * 60 * 24 * 365};samesite=lax`;
-    window.location.reload();
+    router.refresh();
   }
 
   return (

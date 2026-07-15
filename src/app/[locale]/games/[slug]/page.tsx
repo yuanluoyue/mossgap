@@ -194,7 +194,7 @@ export default async function GameDetailPage({
             <h2 className="font-heading text-2xl font-bold tracking-tight text-foreground">
               {t("related")}
             </h2>
-            <div className="mt-5 grid gap-4 [grid-template-columns:repeat(auto-fill,200px)] justify-center">
+            <div className="mt-5 grid grid-cols-4 gap-2 sm:gap-4 sm:[grid-template-columns:repeat(auto-fill,200px)] sm:justify-center">
               {related.map((g) => (
                 <GameCard key={g.id} game={g} size="compact" />
               ))}
