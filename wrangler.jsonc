@@ -36,6 +36,8 @@
     "S3_KEY_PREFIX": "uploads/2024/test",
     "S3_PUBLIC_URL": "https://pub-5b122f0dcfde4ba8a4c87f19a48a822c.r2.dev",
     "S3_FORCE_PATH_STYLE": "true",
+    // 生产站点 URL，供 sitemap.ts / SEO 元信息使用
+    "NEXT_PUBLIC_APP_URL": "https://mossgap.com",
   },
   "images": {
     "binding": "IMAGES"
