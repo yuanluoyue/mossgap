@@ -69,8 +69,8 @@ export default async function HomePage({
 
   return (
     <>
-      {/* 预加载首屏关键资源：bg.png 是 CSS background-image，预加载扫描器发现不了 */}
-      <link rel="preload" as="image" href="/bg.png" fetchPriority="high" />
+      {/* 预加载首屏关键资源：bg.webp 是 CSS background-image，预加载扫描器发现不了 */}
+      <link rel="preload" as="image" href="/bg.webp" fetchPriority="high" />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -87,7 +87,7 @@ export default async function HomePage({
       <div
         aria-hidden
         className="pointer-events-none absolute inset-x-0 bottom-0 z-0 h-[60vh] bg-cover bg-bottom bg-no-repeat"
-        style={{ backgroundImage: "url('/bg.png')" }}
+        style={{ backgroundImage: "url('/bg.webp')" }}
       />
       <div className="relative z-10 mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
         {/* ===== 最新游戏 ===== */}

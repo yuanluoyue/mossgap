@@ -30,7 +30,7 @@ export async function getSiteUrl(): Promise<string> {
 }
 
 export function getDefaultOgImage(siteUrl: string): string {
-  return `${siteUrl}/bg.png`;
+  return `${siteUrl}/bg.webp`;
 }
 
 export function absoluteUrl(siteUrl: string, path: string): string {
