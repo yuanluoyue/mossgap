@@ -1,4 +1,4 @@
-import { unzip } from "fflate";
+import { unzipSync } from "fflate";
 
 export interface ExtractedFile {
   path: string;
@@ -13,17 +13,12 @@ export interface ExtractResult {
 
 /**
  * 解压 Zip 二进制数据（纯 JS，兼容 Cloudflare Workers 运行时）。
+ * 使用同步 API，因为 fflate 的异步 unzip 依赖 worker 线程，
+ * 而 Cloudflare Workers 运行时不支持 worker_threads / Web Workers。
  * 自动规范化路径（去除首层目录、过滤隐藏/系统文件）并检测入口 HTML。
  */
 export async function extractZip(data: Uint8Array): Promise<ExtractResult> {
-  const entries = await new Promise<Record<string, Uint8Array>>(
-    (resolve, reject) => {
-      unzip(data, (err, result) => {
-        if (err) reject(err);
-        else resolve(result ?? {});
-      });
-    },
-  );
+  const entries = unzipSync(data);
 
   const files: ExtractedFile[] = [];
   const rawPaths = Object.keys(entries);
