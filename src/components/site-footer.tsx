@@ -2,7 +2,7 @@ import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { MessageSquare } from "lucide-react";
 
-import { FeedbackDialog } from "@/components/feedback-dialog";
+import { FeedbackDialogLazy as FeedbackDialog } from "@/components/lazy";
 
 export async function SiteFooter() {
   const t = await getTranslations("Footer");

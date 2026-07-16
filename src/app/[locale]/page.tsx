@@ -69,6 +69,8 @@ export default async function HomePage({
 
   return (
     <>
+      {/* 预加载首屏关键资源：bg.png 是 CSS background-image，预加载扫描器发现不了 */}
+      <link rel="preload" as="image" href="/bg.png" fetchPriority="high" />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -92,8 +94,9 @@ export default async function HomePage({
         {newest.items.length > 0 ? (
           <section className="mb-10">
             <div className="mt-4 grid grid-cols-2 gap-3 sm:gap-4 sm:[grid-template-columns:repeat(auto-fill,200px)] sm:justify-center">
-              {newest.items.map((g) => (
-                <GameCard key={g.id} game={g} size="compact" />
+              {newest.items.map((g, i) => (
+                /* 首屏可见卡片（前 4 张）用 eager 提升 LCP；其余 lazy */
+                <GameCard key={g.id} game={g} size="compact" eager={i < 4} />
               ))}
             </div>
           </section>

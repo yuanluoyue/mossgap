@@ -7,6 +7,8 @@ interface GameCardProps {
   game: GameCardItem | PublicGame;
   className?: string;
   size?: "default" | "compact";
+  /** 首屏可见的卡片用 eager，提升 LCP；非首屏用 lazy（默认） */
+  eager?: boolean;
 }
 
 /** 占位渐变封面（无 coverImage 时使用） */
@@ -18,7 +20,7 @@ const COVER_GRADIENTS = [
   "from-blue-200 via-cyan-200 to-teal-200",
 ];
 
-export function GameCard({ game, className, size }: GameCardProps) {
+export function GameCard({ game, className, size, eager = false }: GameCardProps) {
   const gradient = COVER_GRADIENTS[
     Math.abs(hashCode(game.slug)) % COVER_GRADIENTS.length
   ];
@@ -52,7 +54,10 @@ export function GameCard({ game, className, size }: GameCardProps) {
         <img
           src={game.coverImage}
           alt={game.title}
-          loading="lazy"
+          // 首屏卡片用 eager + high priority 提升 LCP；其余用 lazy
+          loading={eager ? "eager" : "lazy"}
+          fetchPriority={eager ? "high" : "auto"}
+          decoding={eager ? "sync" : "async"}
           className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
         />
       ) : null}

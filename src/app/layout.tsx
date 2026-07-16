@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { getLocale, getMessages } from "next-intl/server";
 import { NextIntlClientProvider } from "next-intl";
-import { Toaster } from "@/components/ui/sonner";
+import { ToasterLazy as Toaster } from "@/components/lazy";
 import { Analytics } from "@/components/analytics";
 import { SDKProvider } from "@/components/sdk-provider";
 import { SITE_NAME } from "@/lib/seo";
