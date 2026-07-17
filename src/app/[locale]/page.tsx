@@ -11,6 +11,7 @@ import { buildPageMetadata, getSiteUrl, SITE_NAME } from "@/lib/seo";
 
 export const revalidate = 0;
 export const dynamic = "force-dynamic";
+export const fetchCache = "default-cache";
 
 export async function generateMetadata({
   params,
@@ -90,8 +91,8 @@ export default async function HomePage({
 
   return (
     <>
-      {/* 预加载首屏关键资源：bg.webp 是 CSS background-image，预加载扫描器发现不了 */}
-      <link rel="preload" as="image" href="/bg.webp" fetchPriority="high" />
+      {/* 背景图是装饰性的（aria-hidden），用 low priority 预加载，不抢 LCP 元素带宽 */}
+      <link rel="preload" as="image" href="/bg.webp" fetchPriority="low" />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{

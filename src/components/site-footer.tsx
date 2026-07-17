@@ -1,5 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
+import Image from "next/image";
 import { Mail, MessageSquare } from "lucide-react";
 
 import { FeedbackDialogLazy as FeedbackDialog } from "@/components/lazy";
@@ -30,8 +31,13 @@ export async function SiteFooter() {
         <div className="flex flex-col gap-8 md:flex-row md:items-start md:justify-between">
           <div className="max-w-sm">
             <Link href="/" className="inline-flex items-center gap-2.5">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/logo.png" alt="MossGap" className="size-7 rounded-md" />
+              <Image
+                src="/logo.png"
+                alt="MossGap"
+                width={28}
+                height={28}
+                className="size-7 rounded-md"
+              />
               <span className="font-heading text-base font-bold tracking-wider text-foreground">
                 MOSS
                 <span className="text-primary">GAP</span>

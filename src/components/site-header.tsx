@@ -1,22 +1,24 @@
 import Link from "next/link";
+import Image from "next/image";
 import { getTranslations } from "next-intl/server";
 
 import { LanguageSwitcher } from "@/components/language-switcher";
-import { Button } from "@/components/ui/button";
 
 export async function SiteHeader() {
   const t = await getTranslations("Nav");
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border/60 bg-background/85 backdrop-blur-xl">
+    <header className="sticky top-0 z-40 border-b border-border/60 bg-background">
       <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-4 sm:px-6 lg:px-8">
         {/* Logo */}
         <Link href="/" className="group flex items-center gap-2.5">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <Image
             src="/logo.png"
             alt="MossGap"
+            width={36}
+            height={36}
             className="size-9 rounded-md transition-transform group-hover:scale-105"
+            priority
           />
           <span className="font-heading text-lg font-bold tracking-tight">
             Moss<span className="text-primary">Gap</span>
