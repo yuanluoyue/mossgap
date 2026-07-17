@@ -35,9 +35,12 @@ export default async function HomePage({
 }) {
   const { locale } = await params;
   await setRequestLocale(locale);
-  const t = await getTranslations("Home");
-  const tSeo = await getTranslations("Seo");
-  const tFaq = await getTranslations({ locale, namespace: "Faq" });
+  // 并行拉取所有 i18n 文案，避免串行 await 拖长 TTFB
+  const [t, tSeo, tFaq] = await Promise.all([
+    getTranslations("Home"),
+    getTranslations("Seo"),
+    getTranslations({ locale, namespace: "Faq" }),
+  ]);
 
   const localeCode = (locale === "zh" ? "zh" : "en") as "en" | "zh";
 
@@ -50,6 +53,11 @@ export default async function HomePage({
 
   // FAQ 内容由服务端从 i18n 取出，传给客户端组件渲染（保证 HTML 包含问答文本，利于 SEO）
   const faqItems = (tFaq.raw("items") as FaqItem[]) ?? [];
+
+  // LCP 元素预加载：首屏第一张有封面的卡片图。
+  // 浏览器要等 HTML 解析到 <img> 才知道下载，提前用 <link rel="preload"> 让其并行下载，
+  // 移动端可减少 100-300ms LCP。
+  const lcpCoverImage = newest.items.find((g) => g.coverImage)?.coverImage;
 
   const siteUrl = await getSiteUrl();
   const websiteJsonLd = {
@@ -91,8 +99,15 @@ export default async function HomePage({
 
   return (
     <>
-      {/* 背景图是装饰性的（aria-hidden），用 low priority 预加载，不抢 LCP 元素带宽 */}
-      <link rel="preload" as="image" href="/bg.webp" fetchPriority="low" />
+      {/* LCP 图预加载：让浏览器在解析 HTML 之前就并行下载首屏第一张封面图 */}
+      {lcpCoverImage ? (
+        <link
+          rel="preload"
+          as="image"
+          href={lcpCoverImage}
+          fetchPriority="high"
+        />
+      ) : null}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -113,11 +128,11 @@ export default async function HomePage({
           }}
         />
       ) : null}
-      {/* 背景层：贴 <main> 底部、左右占满，不延伸到 footer */}
+      {/* 背景层：贴 <main> 底部、左右占满，不延伸到 footer。
+          移动端不加载（首屏看不到，避免与 LCP 图争抢带宽），sm+ 才加载 bg.webp */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 bottom-0 z-0 h-[60vh] bg-cover bg-bottom bg-no-repeat"
-        style={{ backgroundImage: "url('/bg.webp')" }}
+        className="pointer-events-none absolute inset-x-0 bottom-0 z-0 h-[60vh] bg-none bg-bottom bg-no-repeat sm:bg-cover sm:bg-[url('/bg.webp')]"
       />
       <div className="relative z-10 mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
         {/* ===== 最新游戏 ===== */}
@@ -125,8 +140,8 @@ export default async function HomePage({
           <section className="mb-10">
             <div className="mt-4 grid grid-cols-2 gap-3 sm:gap-4 sm:[grid-template-columns:repeat(auto-fill,200px)] sm:justify-center">
               {newest.items.map((g, i) => (
-                /* 首屏可见卡片（前 4 张）用 eager 提升 LCP；其余 lazy */
-                <GameCard key={g.id} game={g} size="compact" eager={i < 4} />
+                /* 移动端 grid-cols-2 首屏可见 2 张，仅前 2 张 eager 提升 LCP；其余 lazy */
+                <GameCard key={g.id} game={g} size="compact" eager={i < 2} />
               ))}
             </div>
           </section>
