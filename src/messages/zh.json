@@ -90,7 +90,7 @@
     "notFound": "合集不存在"
   },
   "Footer": {
-    "tagline": "网页游戏，触手可及。",
+    "tagline": "免费在线网页游戏——无需下载，无需安装。手机友好的 HTML5 游戏即点即玩，支持多种语言。",
     "rights": "保留所有权利。"
   },
   "Common": {
@@ -136,15 +136,61 @@
     "subtitle": "MossGap 如何处理你的数据。",
     "updated": "最后更新",
     "section1Title": "我们收集的信息",
-    "section1Body": "我们只收集运营 MossGap 所需的最少信息，包括匿名使用数据（如页面浏览量和游玩次数）以及用于反垃圾的 IP 地址（例如限制每个用户只能点赞一次）。我们绝不会出售或将你的数据分享给第三方。",
-    "section2Title": "Cookie 与本地存储",
-    "section2Body": "MossGap 使用必要的 cookie 和本地存储来记住你的语言偏好和主题。我们不使用任何广告或追踪 cookie。",
-    "section3Title": "游戏内容",
-    "section3Body": "MossGap 上的游戏运行在沙箱化的 iframe 中，它们可能设置自己的 cookie 或本地存储；建议你单独查看每款游戏的隐私实践。",
-    "section4Title": "未成年人隐私",
-    "section4Body": "MossGap 适合一般受众。我们不会故意收集 13 岁以下儿童的个人信息。如果你认为有儿童向我们提供了个人信息，请联系我们，我们会将其删除。",
-    "section5Title": "联系我们",
-    "section5Body": "对本政策有疑问？通过联系我们页面告诉我们，我们会尽快回复。"
+    "section1Body": "在 MossGap，我们致力于保护你的隐私。我们只收集为提供最佳游戏体验所需的最少信息：\n- 游戏偏好和最高分（存储在你的浏览器本地）\n- 语言偏好\n- 主题偏好（深色/浅色模式）\n- 匿名使用分析以改善我们的游戏",
+    "section2Title": "我们如何使用你的信息",
+    "section2Body": "我们使用收集的信息来：\n- 提供和维护我们的游戏服务\n- 改善用户体验和游戏性能\n- 在不同浏览阶段记住你的偏好\n- 分析使用模式以改善我们的游戏",
+    "section3Title": "数据存储和安全",
+    "section3Body": "你的游戏数据主要使用浏览器 localStorage 存储在你的设备本地。我们不在服务器上存储个人信息。我们实施了适当的安全措施来防止未经授权的访问。",
+    "section4Title": "第三方服务",
+    "section4Body": "我们的网站可能使用第三方服务进行分析：\n- Google Analytics（用于匿名使用统计）\n- 这些服务可能根据其自己的隐私政策收集匿名数据",
+    "section5Title": "Cookie 和本地存储",
+    "section5Body": "我们使用 cookie 和本地存储来改善你的体验：\n- 网站功能必需的 cookie\n- 记住你设定的偏好 cookie\n- 了解使用模式的分析 cookie\n- 你可以通过浏览器设置控制 cookie",
+    "section6Title": "儿童隐私",
+    "section6Body": "我们的游戏适合所有年龄层。我们不会故意收集 13 岁以下儿童的个人信息。如果你是家长并相信你的孩子提供了个人信息，请联系我们。",
+    "section7Title": "你的权利",
+    "section7Body": "你有权：\n- 随时清除你的游戏数据和偏好\n- 在浏览器中停用 cookie\n- 要求关于我们收集的数据的信息\n- 就隐私疑虑联系我们",
+    "section8Title": "政策更新",
+    "section8Body": "我们可能会不时更新此隐私政策。我们会通过在此页面发布新政策来通知用户任何重大变更。",
+    "section9Title": "联系我们",
+    "section9Body": "如果你对此隐私政策有任何问题，请联系我们：\n- 电子邮件：support@mossgap.com\n- 联系表单：访问我们的联系我们页面"
+  },
+  "Faq": {
+    "title": "常见问题",
+    "subtitle": "关于在 MossGap 玩游戏你需要知道的一切。",
+    "items": [
+      {
+        "question": "MossGap 是什么？",
+        "answer": "MossGap 是一个网页游戏街机厅，你可以直接在浏览器里玩到从经典解谜、策略到街机动作的精选好游戏。每款都免费，无需下载。"
+      },
+      {
+        "question": "为什么选择 MossGap？",
+        "answer": "我们把简洁、响应式的界面和多语言、深色模式结合在一起，并且每一款游戏都经过人工挑选。我们更在意加载速度和流畅体验，让游戏在你手边的任何设备上都能跑得顺。"
+      },
+      {
+        "question": "游戏真的免费吗？",
+        "answer": "是的——MossGap 上的每一款游戏都完全免费。不用注册、不用下载、没有隐藏收费。打开就能玩。"
+      },
+      {
+        "question": "手机和平板上能玩吗？",
+        "answer": "可以。所有游戏都针对桌面和移动端做了优化，无论你用手机、平板还是笔记本，响应式布局都能让游戏跑得流畅。"
+      },
+      {
+        "question": "我的分数和进度存在哪里？",
+        "answer": "你的分数和进度会保存在浏览器的本地存储中，所以在同一设备上的不同会话之间会一直保留——不需要账户。"
+      },
+      {
+        "question": "有哪些类型的游戏？",
+        "answer": "我们的目录涵盖动作、解谜、街机、冒险、策略、体育和竞速，并且持续上新，让你总能找到新鲜的玩法。"
+      },
+      {
+        "question": "玩游戏需要注册账户吗？",
+        "answer": "不用——直接点开就玩。代价是分数和进度只保留在你当前的设备上，因为我们不会把它们存到服务器。"
+      },
+      {
+        "question": "支持哪些浏览器？",
+        "answer": "MossGap 在所有现代浏览器上都能运行，包括 Chrome、Firefox、Safari 和 Edge。为了获得最佳体验，建议保持浏览器为最新版本。"
+      }
+    ]
   },
   "Terms": {
     "title": "服务条款",
@@ -180,25 +226,11 @@
   },
   "Contact": {
     "title": "联系我们",
-    "subtitle": "有问题、反馈，或者只想打个招呼？我们很乐意收到你的消息。",
+    "subtitle": "有问题、反馈，或者只想打个招呼？发邮件给我们，我们会尽快回复。",
     "channelsTitle": "直接联系我们",
     "responseTimeLabel": "回复时间",
     "responseTimeValue": "我们通常在 1–2 个工作日内回复。",
-    "emailLabel": "邮箱",
-    "discordLabel": "Discord",
-    "discordValue": "加入社区",
-    "communityLabel": "社区",
-    "communityValue": "论坛与讨论",
-    "formTitle": "给我们留言",
-    "formSubtitle": "填写表单，我们会通过邮件回复你。",
-    "formName": "你的名字",
-    "formEmail": "邮箱地址",
-    "formSubject": "主题",
-    "formMessage": "留言内容",
-    "formSubmit": "发送留言",
-    "formSubmitting": "发送中...",
-    "formSuccess": "消息已发送！我们会尽快与你联系。",
-    "formError": "请填写所有必填字段。"
+    "emailLabel": "邮箱"
   },
   "Seo": {
     "homeTitle": "免费在线网页游戏 - MossGap",

@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { setRequestLocale } from "next-intl/server";
 import { Gamepad2 } from "lucide-react";
 
+import { Faq, type FaqItem } from "@/components/faq";
 import { GameCard } from "@/components/game-card";
 import { listGameCards } from "@/db/queries";
 
@@ -35,6 +36,7 @@ export default async function HomePage({
   await setRequestLocale(locale);
   const t = await getTranslations("Home");
   const tSeo = await getTranslations("Seo");
+  const tFaq = await getTranslations({ locale, namespace: "Faq" });
 
   const localeCode = (locale === "zh" ? "zh" : "en") as "en" | "zh";
 
@@ -44,6 +46,9 @@ export default async function HomePage({
   );
 
   const hasGames = newest.items.length > 0;
+
+  // FAQ 内容由服务端从 i18n 取出，传给客户端组件渲染（保证 HTML 包含问答文本，利于 SEO）
+  const faqItems = (tFaq.raw("items") as FaqItem[]) ?? [];
 
   const siteUrl = await getSiteUrl();
   const websiteJsonLd = {
@@ -66,6 +71,22 @@ export default async function HomePage({
     logo: `${siteUrl}/logo.png`,
     sameAs: [],
   };
+  // FAQPage 结构化数据：让 Google 在搜索结果中直接展示问答，提升点击率
+  const faqPageJsonLd =
+    faqItems.length > 0
+      ? {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: faqItems.map((item) => ({
+            "@type": "Question",
+            name: item.question,
+            acceptedAnswer: {
+              "@type": "Answer",
+              text: item.answer,
+            },
+          })),
+        }
+      : null;
 
   return (
     <>
@@ -83,6 +104,14 @@ export default async function HomePage({
           __html: JSON.stringify(organizationJsonLd).replace(/</g, "\\u003c"),
         }}
       />
+      {faqPageJsonLd ? (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(faqPageJsonLd).replace(/</g, "\\u003c"),
+          }}
+        />
+      ) : null}
       {/* 背景层：贴 <main> 底部、左右占满，不延伸到 footer */}
       <div
         aria-hidden
@@ -119,6 +148,13 @@ export default async function HomePage({
           </section>
         ) : null}
       </div>
+
+      {/* ===== FAQ ===== */}
+      <Faq
+        title={tFaq("title")}
+        subtitle={tFaq("subtitle")}
+        items={faqItems}
+      />
     </>
   );
 }

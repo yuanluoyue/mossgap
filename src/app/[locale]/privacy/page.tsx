@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
+import Link from "next/link";
 
 import { buildPageMetadata } from "@/lib/seo";
 
@@ -26,6 +27,7 @@ export default async function PrivacyPage({
   const { locale } = await params;
   await setRequestLocale(locale);
   const t = await getTranslations({ locale, namespace: "Privacy" });
+  const tl = await getTranslations({ locale, namespace: "Legal" });
   const year = new Date().getFullYear();
 
   const sections = [
@@ -34,6 +36,9 @@ export default async function PrivacyPage({
     { title: t("section3Title"), body: t("section3Body") },
     { title: t("section4Title"), body: t("section4Body") },
     { title: t("section5Title"), body: t("section5Body") },
+    { title: t("section6Title"), body: t("section6Body") },
+    { title: t("section7Title"), body: t("section7Body") },
+    { title: t("section8Title"), body: t("section8Body") },
   ];
 
   return (
@@ -61,6 +66,34 @@ export default async function PrivacyPage({
             </p>
           </section>
         ))}
+
+        {/* 联系我们：邮箱 + 联系表单链接，方便用户直接触达 */}
+        <section>
+          <h2 className="font-heading text-xl font-bold tracking-tight text-foreground">
+            9. {t("section9Title")}
+          </h2>
+          <p className="mt-3 whitespace-pre-line leading-relaxed text-foreground/80">
+            {t("section9Body")}
+          </p>
+          <ul className="mt-4 space-y-2 text-sm">
+            <li>
+              <a
+                href="mailto:support@mossgap.com"
+                className="font-medium text-primary underline-offset-4 hover:underline"
+              >
+                support@mossgap.com
+              </a>
+            </li>
+            <li>
+              <Link
+                href="/contact"
+                className="font-medium text-primary underline-offset-4 hover:underline"
+              >
+                {tl("contact")} →
+              </Link>
+            </li>
+          </ul>
+        </section>
       </div>
     </div>
   );

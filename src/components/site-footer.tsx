@@ -1,6 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
-import { MessageSquare } from "lucide-react";
+import { Mail, MessageSquare } from "lucide-react";
 
 import { FeedbackDialogLazy as FeedbackDialog } from "@/components/lazy";
 
@@ -89,6 +89,13 @@ export async function SiteFooter() {
               >
                 {tl("terms")}
               </Link>
+              <a
+                href="mailto:support@mossgap.com"
+                className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-primary"
+              >
+                <Mail className="size-3.5" />
+                support@mossgap.com
+              </a>
               <FeedbackDialog
                 type="platform"
                 labels={feedbackLabels}

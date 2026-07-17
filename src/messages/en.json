@@ -90,7 +90,7 @@
     "notFound": "Collection not found"
   },
   "Footer": {
-    "tagline": "Browser games, delivered.",
+    "tagline": "Play free online browser games - no downloads, no installs. Mobile-friendly HTML5 games that run instantly, available in multiple languages.",
     "rights": "All rights reserved."
   },
   "Common": {
@@ -136,15 +136,61 @@
     "subtitle": "How we handle your data at MossGap.",
     "updated": "Last updated",
     "section1Title": "Information we collect",
-    "section1Body": "We collect minimal information needed to operate MossGap. This includes anonymous usage data (such as page views and play counts) and your IP address for the sole purpose of spam prevention (like limiting one like per user). We do not sell or share your data with third parties.",
-    "section2Title": "Cookies & local storage",
-    "section2Body": "MossGap uses essential cookies and local storage to remember your language preference and theme. We do not use advertising or tracking cookies.",
-    "section3Title": "Game content",
-    "section3Body": "Games hosted on MossGap run inside a sandboxed iframe. They may set their own cookies or local storage; we recommend reviewing each game's privacy practices separately.",
-    "section4Title": "Children's privacy",
-    "section4Body": "MossGap is suitable for general audiences. We do not knowingly collect personal information from children under 13. If you believe a child has provided us personal information, please contact us and we will delete it.",
-    "section5Title": "Contact us",
-    "section5Body": "Have questions about this policy? Reach out via our Contact page and we'll get back to you."
+    "section1Body": "At MossGap, we are committed to protecting your privacy. We collect the minimum information needed to provide you with the best gaming experience:\n- Game preferences and high scores (stored locally in your browser)\n- Language preference\n- Theme preference (dark/light mode)\n- Anonymous usage analytics to improve our games",
+    "section2Title": "How we use your information",
+    "section2Body": "We use the information we collect to:\n- Provide and maintain our game services\n- Improve user experience and game performance\n- Remember your preferences across browsing sessions\n- Analyze usage patterns to improve our games",
+    "section3Title": "Data storage and security",
+    "section3Body": "Your game data is primarily stored locally on your device using your browser's localStorage. We do not store personal information on our servers. We implement appropriate security measures to prevent unauthorized access.",
+    "section4Title": "Third-party services",
+    "section4Body": "Our website may use third-party services for analytics:\n- Google Analytics (for anonymous usage statistics)\n- These services may collect anonymous data according to their own privacy policies",
+    "section5Title": "Cookies and local storage",
+    "section5Body": "We use cookies and local storage to enhance your experience:\n- Essential cookies required for website functionality\n- Preference cookies to remember your settings\n- Analytics cookies to understand usage patterns\n- You can control cookies through your browser settings",
+    "section6Title": "Children's privacy",
+    "section6Body": "Our games are suitable for all ages. We do not knowingly collect personal information from children under 13. If you are a parent and believe your child has provided personal information, please contact us.",
+    "section7Title": "Your rights",
+    "section7Body": "You have the right to:\n- Clear your game data and preferences at any time\n- Disable cookies in your browser\n- Request information about the data we collect\n- Contact us about privacy concerns",
+    "section8Title": "Policy updates",
+    "section8Body": "We may update this privacy policy from time to time. We will notify users of any significant changes by posting the new policy on this page.",
+    "section9Title": "Contact us",
+    "section9Body": "If you have any questions about this privacy policy, please contact us:\n- Email: support@mossgap.com\n- Contact form: Visit our Contact page"
+  },
+  "Faq": {
+    "title": "Frequently Asked Questions",
+    "subtitle": "Everything you need to know about playing games on MossGap.",
+    "items": [
+      {
+        "question": "What is MossGap?",
+        "answer": "MossGap is a browser-game arcade where you can play high-quality titles - from classic puzzles and strategy games to arcade action - entirely in your browser. Every game is free and needs no download."
+      },
+      {
+        "question": "Why should I pick MossGap?",
+        "answer": "We pair a clean, responsive interface with multi-language and dark-mode support, and we handpick every title. The focus is on fast load times, a smooth experience, and games that run well on whatever device you have."
+      },
+      {
+        "question": "Are the games really free?",
+        "answer": "Yes - every game on MossGap is 100% free. No sign-up, no downloads, no hidden charges. Just open a game and start playing right away."
+      },
+      {
+        "question": "Does MossGap work on phones and tablets?",
+        "answer": "Yes. All our games are optimized for desktop and mobile, so whether you're on a phone, tablet, or laptop, the gameplay stays smooth thanks to our responsive layout."
+      },
+      {
+        "question": "Where are my scores and progress stored?",
+        "answer": "Your scores and progress are saved to your browser's local storage, so they carry over between sessions on the same device - no account needed."
+      },
+      {
+        "question": "What kinds of games can I play?",
+        "answer": "Our catalog spans action, puzzle, arcade, adventure, strategy, sports, and racing - and we keep adding new titles so there's always something fresh to try."
+      },
+      {
+        "question": "Do I need an account to play?",
+        "answer": "Nope - just hit play. The trade-off is that scores and progress live only on your current device, since we don't store them on a server."
+      },
+      {
+        "question": "Which browsers are supported?",
+        "answer": "MossGap runs on all modern browsers - Chrome, Firefox, Safari, and Edge. For the best experience, keep your browser up to date."
+      }
+    ]
   },
   "Terms": {
     "title": "Terms of Service",
@@ -180,25 +226,11 @@
   },
   "Contact": {
     "title": "Get in touch",
-    "subtitle": "Questions, feedback, or just want to say hi? We'd love to hear from you.",
+    "subtitle": "Questions, feedback, or just want to say hi? Email us and we'll get back to you.",
     "channelsTitle": "Reach us directly",
     "responseTimeLabel": "Response time",
     "responseTimeValue": "We typically reply within 1–2 business days.",
-    "emailLabel": "Email",
-    "discordLabel": "Discord",
-    "discordValue": "Join our community",
-    "communityLabel": "Community",
-    "communityValue": "Forum & discussions",
-    "formTitle": "Send us a message",
-    "formSubtitle": "Fill out the form and we'll get back to you by email.",
-    "formName": "Your name",
-    "formEmail": "Email address",
-    "formSubject": "Subject",
-    "formMessage": "Message",
-    "formSubmit": "Send message",
-    "formSubmitting": "Sending...",
-    "formSuccess": "Message sent! We'll be in touch soon.",
-    "formError": "Please fill in all required fields."
+    "emailLabel": "Email"
   },
   "Seo": {
     "homeTitle": "Play Free Browser Games Online - MossGap",
