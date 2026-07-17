@@ -71,8 +71,11 @@ export function GameForm({ game, candidates = [], categories, tags, collections 
   const [tagIds, setTagIds] = useState<string[]>(game.tagIds ?? []);
   const [collectionIds, setCollectionIds] = useState<string[]>(game.collectionIds ?? []);
   const [internalNotes, setInternalNotes] = useState<string>(game.internalNotes ?? "");
+  const [iframeUrl, setIframeUrl] = useState<string>(game.iframeUrl ?? "");
   const [reuploading, setReuploading] = useState(false);
   const reuploadInputRef = useRef<HTMLInputElement>(null);
+
+  const isIframe = game.sourceType === "iframe";
 
   async function onSave() {
     if (saving) return;
@@ -92,6 +95,9 @@ export function GameForm({ game, candidates = [], categories, tags, collections 
             en: { title: enTitle, description: enDesc },
             zh: { title: zhTitle, description: zhDesc },
           },
+          // 保留来源类型与 iframe URL，避免被 zod 默认值覆盖
+          sourceType: game.sourceType,
+          iframeUrl: isIframe ? iframeUrl : "",
           categoryId: categoryId || null,
           tagIds,
           collectionIds,
@@ -332,6 +338,22 @@ export function GameForm({ game, candidates = [], categories, tags, collections 
               </Button>
             </CardContent>
           </Card>
+
+          {/* 内部备注 */}
+          <Card>
+            <CardHeader>
+              <CardTitle>内部备注</CardTitle>
+              <CardDescription>仅在后台展示，C 端用户不可见</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Textarea
+                value={internalNotes}
+                onChange={(e) => setInternalNotes(e.target.value)}
+                placeholder="可记录游戏来源、版权信息、运营注意事项等"
+                rows={4}
+              />
+            </CardContent>
+          </Card>
         </div>
 
         {/* 右：配置 */}
@@ -451,78 +473,82 @@ export function GameForm({ game, candidates = [], categories, tags, collections 
           <Card>
             <CardHeader>
               <CardTitle>游戏资源</CardTitle>
-              <CardDescription>来自上传的 zip 包</CardDescription>
+              <CardDescription>
+                {isIframe ? "通过 iframe 嵌入第三方游戏" : "来自上传的 zip 包"}
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
-              <div className="space-y-1.5">
-                <Label>入口文件</Label>
-                <Input
-                  value={entryFile}
-                  onChange={(e) => setEntryFile(e.target.value)}
-                  placeholder="index.html"
-                  className="font-mono"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label>重新上传资源</Label>
-                <input
-                  ref={reuploadInputRef}
-                  type="file"
-                  accept=".zip"
-                  className="hidden"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) void onReupload(f);
-                  }}
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full"
-                  disabled={reuploading || game.sourceType !== "zip"}
-                  onClick={() => reuploadInputRef.current?.click()}
-                >
-                  {reuploading ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <UploadCloud className="size-4" />
-                  )}
-                  {reuploading ? "上传中…" : "选择新 zip 包"}
-                </Button>
-                <p className="text-xs text-muted-foreground">
-                  上传新包后会自动切换到新资源并删除旧资源
-                </p>
-              </div>
-
-              <div className="rounded-lg bg-slate-50 p-3 text-xs text-muted-foreground">
-                <p className="mb-1 font-medium text-foreground">OSS 路径</p>
-                <p className="break-all font-mono">{game.ossPrefix || "（无）"}</p>
-                {playUrl ? (
-                  <p className="mt-2 break-all font-mono text-[10px]">
-                    完整 URL: .../{playUrl}
+              {isIframe ? (
+                <div className="space-y-1.5">
+                  <Label>iframe URL</Label>
+                  <Input
+                    value={iframeUrl}
+                    onChange={(e) => setIframeUrl(e.target.value)}
+                    placeholder="https://example.com/game/index.html"
+                    className="font-mono"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    游戏将通过 iframe 嵌入此 URL，保存后生效
                   </p>
-                ) : null}
-              </div>
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-1.5">
+                    <Label>入口文件</Label>
+                    <Input
+                      value={entryFile}
+                      onChange={(e) => setEntryFile(e.target.value)}
+                      placeholder="index.html"
+                      className="font-mono"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label>重新上传资源</Label>
+                    <input
+                      ref={reuploadInputRef}
+                      type="file"
+                      accept=".zip"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) void onReupload(f);
+                      }}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      disabled={reuploading}
+                      onClick={() => reuploadInputRef.current?.click()}
+                    >
+                      {reuploading ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <UploadCloud className="size-4" />
+                      )}
+                      {reuploading ? "上传中…" : "选择新 zip 包"}
+                    </Button>
+                    <p className="text-xs text-muted-foreground">
+                      上传新包后会自动切换到新资源并删除旧资源
+                    </p>
+                  </div>
+
+                  <div className="rounded-lg bg-slate-50 p-3 text-xs text-muted-foreground">
+                    <p className="mb-1 font-medium text-foreground">OSS 路径</p>
+                    <p className="break-all font-mono">{game.ossPrefix || "（无）"}</p>
+                    {playUrl ? (
+                      <p className="mt-2 break-all font-mono text-[10px]">
+                        完整 URL: .../{playUrl}
+                      </p>
+                    ) : null}
+                  </div>
+                </>
+              )}
               <div className="flex items-center justify-between rounded-lg bg-slate-50 p-3 text-xs">
                 <span className="text-muted-foreground">游玩次数</span>
                 <span className="font-mono tabular-nums">{game.playCount}</span>
               </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>内部备注</CardTitle>
-              <CardDescription>仅在后台展示，C 端用户不可见</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Textarea
-                value={internalNotes}
-                onChange={(e) => setInternalNotes(e.target.value)}
-                placeholder="可记录游戏来源、版权信息、运营注意事项等"
-                rows={4}
-              />
             </CardContent>
           </Card>
         </div>

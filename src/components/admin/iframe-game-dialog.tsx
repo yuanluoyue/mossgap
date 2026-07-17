@@ -16,26 +16,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { GAME_CATEGORIES } from "@/types";
-import type { GameCategory } from "@/types";
-
-const CATEGORY_LABELS: Record<GameCategory, string> = {
-  action: "动作",
-  puzzle: "解谜",
-  arcade: "街机",
-  adventure: "冒险",
-  strategy: "策略",
-  sports: "体育",
-  racing: "竞速",
-  other: "其他",
-};
 
 interface IframeGameDialogProps {
   children: React.ReactNode;
@@ -49,15 +29,11 @@ export function IframeGameDialog({ children }: IframeGameDialogProps) {
   const [slug, setSlug] = useState("");
   const [title, setTitle] = useState("");
   const [iframeUrl, setIframeUrl] = useState("");
-  const [category, setCategory] = useState<GameCategory>("other");
-  const [coverImage, setCoverImage] = useState("");
 
   function reset() {
     setSlug("");
     setTitle("");
     setIframeUrl("");
-    setCategory("other");
-    setCoverImage("");
   }
 
   function onOpenChange(next: boolean) {
@@ -94,8 +70,6 @@ export function IframeGameDialog({ children }: IframeGameDialogProps) {
           slug,
           title,
           iframeUrl: cleanedUrl,
-          category,
-          coverImage,
         }),
       });
       const data = (await res.json()) as {
@@ -167,35 +141,6 @@ export function IframeGameDialog({ children }: IframeGameDialogProps) {
             <p className="text-xs text-muted-foreground">
               游戏将通过 iframe 嵌入此 URL
             </p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>分类</Label>
-              <Select
-                value={category}
-                onValueChange={(v) => setCategory(v as GameCategory)}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {GAME_CATEGORIES.map((c) => (
-                    <SelectItem key={c} value={c}>
-                      {CATEGORY_LABELS[c]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>封面图 URL（可选）</Label>
-              <Input
-                value={coverImage}
-                onChange={(e) => setCoverImage(e.target.value)}
-                placeholder="https://..."
-              />
-            </div>
           </div>
         </div>
 

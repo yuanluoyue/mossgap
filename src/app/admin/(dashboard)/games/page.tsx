@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Gamepad2, Upload, Search, HardDrive, StickyNote } from "lucide-react";
+import { Gamepad2, Upload, Search, HardDrive, StickyNote, Link2 } from "lucide-react";
 
 import { listAdminGames, listAllCategoriesForPicker } from "@/db/queries";
 import { publicObjectUrl } from "@/lib/oss";
@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/tooltip";
 import { Pagination } from "@/components/admin/pagination";
 import { UploadGameDialog } from "@/components/admin/upload-game-dialog";
+import { IframeGameDialog } from "@/components/admin/iframe-game-dialog";
 import { GameRowActions } from "@/components/admin/game-row-actions";
 import { formatDate } from "@/lib/format";
 
@@ -88,12 +89,20 @@ export default async function AdminGamesPage({
             共 {result.total} 个游戏
           </p>
         </div>
-        <UploadGameDialog>
-          <Button>
-            <Upload className="size-4" />
-            上传游戏
-          </Button>
-        </UploadGameDialog>
+        <div className="flex items-center gap-2">
+          <UploadGameDialog>
+            <Button>
+              <Upload className="size-4" />
+              上传游戏
+            </Button>
+          </UploadGameDialog>
+          <IframeGameDialog>
+            <Button variant="secondary">
+              <Link2 className="size-4" />
+              创建 iframe 游戏
+            </Button>
+          </IframeGameDialog>
+        </div>
       </div>
 
       {/* 筛选 */}

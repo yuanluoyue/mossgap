@@ -53,6 +53,11 @@ const ACTION_BADGES: Record<string, { label: string; variant: "default" | "secon
   "profile.update": { label: "更新资料", variant: "secondary" },
   "profile.update_avatar": { label: "更新头像", variant: "secondary" },
   "profile.change_password": { label: "修改密码", variant: "outline" },
+  "game.upload": { label: "上传游戏", variant: "default" },
+  "game.create.iframe": { label: "创建 iframe 游戏", variant: "default" },
+  "game.update": { label: "更新游戏", variant: "secondary" },
+  "game.status_change": { label: "游戏上下架", variant: "secondary" },
+  "game.delete": { label: "删除游戏", variant: "outline" },
 };
 
 export default async function AuditLogsPage({
