@@ -1,8 +1,13 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { Gamepad2, Zap, Shield, Sparkles, Globe } from "lucide-react";
+import { Gamepad2, Zap, Shield, Sparkles, Globe, Mail, Gamepad } from "lucide-react";
 
 import { buildPageMetadata } from "@/lib/seo";
+
+interface GameCategory {
+  name: string;
+  desc: string;
+}
 
 export async function generateMetadata({
   params,
@@ -55,6 +60,9 @@ export default async function AboutPage({
     },
   ];
 
+  // 游戏品类列表（由 i18n 注入，利于 SEO 抓取）
+  const gameCategories = (t.raw("gamesCategories") as GameCategory[]) ?? [];
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-16 sm:px-6 lg:px-8">
       <header className="text-center">
@@ -102,6 +110,34 @@ export default async function AboutPage({
         ))}
       </section>
 
+      {/* 我们的游戏：来源说明 + 品类列表 */}
+      <section className="mt-12 rounded-3xl border border-border/60 bg-card p-8 card-shadow">
+        <h2 className="font-heading text-2xl font-bold tracking-tight text-foreground">
+          {t("gamesTitle")}
+        </h2>
+        <p className="mt-3 leading-relaxed text-foreground/80">
+          {t("gamesIntro")}
+        </p>
+        <ul className="mt-6 grid gap-3 sm:grid-cols-2">
+          {gameCategories.map((cat) => (
+            <li
+              key={cat.name}
+              className="flex items-start gap-3 rounded-xl border border-border/40 bg-secondary/30 p-3"
+            >
+              <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Gamepad className="size-3.5" />
+              </div>
+              <div className="min-w-0">
+                <p className="font-heading text-sm font-semibold text-foreground">
+                  {cat.name}
+                </p>
+                <p className="text-xs text-muted-foreground">{cat.desc}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </section>
+
       {/* 故事 */}
       <section className="mt-12 rounded-3xl border border-border/60 bg-card p-8 card-shadow">
         <h2 className="font-heading text-2xl font-bold tracking-tight text-foreground">
@@ -110,6 +146,23 @@ export default async function AboutPage({
         <p className="mt-3 leading-relaxed text-foreground/80">
           {t("storyBody")}
         </p>
+      </section>
+
+      {/* 联系我们 */}
+      <section className="mt-12 text-center">
+        <h2 className="font-heading text-2xl font-bold tracking-tight text-foreground">
+          {t("contactTitle")}
+        </h2>
+        <p className="mx-auto mt-3 max-w-xl text-sm text-muted-foreground">
+          {t("contactBody")}
+        </p>
+        <a
+          href="mailto:support@mossgap.com"
+          className="mt-5 inline-flex items-center gap-2 rounded-2xl border border-border/60 bg-card px-5 py-3 text-sm font-semibold text-foreground card-shadow transition-colors hover:border-primary hover:text-primary"
+        >
+          <Mail className="size-4" />
+          support@mossgap.com
+        </a>
       </section>
     </div>
   );

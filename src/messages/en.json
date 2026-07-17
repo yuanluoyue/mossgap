@@ -129,7 +129,19 @@
     "feature3Title": "Curated quality",
     "feature3Desc": "We handpick each title. No filler, no clutter - just games worth your time.",
     "feature4Title": "Works everywhere",
-    "feature4Desc": "Desktop, tablet, phone - any device with a modern browser can join the fun."
+    "feature4Desc": "Desktop, tablet, phone - any device with a modern browser can join the fun.",
+    "gamesTitle": "Our games",
+    "gamesIntro": "We carefully select and integrate games from various sources - independent developers, open-source projects, and classic browser titles. Every game goes through our review process before being added to ensure quality and safety. Our catalog spans:",
+    "gamesCategories": [
+      { "name": "Action", "desc": "Fast-paced titles that test your reflexes" },
+      { "name": "Puzzle", "desc": "Brain-teasers that challenge your logic" },
+      { "name": "Arcade", "desc": "Classic-style games with modern twists" },
+      { "name": "Adventure", "desc": "Story-driven experiences to explore" },
+      { "name": "Strategy", "desc": "Games that reward planning and tactics" },
+      { "name": "Sports & Racing", "desc": "Competitive titles for fans of speed and skill" }
+    ],
+    "contactTitle": "Get in touch",
+    "contactBody": "Questions, feedback, or want to submit a game? Email us and we'll get back to you."
   },
   "Privacy": {
     "title": "Privacy Policy",
@@ -189,6 +201,10 @@
       {
         "question": "Which browsers are supported?",
         "answer": "MossGap runs on all modern browsers - Chrome, Firefox, Safari, and Edge. For the best experience, keep your browser up to date."
+      },
+      {
+        "question": "Where do your games come from?",
+        "answer": "We carefully select and integrate games from various sources - independent developers, open-source projects, and classic browser titles. Every game is reviewed by our team for quality and safety before being added to MossGap."
       }
     ]
   },
