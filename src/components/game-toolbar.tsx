@@ -182,12 +182,9 @@ export function GameToolbar({
   }
 
   return (
-    <div
-      className="flex items-center justify-between bg-card px-4"
-      style={{ width: 836, height: 64 }}
-    >
+    <div className="flex h-14 w-full items-center justify-between bg-card px-3 sm:h-16 sm:px-4 lg:w-[836px]">
       {/* 左：游戏 icon + 名字 + 制作方 */}
-      <div className="flex items-center gap-3 min-w-0">
+      <div className="flex min-w-0 items-center gap-3">
         <div className="size-10 shrink-0 overflow-hidden rounded-lg border border-border/60 bg-muted">
           {coverImage ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -204,36 +201,38 @@ export function GameToolbar({
 
       {/* 右：反馈 + 点赞 + 点踩 + 全屏 */}
       <div className="flex items-center gap-1.5">
-        {/* 反馈（点赞按钮左边） */}
-        <FeedbackDialog
-          type="game"
-          gameId={gameId}
-          gameTitle={title}
-          labels={feedbackLabels}
-          trigger={
-            <button
-              type="button"
-              onClick={() =>
-                analytics.platform("toolbar_button_click", {
-                  button: "feedback",
-                  slug,
-                })
-              }
-              className="btn-press inline-flex items-center justify-center rounded-full p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              aria-label="feedback"
-            >
-              <MessageSquare className="size-4" />
-            </button>
-          }
-        />
+        {/* 反馈（点赞按钮左边） — 移动端隐藏 */}
+        <div className="hidden sm:block">
+          <FeedbackDialog
+            type="game"
+            gameId={gameId}
+            gameTitle={title}
+            labels={feedbackLabels}
+            trigger={
+              <button
+                type="button"
+                onClick={() =>
+                  analytics.platform("toolbar_button_click", {
+                    button: "feedback",
+                    slug,
+                  })
+                }
+                className="btn-press inline-flex items-center justify-center rounded-full p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                aria-label="feedback"
+              >
+                <MessageSquare className="size-4" />
+              </button>
+            }
+          />
+        </div>
 
-        {/* 点赞 */}
+        {/* 点赞 — 移动端隐藏 */}
         <button
           type="button"
           onClick={onToggleLike}
           disabled={pending}
           className={cn(
-            "btn-press inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors",
+            "btn-press hidden items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors sm:inline-flex",
             liked
               ? "text-white shadow-sm"
               : "text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -244,13 +243,13 @@ export function GameToolbar({
           <span>{likeCount}</span>
         </button>
 
-        {/* 点踩 */}
+        {/* 点踩 — 移动端隐藏 */}
         <button
           type="button"
           onClick={onToggleDislike}
           disabled={pending}
           className={cn(
-            "btn-press inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors",
+            "btn-press hidden items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors sm:inline-flex",
             disliked
               ? "bg-red-500/10 text-red-600 shadow-sm"
               : "text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -260,7 +259,7 @@ export function GameToolbar({
           <span>{dislikeCount}</span>
         </button>
 
-        {/* 全屏 */}
+        {/* 全屏 — 始终显示（移动端核心交互） */}
         <button
           type="button"
           onClick={toggleFullscreen}
