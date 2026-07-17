@@ -119,9 +119,19 @@ export async function SiteFooter() {
           </div>
         </div>
 
-        <div className="mt-10 flex flex-col items-start justify-between gap-2 border-t border-border pt-6 text-xs text-muted-foreground sm:flex-row sm:items-center">
+        <div className="mt-10 space-y-3 border-t border-border pt-6 text-xs text-muted-foreground">
           <p>
             © {year} MossGap. {t("rights")}
+          </p>
+          <p className="max-w-2xl leading-relaxed">
+            {t("copyrightHintPrefix")}
+            <Link
+              href="/copyright-notice"
+              className="font-medium text-foreground underline-offset-4 hover:text-primary hover:underline"
+            >
+              {tl("copyrightNotice")}
+            </Link>
+            {t("copyrightHintSuffix")}
           </p>
         </div>
       </div>

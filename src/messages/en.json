@@ -91,7 +91,9 @@
   },
   "Footer": {
     "tagline": "Free browser games - no downloads, mobile-friendly, multi-language.",
-    "rights": "All rights reserved."
+    "rights": "All rights reserved.",
+    "copyrightHintPrefix": "If you believe your copyrighted content has been posted on MossGap without your permission, please follow our ",
+    "copyrightHintSuffix": "."
   },
   "Common": {
     "loading": "Loading...",
@@ -113,7 +115,8 @@
     "categories": "Categories",
     "privacy": "Privacy Policy",
     "terms": "Terms of Service",
-    "contact": "Contact"
+    "contact": "Contact",
+    "copyrightNotice": "Copyright Infringement Notice Procedure"
   },
   "About": {
     "title": "About MossGap",
@@ -165,6 +168,29 @@
     "section8Body": "We may update this privacy policy from time to time. We will notify users of any significant changes by posting the new policy on this page.",
     "section9Title": "Contact us",
     "section9Body": "If you have any questions about this privacy policy, please contact us:\n- Email: support@mossgap.com\n- Contact form: Visit our Contact page"
+  },
+  "Copyright": {
+    "title": "Copyright Infringement Notice Procedure",
+    "subtitle": "How to report copyright infringement on MossGap.",
+    "updated": "Last updated",
+    "intro": "If you believe that any copyright-protected content has been posted on MossGap without your authorization, please follow the procedure below to notify us. We will act expeditiously to remove the infringing material once a valid notice is received.",
+    "agentTitle": "Designated copyright agent",
+    "agentBody": "All claims of copyright infringement should be sent in writing to our designated copyright agent:",
+    "agentName": "Copyright Manager",
+    "agentOrg": "MossGap",
+    "agentEmailLabel": "Email",
+    "requirementsTitle": "Information required in your notice",
+    "requirementsIntro": "Your notice must include the following information:",
+    "req1": "Your physical or electronic signature, either as the owner of the copyrighted work or as a person authorized to act on behalf of the owner.",
+    "req2": "Identification of the copyrighted work you believe has been infringed. If multiple copyrighted works are covered by a single notice, a representative list of such works is sufficient.",
+    "req3": "Identification of the specific material on MossGap that you claim is infringing, including information reasonably sufficient for us to locate it (for example, the URL of the page where the material appears).",
+    "req4": "Your contact information, including your full name, mailing address, telephone number, and, if available, an email address.",
+    "req5": "A statement that you have a good-faith belief that the disputed use is not authorized by the copyright owner, its agent, or the law.",
+    "req6": "A statement, made under penalty of perjury, that the information in your notice is accurate and that you are the owner of an exclusive right that is allegedly infringed or are authorized to act on behalf of the owner.",
+    "goodFaithTitle": "Good faith and accuracy",
+    "goodFaithBody": "Under Section 512(f) of the Digital Millennium Copyright Act (DMCA), any person who knowingly materially misrepresents that material is infringing may be subject to liability. Please make sure the information in your notice is accurate before submitting it.",
+    "responseTitle": "What happens next",
+    "responseBody": "Upon receiving a valid notice, we will review it and remove or disable access to the allegedly infringing material as soon as practicable. If we need additional information to process your request, we will contact you using the details provided in your notice."
   },
   "Faq": {
     "title": "Frequently Asked Questions",
