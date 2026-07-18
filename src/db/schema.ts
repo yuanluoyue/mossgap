@@ -588,6 +588,129 @@ export type NewCollection = typeof collections.$inferInsert;
 export type GameTag = typeof gameTags.$inferSelect;
 export type GameCollection = typeof gameCollections.$inferSelect;
 
+// ─── C 端用户 / OAuth / 会话 ──────────────────────────────────
+
+/**
+ * C 端用户表（与 admins 表分离，避免 B 端账号和 C 端账号混淆）。
+ * 第三方登录（Google 等）首次授权时自动创建。
+ */
+export const users = sqliteTable(
+  "users",
+  {
+    id: text("id")
+      .primaryKey()
+      .notNull()
+      .$defaultFn(genUuid),
+    // 邮箱（来自 OAuth provider，nullable 向前兼容）
+    email: text("email"),
+    // 显示名（来自 OAuth provider，可由用户修改）
+    name: text("name"),
+    // 头像 URL（来自 OAuth provider，可由用户上传替换）
+    avatar: text("avatar"),
+    // 用户偏好语言（默认 en）
+    locale: text("locale").default("en"),
+    // 启用状态（0/1，B 端可禁用）
+    isActive: integer("is_active").default(1),
+    // 最近登录时间（Unix 秒）
+    lastLoginAt: integer("last_login_at"),
+    createdAt: integer("created_at")
+      .notNull()
+      .$defaultFn(nowSeconds),
+    updatedAt: integer("updated_at")
+      .notNull()
+      .$defaultFn(nowSeconds),
+  },
+  (t) => ({
+    emailIdx: uniqueIndex("users_email_idx").on(t.email),
+  }),
+);
+
+/**
+ * 第三方登录账号关联表。
+ * 同一个 user 可关联多个 provider（未来支持 GitHub/Microsoft 等）。
+ * 复合唯一索引 (provider, providerUserId) 防止同一第三方账号重复绑定。
+ */
+export const authAccounts = sqliteTable(
+  "auth_accounts",
+  {
+    id: text("id")
+      .primaryKey()
+      .notNull()
+      .$defaultFn(genUuid),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    // provider 标识：google / github / ...
+    provider: text("provider").notNull(),
+    // 第三方用户 ID（Google 的 sub）
+    providerUserId: text("provider_user_id").notNull(),
+    // 第三方返回的邮箱（可能与 users.email 不同步）
+    providerEmail: text("provider_email"),
+    // provider 返回的原始 metadata（JSON 字符串，应用层手动 parse）
+    providerMeta: text("provider_meta").default("{}"),
+    createdAt: integer("created_at")
+      .notNull()
+      .$defaultFn(nowSeconds),
+    updatedAt: integer("updated_at")
+      .notNull()
+      .$defaultFn(nowSeconds),
+  },
+  (t) => ({
+    providerUserIdx: uniqueIndex("auth_accounts_provider_user_idx").on(t.provider, t.providerUserId),
+    userIdIdx: index("auth_accounts_user_id_idx").on(t.userId),
+  }),
+);
+
+/**
+ * C 端用户会话表（Refresh Token 持久化）。
+ *
+ * 设计要点：
+ * - access token：JWT（短期 15min），存在客户端 cookie，不入库
+ * - refresh token：随机 32 字节 hex（长期 30d），仅以 SHA-256 哈希存库，
+ *   明文通过 httpOnly cookie 下发；轮换使用（一次一换）防重放
+ * - revokedAt：软撤销标记，登出/被 B 端踢出时填入
+ */
+export const sessions = sqliteTable(
+  "sessions",
+  {
+    id: text("id")
+      .primaryKey()
+      .notNull()
+      .$defaultFn(genUuid),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    // refresh token 的 SHA-256 哈希（hex）
+    refreshTokenHash: text("refresh_token_hash").notNull(),
+    // 客户端 IP（用于审计/异常检测）
+    ip: text("ip").notNull().default(""),
+    // 客户端 User-Agent
+    userAgent: text("user_agent").notNull().default(""),
+    // 过期时间（Unix 秒）
+    expiresAt: integer("expires_at").notNull(),
+    // 撤销时间（nullable：未撤销）
+    revokedAt: integer("revoked_at"),
+    createdAt: integer("created_at")
+      .notNull()
+      .$defaultFn(nowSeconds),
+    updatedAt: integer("updated_at")
+      .notNull()
+      .$defaultFn(nowSeconds),
+  },
+  (t) => ({
+    userIdIdx: index("sessions_user_id_idx").on(t.userId),
+    refreshIdx: index("sessions_refresh_hash_idx").on(t.refreshTokenHash),
+    expiresIdx: index("sessions_expires_idx").on(t.expiresAt),
+  }),
+);
+
+export type User = typeof users.$inferSelect;
+export type NewUser = typeof users.$inferInsert;
+export type AuthAccount = typeof authAccounts.$inferSelect;
+export type NewAuthAccount = typeof authAccounts.$inferInsert;
+export type Session = typeof sessions.$inferSelect;
+export type NewSession = typeof sessions.$inferInsert;
+
 // Zod Schemas（前后端共享校验）
 export const insertGameSchema = createInsertSchema(games);
 export const selectGameSchema = createSelectSchema(games);

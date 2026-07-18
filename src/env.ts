@@ -23,6 +23,12 @@ const serverEnvSchema = z.object({
     .transform((v) => v === "true"),
   JWT_SECRET: z.string().min(16, "JWT_SECRET 至少 16 个字符"),
   NEXT_PUBLIC_APP_URL: z.string().url().optional(),
+  // ─── C 端 Google OAuth ───
+  // 未配置时 /api/auth/google 会返回 503，登录按钮会显示但点击会提示未配置
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+  // 可选：覆盖默认回调 URL；不填时由 NEXT_PUBLIC_APP_URL + /api/auth/google/callback 推导
+  GOOGLE_REDIRECT_URI: z.string().url().optional(),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;

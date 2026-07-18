@@ -3,9 +3,13 @@ import Image from "next/image";
 import { getTranslations } from "next-intl/server";
 
 import { LanguageSwitcher } from "@/components/language-switcher";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { UserMenu } from "@/components/user-menu";
+import { getCurrentUserOrNull } from "@/lib/user-session";
 
 export async function SiteHeader() {
   const t = await getTranslations("Nav");
+  const user = await getCurrentUserOrNull();
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background">
@@ -33,6 +37,8 @@ export async function SiteHeader() {
 
         <div className="ml-auto flex items-center gap-2">
           <LanguageSwitcher />
+          <ThemeToggle />
+          <UserMenu user={user} />
         </div>
       </div>
     </header>

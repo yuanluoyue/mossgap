@@ -409,3 +409,33 @@ export const upsertGameContentSchema = z.object({
 });
 
 export type UpsertGameContentInput = z.infer<typeof upsertGameContentSchema>;
+
+// ─── C 端用户 ───────────────────────────────────────────────
+
+/** C 端用户资料更新校验（仅允许改 name/locale）。 */
+export const userProfileUpdateSchema = z.object({
+  name: z.string().max(64, "昵称过长").optional().nullable(),
+  locale: z.enum(["en", "zh"]).optional(),
+});
+
+export type UserProfileUpdateInput = z.infer<typeof userProfileUpdateSchema>;
+
+/** B 端 C 端用户列表查询参数。 */
+export const listCUsersQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(10),
+  search: z.string().optional(),
+  isActive: z
+    .enum(["true", "false", "1", "0"])
+    .optional()
+    .transform((v) => (v === undefined ? undefined : v === "true" || v === "1")),
+});
+
+/** B 端 C 端用户更新校验。 */
+export const cUserUpdateSchema = z.object({
+  name: z.string().max(64).optional().nullable(),
+  isActive: z.boolean().optional(),
+  locale: z.enum(["en", "zh"]).optional(),
+});
+
+export type CUserUpdateInput = z.infer<typeof cUserUpdateSchema>;

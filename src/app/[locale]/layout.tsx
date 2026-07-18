@@ -4,6 +4,7 @@ import { setRequestLocale, getTranslations } from "next-intl/server";
 import { routing } from "@/i18n/routing";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { getSiteUrl, getDefaultOgImage, SITE_NAME } from "@/lib/seo";
 
 export function generateStaticParams() {
@@ -62,10 +63,12 @@ export default async function LocaleLayout({
   setRequestLocale(locale);
 
   return (
-    <div className="relative flex min-h-screen flex-col bg-background">
-      <SiteHeader />
-      <main className="relative flex-1">{children}</main>
-      <SiteFooter />
-    </div>
+    <TooltipProvider>
+      <div className="relative flex min-h-screen flex-col bg-background">
+        <SiteHeader />
+        <main className="relative flex-1">{children}</main>
+        <SiteFooter />
+      </div>
+    </TooltipProvider>
   );
 }

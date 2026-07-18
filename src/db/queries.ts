@@ -1,4 +1,4 @@
-import { and, desc, eq, like, sql, asc, count, inArray } from "drizzle-orm";
+import { and, desc, eq, like, sql, asc, count, inArray, or, isNull } from "drizzle-orm";
 import { getDb, schema } from "./index";
 import {
   admins,
@@ -19,6 +19,9 @@ import {
   gameTags,
   gameCollections,
   gameContents,
+  users,
+  authAccounts,
+  sessions,
 } from "./schema";
 import type {
   AdminFeedback,
@@ -2346,6 +2349,455 @@ export async function deleteGameContent(
     .where(
       and(eq(gameContents.gameId, gameId), eq(gameContents.locale, locale)),
     );
+}
+
+// ===== C 端用户 / OAuth / Session =====
+
+/** C 端用户公开信息（C 端 /me 返回结构）。 */
+export interface PublicUser {
+  id: string;
+  email: string | null;
+  name: string | null;
+  avatar: string | null;
+  locale: string;
+  isActive: boolean;
+  lastLoginAt: string;
+  createdAt: string;
+  /** 已绑定的第三方 provider 列表 */
+  providers: string[];
+}
+
+/** B 端 C 端用户列表项（含 provider 概览）。 */
+export interface AdminCUser {
+  id: string;
+  email: string | null;
+  name: string | null;
+  avatar: string | null;
+  locale: string;
+  isActive: boolean;
+  lastLoginAt: string;
+  createdAt: string;
+  providers: string[];
+}
+
+function toPublicUser(
+  row: typeof users.$inferSelect,
+  providers: string[] = [],
+): PublicUser {
+  return {
+    id: row.id,
+    email: row.email,
+    name: row.name,
+    avatar: row.avatar,
+    locale: row.locale ?? "en",
+    isActive: (row.isActive ?? 1) === 1,
+    lastLoginAt: toIso(row.lastLoginAt),
+    createdAt: toIso(row.createdAt),
+    providers,
+  };
+}
+
+function toAdminCUser(
+  row: typeof users.$inferSelect,
+  providers: string[] = [],
+): AdminCUser {
+  return {
+    id: row.id,
+    email: row.email,
+    name: row.name,
+    avatar: row.avatar,
+    locale: row.locale ?? "en",
+    isActive: (row.isActive ?? 1) === 1,
+    lastLoginAt: toIso(row.lastLoginAt),
+    createdAt: toIso(row.createdAt),
+    providers,
+  };
+}
+
+/** 根据 provider + providerUserId 查找已绑定的 authAccount。 */
+export async function getAuthAccount(
+  provider: string,
+  providerUserId: string,
+): Promise<typeof authAccounts.$inferSelect | null> {
+  const db = await getDb();
+  const row = await db
+    .select()
+    .from(authAccounts)
+    .where(
+      and(
+        eq(authAccounts.provider, provider),
+        eq(authAccounts.providerUserId, providerUserId),
+      ),
+    )
+    .limit(1);
+  return row[0] ?? null;
+}
+
+/** 按 ID 查 C 端用户完整记录。 */
+export async function getUserById(id: string) {
+  const db = await getDb();
+  const row = await db.select().from(users).where(eq(users.id, id)).limit(1);
+  return row[0] ?? null;
+}
+
+/** 按 email 查 C 端用户（用于 OAuth email 匹配场景）。 */
+export async function getUserByEmail(
+  email: string,
+): Promise<typeof users.$inferSelect | null> {
+  const db = await getDb();
+  const row = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, email))
+    .limit(1);
+  return row[0] ?? null;
+}
+
+/** 列出某个用户的所有 OAuth provider（不返回敏感 meta）。 */
+export async function listUserProviders(userId: string): Promise<string[]> {
+  const db = await getDb();
+  const rows = await db
+    .select({ provider: authAccounts.provider })
+    .from(authAccounts)
+    .where(eq(authAccounts.userId, userId));
+  return rows.map((r) => r.provider);
+}
+
+/**
+ * OAuth 登录 upsert：
+ * 1. 若已有 (provider, providerUserId) 绑定 → 直接返回 user
+ * 2. 否则创建 user（email 自动从 OAuth 取，若 email 已被其他用户占用则不强制覆盖）
+ * 3. 创建 authAccount 绑定
+ *
+ * @returns userId
+ */
+export async function upsertUserFromOAuth(input: {
+  provider: string;
+  providerUserId: string;
+  providerEmail?: string;
+  name?: string;
+  avatar?: string;
+  locale?: string;
+}): Promise<{ userId: string; created: boolean }> {
+  const db = await getDb();
+  const existing = await getAuthAccount(input.provider, input.providerUserId);
+  if (existing) {
+    // 更新 provider 元信息 + 触发 updatedAt
+    await db
+      .update(authAccounts)
+      .set({
+        providerEmail: input.providerEmail ?? null,
+        providerMeta: JSON.stringify({
+          name: input.name,
+          avatar: input.avatar,
+          locale: input.locale,
+        }),
+        updatedAt: Math.floor(Date.now() / 1000),
+      })
+      .where(eq(authAccounts.id, existing.id));
+    return { userId: existing.userId, created: false };
+  }
+
+  // 检查 email 是否已被其他用户占用
+  let userId: string;
+  if (input.providerEmail) {
+    const byEmail = await getUserByEmail(input.providerEmail);
+    if (byEmail) {
+      userId = byEmail.id;
+    } else {
+      const [row] = await db
+        .insert(users)
+        .values({
+          email: input.providerEmail,
+          name: input.name ?? null,
+          avatar: input.avatar ?? null,
+          locale: input.locale ?? "en",
+          isActive: 1,
+          lastLoginAt: Math.floor(Date.now() / 1000),
+        })
+        .returning({ id: users.id });
+      userId = row!.id;
+    }
+  } else {
+    // 无 email：创建无 email 用户
+    const [row] = await db
+      .insert(users)
+      .values({
+        name: input.name ?? null,
+        avatar: input.avatar ?? null,
+        locale: input.locale ?? "en",
+        isActive: 1,
+        lastLoginAt: Math.floor(Date.now() / 1000),
+      })
+      .returning({ id: users.id });
+    userId = row!.id;
+  }
+
+  await db.insert(authAccounts).values({
+    userId,
+    provider: input.provider,
+    providerUserId: input.providerUserId,
+    providerEmail: input.providerEmail ?? null,
+    providerMeta: JSON.stringify({
+      name: input.name,
+      avatar: input.avatar,
+      locale: input.locale,
+    }),
+  });
+
+  return { userId, created: true };
+}
+
+/** 更新用户最近登录时间。 */
+export async function touchUserLastLogin(userId: string): Promise<void> {
+  const db = await getDb();
+  await db
+    .update(users)
+    .set({
+      lastLoginAt: Math.floor(Date.now() / 1000),
+      updatedAt: Math.floor(Date.now() / 1000),
+    })
+    .where(eq(users.id, userId));
+}
+
+/** 创建新 session（refresh token 已哈希）。 */
+export async function createSession(input: {
+  userId: string;
+  refreshTokenHash: string;
+  ip: string;
+  userAgent: string;
+  expiresAt: number;
+}): Promise<string> {
+  const db = await getDb();
+  const [row] = await db
+    .insert(sessions)
+    .values({
+      userId: input.userId,
+      refreshTokenHash: input.refreshTokenHash,
+      ip: input.ip,
+      userAgent: input.userAgent,
+      expiresAt: input.expiresAt,
+    })
+    .returning({ id: sessions.id });
+  return row!.id;
+}
+
+/**
+ * 按 refresh token 哈希查找有效 session。
+ * 返回 session + user（若 session 已撤销 / 过期 / user 禁用则返回 null）。
+ */
+export async function findValidSession(
+  refreshTokenHash: string,
+): Promise<{ session: typeof sessions.$inferSelect; user: typeof users.$inferSelect } | null> {
+  const db = await getDb();
+  const rows = await db
+    .select()
+    .from(sessions)
+    .innerJoin(users, eq(sessions.userId, users.id))
+    .where(eq(sessions.refreshTokenHash, refreshTokenHash))
+    .limit(1);
+  if (!rows[0]) return null;
+  const { sessions: s, users: u } = rows[0];
+  const now = Math.floor(Date.now() / 1000);
+  if (s.revokedAt != null) return null;
+  if (s.expiresAt < now) return null;
+  if ((u.isActive ?? 1) !== 1) return null;
+  return { session: s, user: u };
+}
+
+/**
+ * 轮换 refresh token：作废旧 session + 创建新 session。
+ * 注意：调用方需先查到 old session 的 userId（findValidSession 已返回），
+ * 直接传入此处避免再查一次。
+ */
+export async function rotateSession(opts: {
+  oldSessionId: string;
+  userId: string;
+  newRefreshTokenHash: string;
+  ip: string;
+  userAgent: string;
+  expiresAt: number;
+}): Promise<string> {
+  const db = await getDb();
+  const now = Math.floor(Date.now() / 1000);
+  const [row] = await db
+    .insert(sessions)
+    .values({
+      userId: opts.userId,
+      refreshTokenHash: opts.newRefreshTokenHash,
+      ip: opts.ip,
+      userAgent: opts.userAgent,
+      expiresAt: opts.expiresAt,
+    })
+    .returning({ id: sessions.id });
+  await db
+    .update(sessions)
+    .set({ revokedAt: now, updatedAt: now })
+    .where(eq(sessions.id, opts.oldSessionId));
+  return row!.id;
+}
+
+/** 撤销指定 session（按 id）。 */
+export async function revokeSessionById(id: string): Promise<void> {
+  const db = await getDb();
+  const now = Math.floor(Date.now() / 1000);
+  await db
+    .update(sessions)
+    .set({ revokedAt: now, updatedAt: now })
+    .where(eq(sessions.id, id));
+}
+
+/** 按 refresh token 哈希撤销 session（登出使用）。 */
+export async function revokeSessionByHash(
+  refreshTokenHash: string,
+): Promise<void> {
+  const db = await getDb();
+  const now = Math.floor(Date.now() / 1000);
+  await db
+    .update(sessions)
+    .set({ revokedAt: now, updatedAt: now })
+    .where(eq(sessions.refreshTokenHash, refreshTokenHash));
+}
+
+/** 撤销某 user 的全部 session（B 端踢人/禁用时使用）。 */
+export async function revokeAllSessionsOfUser(userId: string): Promise<void> {
+  const db = await getDb();
+  const now = Math.floor(Date.now() / 1000);
+  await db
+    .update(sessions)
+    .set({ revokedAt: now, updatedAt: now })
+    .where(and(eq(sessions.userId, userId), isNull(sessions.revokedAt)));
+}
+
+/** 当前登录 C 端用户（含 provider 列表），未登录返回 null。 */
+export async function getPublicUserById(
+  id: string,
+): Promise<PublicUser | null> {
+  const db = await getDb();
+  const row = await db.select().from(users).where(eq(users.id, id)).limit(1);
+  if (!row[0]) return null;
+  const providers = await listUserProviders(id);
+  return toPublicUser(row[0], providers);
+}
+
+/** 更新 C 端用户资料（仅 name/avatar/locale，由用户自己调用）。 */
+export async function updateUserProfile(
+  id: string,
+  input: Partial<{
+    name: string;
+    avatar: string;
+    locale: string;
+  }>,
+): Promise<void> {
+  const db = await getDb();
+  const set: Record<string, unknown> = {
+    updatedAt: Math.floor(Date.now() / 1000),
+  };
+  if (input.name !== undefined) set.name = input.name;
+  if (input.avatar !== undefined) set.avatar = input.avatar;
+  if (input.locale !== undefined) set.locale = input.locale;
+  await db.update(users).set(set).where(eq(users.id, id));
+}
+
+// ─── B 端 C 端用户管理 ────────────────────────────────────
+
+/** B 端 C 端用户列表（分页 + 搜索 email/name）。 */
+export async function listCUsers(opts: {
+  page: number;
+  pageSize: number;
+  search?: string;
+  /** 启用状态过滤 */
+  isActive?: boolean;
+}): Promise<{ items: AdminCUser[]; total: number }> {
+  const db = await getDb();
+  const conditions = [];
+  if (opts.search) {
+    const kw = `%${opts.search}%`;
+    conditions.push(
+      or(like(users.email, kw), like(users.name, kw)) ?? undefined,
+    );
+  }
+  if (opts.isActive !== undefined) {
+    conditions.push(eq(users.isActive, opts.isActive ? 1 : 0));
+  }
+  const where = conditions.length ? and(...conditions) : undefined;
+
+  const [rows, totalRows] = await Promise.all([
+    db
+      .select()
+      .from(users)
+      .where(where)
+      .orderBy(desc(users.createdAt))
+      .limit(opts.pageSize)
+      .offset((opts.page - 1) * opts.pageSize),
+    db.select({ value: count() }).from(users).where(where),
+  ]);
+
+  // 批量查 provider
+  const userIds = rows.map((r) => r.id);
+  const providerMap = new Map<string, string[]>();
+  if (userIds.length > 0) {
+    const accRows = await db
+      .select({
+        userId: authAccounts.userId,
+        provider: authAccounts.provider,
+      })
+      .from(authAccounts)
+      .where(inArray(authAccounts.userId, userIds));
+    for (const r of accRows) {
+      const list = providerMap.get(r.userId) ?? [];
+      list.push(r.provider);
+      providerMap.set(r.userId, list);
+    }
+  }
+
+  return {
+    items: rows.map((r) =>
+      toAdminCUser(r, providerMap.get(r.id) ?? []),
+    ),
+    total: totalRows[0]?.value ?? 0,
+  };
+}
+
+/** B 端获取 C 端用户详情（含 provider 列表）。 */
+export async function getAdminCUser(
+  id: string,
+): Promise<AdminCUser | null> {
+  const db = await getDb();
+  const row = await db.select().from(users).where(eq(users.id, id)).limit(1);
+  if (!row[0]) return null;
+  const providers = await listUserProviders(id);
+  return toAdminCUser(row[0], providers);
+}
+
+/** B 端更新 C 端用户（仅 name/isActive，禁止改 email）。 */
+export async function adminUpdateCUser(
+  id: string,
+  input: Partial<{
+    name: string;
+    isActive: boolean;
+    locale: string;
+  }>,
+): Promise<void> {
+  const db = await getDb();
+  const set: Record<string, unknown> = {
+    updatedAt: Math.floor(Date.now() / 1000),
+  };
+  if (input.name !== undefined) set.name = input.name;
+  if (input.isActive !== undefined) set.isActive = input.isActive ? 1 : 0;
+  if (input.locale !== undefined) set.locale = input.locale;
+  await db.update(users).set(set).where(eq(users.id, id));
+
+  // 禁用时撤销全部 session
+  if (input.isActive === false) {
+    await revokeAllSessionsOfUser(id);
+  }
+}
+
+/** B 端删除 C 端用户（级联删除 authAccounts 和 sessions）。 */
+export async function deleteCUser(id: string): Promise<void> {
+  const db = await getDb();
+  await db.delete(users).where(eq(users.id, id));
 }
 
 export { schema, asc };

@@ -4,6 +4,11 @@ import { NextIntlClientProvider } from "next-intl";
 import { ToasterLazy as Toaster } from "@/components/lazy";
 import { Analytics } from "@/components/analytics";
 import { SDKProvider } from "@/components/sdk-provider";
+import { ThemeProvider } from "@/components/theme-provider";
+import {
+  GoogleTagManagerHead,
+  GoogleTagManagerNoScript,
+} from "@/components/gtm";
 import { SITE_NAME } from "@/lib/seo";
 import "./globals.css";
 
@@ -23,7 +28,13 @@ export const metadata: Metadata = {
  * 不需要注入 messages。只 pick 必需的 namespace，避免把 FAQ、Privacy、
  * Terms 等大段 i18n 文本打进 client bundle，显著降低首屏 JS 体积。
  */
-const CLIENT_NAMESPACES = ["Games", "Categories", "Common"] as const;
+const CLIENT_NAMESPACES = [
+  "Games",
+  "Categories",
+  "Common",
+  "Auth",
+  "Profile",
+] as const;
 
 function pickMessages(
   messages: Record<string, unknown>,
@@ -47,13 +58,19 @@ export default async function RootLayout({
 
   return (
     <html lang={locale} suppressHydrationWarning className="h-full antialiased">
+      <head>
+        <GoogleTagManagerHead />
+      </head>
       <body className="min-h-full flex flex-col">
+        <GoogleTagManagerNoScript />
         <NextIntlClientProvider locale={locale} messages={clientMessages}>
-          <SDKProvider>
-            {children}
-            <Toaster position="top-center" />
-            <Analytics />
-          </SDKProvider>
+          <ThemeProvider>
+            <SDKProvider>
+              {children}
+              <Toaster position="top-center" />
+              <Analytics />
+            </SDKProvider>
+          </ThemeProvider>
         </NextIntlClientProvider>
       </body>
     </html>

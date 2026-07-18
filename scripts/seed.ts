@@ -49,10 +49,11 @@ const menuTree = [
     sort_order: 2,
     children: [
       { name: "用户管理", path: "/admin/users", icon: "Users", sort_order: 0 },
-      { name: "角色管理", path: "/admin/roles", icon: "UserCog", sort_order: 1 },
-      { name: "菜单管理", path: "/admin/menus", icon: "Menu", sort_order: 2 },
-      { name: "系统配置", path: "/admin/settings", icon: "Settings", sort_order: 3 },
-      { name: "操作日志", path: "/admin/audit-logs", icon: "ScrollText", sort_order: 4 },
+      { name: "C端用户管理", path: "/admin/c-users", icon: "UserCircle", sort_order: 1 },
+      { name: "角色管理", path: "/admin/roles", icon: "UserCog", sort_order: 2 },
+      { name: "菜单管理", path: "/admin/menus", icon: "Menu", sort_order: 3 },
+      { name: "系统配置", path: "/admin/settings", icon: "Settings", sort_order: 4 },
+      { name: "操作日志", path: "/admin/audit-logs", icon: "ScrollText", sort_order: 5 },
     ],
   },
 ];
