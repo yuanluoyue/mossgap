@@ -6,7 +6,9 @@ import Link from "next/link";
 import { Save, Trash2, Loader2, Plus, X, ExternalLink, ArrowLeft, UploadCloud } from "lucide-react";
 import { toast } from "sonner";
 
-import type { AdminGame, GameCategory, GameStatus } from "@/types";
+import type { AdminGame, GameBadge, GameCategory, GameStatus } from "@/types";
+import { GAME_BADGES, GAME_BADGE_LABELS, GAME_BADGE_STYLES } from "@/types";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -72,10 +74,16 @@ export function GameForm({ game, candidates = [], categories, tags, collections 
   const [collectionIds, setCollectionIds] = useState<string[]>(game.collectionIds ?? []);
   const [internalNotes, setInternalNotes] = useState<string>(game.internalNotes ?? "");
   const [iframeUrl, setIframeUrl] = useState<string>(game.iframeUrl ?? "");
+  const [badge, setBadge] = useState<GameBadge[]>(game.badge ?? []);
+  const [weight, setWeight] = useState<number>(game.weight ?? 0);
   const [reuploading, setReuploading] = useState(false);
   const reuploadInputRef = useRef<HTMLInputElement>(null);
 
   const isIframe = game.sourceType === "iframe";
+
+  function toggleBadge(b: GameBadge) {
+    setBadge((cur) => (cur.includes(b) ? cur.filter((x) => x !== b) : [...cur, b]));
+  }
 
   async function onSave() {
     if (saving) return;
@@ -102,6 +110,8 @@ export function GameForm({ game, candidates = [], categories, tags, collections 
           tagIds,
           collectionIds,
           internalNotes,
+          badge,
+          weight,
         }),
       });
       const data = (await res.json()) as {
@@ -548,6 +558,89 @@ export function GameForm({ game, candidates = [], categories, tags, collections 
               <div className="flex items-center justify-between rounded-lg bg-slate-50 p-3 text-xs">
                 <span className="text-muted-foreground">游玩次数</span>
                 <span className="font-mono tabular-nums">{game.playCount}</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 运营配置：角标 / 权重 / 发布时间 */}
+          <Card>
+            <CardHeader>
+              <CardTitle>运营配置</CardTitle>
+              <CardDescription>角标与排序权重用于 C 端推荐与展示</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>角标</Label>
+                <div className="flex flex-wrap gap-2">
+                  {GAME_BADGES.map((b) => {
+                    const active = badge.includes(b);
+                    return (
+                      <button
+                        key={b}
+                        type="button"
+                        onClick={() => toggleBadge(b)}
+                        className={
+                          active
+                            ? "inline-flex items-center gap-1.5 rounded-md border border-primary bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary transition-colors"
+                            : "inline-flex items-center gap-1.5 rounded-md border border-input bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent"
+                        }
+                        aria-pressed={active}
+                      >
+                        <span
+                          className={cn(
+                            "inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold leading-none",
+                            GAME_BADGE_STYLES[b],
+                          )}
+                        >
+                          {GAME_BADGE_LABELS[b]}
+                        </span>
+                        {active ? "已选" : "点击选择"}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  NEW 表示新上线，HOT 表示热门；可同时选多个
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>排序权重</Label>
+                <Input
+                  type="number"
+                  value={weight}
+                  onChange={(e) => {
+                    const v = Number(e.target.value);
+                    setWeight(Number.isFinite(v) ? v : 0);
+                  }}
+                  placeholder="0"
+                  className="font-mono"
+                />
+                <p className="text-xs text-muted-foreground">
+                  数值越大越靠前，默认 0；可用于置顶或运营排序
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>发布时间</Label>
+                <div className="rounded-lg bg-slate-50 p-3 text-xs">
+                  {game.publishedAt ? (
+                    <span className="font-mono tabular-nums text-foreground">
+                      {new Date(game.publishedAt).toLocaleString("zh-CN", {
+                        year: "numeric",
+                        month: "2-digit",
+                        day: "2-digit",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">未发布（首次发布时自动记录）</span>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  状态切换为「已发布」时自动填充，不支持手动修改
+                </p>
               </div>
             </CardContent>
           </Card>

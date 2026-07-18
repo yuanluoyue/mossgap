@@ -1,7 +1,9 @@
 import Link from "next/link";
-import { Gamepad2, Upload, Search, HardDrive, StickyNote, Link2 } from "lucide-react";
+import { Gamepad2, Upload, Search, HardDrive, StickyNote, Link2, ArrowUpDown } from "lucide-react";
 
 import { listAdminGames, listAllCategoriesForPicker } from "@/db/queries";
+import { GAME_BADGE_LABELS, GAME_BADGE_STYLES } from "@/types";
+import { cn } from "@/lib/utils";
 import { publicObjectUrl } from "@/lib/oss";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -43,6 +45,11 @@ const STATUS_OPTIONS = [
   { value: "archived", label: "已归档" },
 ];
 
+const SORT_OPTIONS = [
+  { value: "default", label: "默认排序（创建时间）" },
+  { value: "weight", label: "权重排序（高→低）" },
+];
+
 export default async function AdminGamesPage({
   searchParams,
 }: {
@@ -52,12 +59,14 @@ export default async function AdminGamesPage({
   const page = Math.max(1, Number(firstOf(sp.page) ?? "1") || 1);
   const search = firstOf(sp.search) ?? "";
   const status = firstOf(sp.status) ?? "all";
+  const sort = (firstOf(sp.sort) ?? "default") as "default" | "weight";
 
   const result = await listAdminGames({
     page,
     pageSize: PAGE_SIZE,
     search: search || undefined,
     status: status === "all" ? undefined : (status as "draft" | "published" | "archived"),
+    sort,
   });
 
   // 加载所有分类，用于在列表中按 categoryId 显示分类名
@@ -128,10 +137,25 @@ export default async function AdminGamesPage({
             ))}
           </SelectContent>
         </Select>
+        <Select name="sort" defaultValue={sort}>
+          <SelectTrigger className="w-[200px]">
+            <span className="flex items-center gap-1.5">
+              <ArrowUpDown className="size-3.5 text-muted-foreground" />
+              <SelectValue placeholder="排序" />
+            </span>
+          </SelectTrigger>
+          <SelectContent>
+            {SORT_OPTIONS.map((o) => (
+              <SelectItem key={o.value} value={o.value}>
+                {o.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Button type="submit" variant="secondary">
           筛选
         </Button>
-        {(search || status !== "all") && (
+        {(search || status !== "all" || sort !== "default") && (
           <Button asChild type="button" variant="ghost">
             <Link href="/admin/games">清除</Link>
           </Button>
@@ -147,6 +171,8 @@ export default async function AdminGamesPage({
               <TableHead>名称 / Slug</TableHead>
               <TableHead className="w-[100px]">分类</TableHead>
               <TableHead className="w-[100px]">状态</TableHead>
+              <TableHead className="w-[100px]">角标</TableHead>
+              <TableHead className="w-[80px]">权重</TableHead>
               <TableHead className="w-[100px]">游戏体积</TableHead>
               <TableHead className="w-[160px]">内部备注</TableHead>
               <TableHead className="w-[100px]">上传者</TableHead>
@@ -157,7 +183,7 @@ export default async function AdminGamesPage({
           <TableBody>
             {result.items.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="h-32 text-center">
+                <TableCell colSpan={11} className="h-32 text-center">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <Gamepad2 className="size-8" />
                     <p className="text-sm">暂无游戏</p>
@@ -193,6 +219,28 @@ export default async function AdminGamesPage({
                   </TableCell>
                   <TableCell>
                     <StatusBadge status={g.status} />
+                  </TableCell>
+                  <TableCell>
+                    {g.badge && g.badge.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {g.badge.map((b) => (
+                          <span
+                            key={b}
+                            className={cn(
+                              "inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold leading-none",
+                              GAME_BADGE_STYLES[b],
+                            )}
+                          >
+                            {GAME_BADGE_LABELS[b]}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">-</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="tabular-nums text-sm font-mono">
+                    {g.weight ?? 0}
                   </TableCell>
                   <TableCell className="tabular-nums text-sm">
                     <span className="inline-flex items-center gap-1">
@@ -243,6 +291,7 @@ export default async function AdminGamesPage({
           totalPages={totalPages}
           search={search}
           status={status}
+          sort={sort}
         />
       </div>
     </div>

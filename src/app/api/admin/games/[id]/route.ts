@@ -73,6 +73,18 @@ export async function PATCH(
 
   try {
     const input = upsertGameSchema.parse(data);
+    // 状态切换为 published 且没有 publishedAt 时，自动填充当前时间
+    // （从 published 改回 draft/archived 不清空，保留历史发布时间）
+    const willBePublished = input.status === "published";
+    const wasPublished = existing.status === "published";
+    const existingPublishedAt = existing.publishedAt
+      ? Math.floor(new Date(existing.publishedAt).getTime() / 1000)
+      : null;
+    let publishedAt = input.publishedAt ?? existingPublishedAt;
+    if (willBePublished && !wasPublished && !publishedAt) {
+      publishedAt = Math.floor(Date.now() / 1000);
+    }
+
     const updated = await updateGame(id, {
       slug: input.slug,
       title: input.locale.en.title || input.locale.zh.title || input.slug,
@@ -99,6 +111,9 @@ export async function PATCH(
       categoryId: input.categoryId ?? null,
       tagIds: input.tagIds,
       collectionIds: input.collectionIds,
+      badge: input.badge as ("new" | "hot")[],
+      weight: input.weight,
+      publishedAt: publishedAt ?? null,
     });
     if (!updated) {
       return NextResponse.json(fail("NOT_FOUND", "游戏不存在"), { status: 404 });

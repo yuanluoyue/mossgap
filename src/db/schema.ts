@@ -110,6 +110,15 @@ export const games = sqliteTable(
     categoryId: text("category_id"),
     // 上传者（关联 admins 表，nullable 向前兼容，旧数据为空）
     uploaderId: text("uploader_id"),
+    // 角标（JSON 数组字符串，可选值：new/hot；nullable 向前兼容，应用层兜底为 []）
+    // 注意：故意不用 { mode: "json" }，因为 D1 .raw() 在 schema 演进时
+    // 会把列名当成值传给 drizzle 的 JSON.parse，导致 "badge" is not valid JSON。
+    // 改成 plain text + 应用层手动 parse/stringify 绕过此问题。
+    badge: text("badge").default("[]"),
+    // 排序权重（数值越大越靠前；nullable 向前兼容，应用层兜底为 0）
+    weight: integer("weight").default(0),
+    // 发布时间（Unix 秒；nullable 向前兼容，未发布时为 null）
+    publishedAt: integer("published_at"),
     createdAt: integer("created_at")
       .notNull()
       .$defaultFn(nowSeconds),
@@ -123,6 +132,8 @@ export const games = sqliteTable(
     categoryIdx: index("games_category_idx").on(t.category),
     categoryIdIdx: index("games_category_id_idx").on(t.categoryId),
     uploaderIdIdx: index("games_uploader_id_idx").on(t.uploaderId),
+    weightIdx: index("games_weight_idx").on(t.weight),
+    publishedAtIdx: index("games_published_at_idx").on(t.publishedAt),
   }),
 );
 

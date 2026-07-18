@@ -27,6 +27,7 @@ import type {
   AdminCollection,
   FeedbackStatus,
   FeedbackType,
+  GameBadge,
   GameCategory,
   GameLocale,
   GameSourceType,
@@ -48,6 +49,28 @@ type Locale = "en" | "zh";
 function toIso(seconds: number | null | undefined): string {
   if (!seconds) return "";
   return new Date(seconds * 1000).toISOString();
+}
+
+/**
+ * 安全解析 badge 字符串为 GameBadge[]。
+ *
+ * badge 字段故意用 plain text 存储（不用 drizzle json mode），
+ * 因为 D1 .raw() 在 schema 演进时会把列名当成值传给 JSON.parse。
+ * 这里手动 parse，失败时兜底为空数组。
+ */
+function parseBadge(raw: string | null | undefined): GameBadge[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as GameBadge[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** 将 GameBadge[] 序列化为存储字符串。 */
+function stringifyBadge(badges: GameBadge[] | null | undefined): string {
+  return JSON.stringify(badges ?? []);
 }
 
 function toAdminGame(
@@ -81,6 +104,9 @@ function toAdminGame(
     uploaderName: opts?.uploaderName ?? null,
     tagIds: opts?.tagIds ?? [],
     collectionIds: opts?.collectionIds ?? [],
+    badge: parseBadge(row.badge),
+    weight: row.weight ?? 0,
+    publishedAt: toIso(row.publishedAt),
     createdAt: toIso(row.createdAt),
     updatedAt: toIso(row.updatedAt),
   };
@@ -119,6 +145,8 @@ async function toPublicGame(row: typeof games.$inferSelect, locale: Locale): Pro
     sourceType,
     iframeUrl,
     howToPlay,
+    badge: parseBadge(row.badge),
+    publishedAt: toIso(row.publishedAt),
   };
 }
 
@@ -147,6 +175,8 @@ export async function listAdminGames(opts: {
   pageSize: number;
   search?: string;
   status?: GameStatus;
+  /** 排序方式：default=按创建时间倒序；weight=按权重倒序（权重相同时按创建时间倒序） */
+  sort?: "default" | "weight";
 }): Promise<{ items: AdminGame[]; total: number }> {
   const db = await getDb();
   const conditions = [];
@@ -159,12 +189,18 @@ export async function listAdminGames(opts: {
   }
   const where = conditions.length ? and(...conditions) : undefined;
 
+  // weight 排序：权重高在前，同权重按创建时间倒序
+  const orderBy =
+    opts.sort === "weight"
+      ? [desc(games.weight), desc(games.createdAt)]
+      : [desc(games.createdAt)];
+
   const [rows, totalRows] = await Promise.all([
     db
       .select()
       .from(games)
       .where(where)
-      .orderBy(desc(games.createdAt))
+      .orderBy(...orderBy)
       .limit(opts.pageSize)
       .offset((opts.page - 1) * opts.pageSize),
     db.select({ value: count() }).from(games).where(where),
@@ -236,6 +272,9 @@ export async function createGame(input: {
   uploaderId?: string | null;
   tagIds?: string[];
   collectionIds?: string[];
+  badge?: GameBadge[];
+  weight?: number;
+  publishedAt?: number | null;
 }): Promise<AdminGame> {
   const db = await getDb();
   const [row] = await db
@@ -263,6 +302,9 @@ export async function createGame(input: {
       featured: input.featured ? 1 : 0,
       categoryId: input.categoryId ?? null,
       uploaderId: input.uploaderId ?? null,
+      badge: stringifyBadge(input.badge),
+      weight: input.weight ?? 0,
+      publishedAt: input.publishedAt ?? null,
     })
     .returning();
   const gameId = row!.id;
@@ -300,16 +342,20 @@ export async function updateGame(
     tagIds: string[];
     collectionIds: string[];
     ossPrefix: string;
+    badge: GameBadge[];
+    weight: number;
+    publishedAt: number | null;
   }>,
 ): Promise<AdminGame | null> {
   const db = await getDb();
-  const { featured, categoryId, tagIds, collectionIds, ...rest } = input;
+  const { featured, categoryId, tagIds, collectionIds, badge, ...rest } = input;
   const [row] = await db
     .update(games)
     .set({
       ...rest,
       ...(featured !== undefined ? { featured: featured ? 1 : 0 } : {}),
       ...(categoryId !== undefined ? { categoryId } : {}),
+      ...(badge !== undefined ? { badge: stringifyBadge(badge) } : {}),
       updatedAt: Math.floor(Date.now() / 1000),
     })
     .where(eq(games.id, id))
@@ -475,6 +521,7 @@ export async function listGameCards(
         title: games.title,
         coverImage: games.coverImage,
         locale: games.locale,
+        badge: games.badge,
       })
       .from(games)
       .where(where)
@@ -487,7 +534,7 @@ export async function listGameCards(
   const items: GameCardItem[] = rows.map((r) => {
     const loc = r.locale ?? { en: { title: "" }, zh: { title: "" } };
     const title = loc[locale]?.title || loc.en?.title || r.title;
-    return { id: r.id, slug: r.slug, title, coverImage: r.coverImage };
+    return { id: r.id, slug: r.slug, title, coverImage: r.coverImage, badge: parseBadge(r.badge) };
   });
 
   return { items, total: totalRows[0]?.value ?? 0 };

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { GAME_CATEGORIES, GAME_STATUSES, COLLECTION_LAYOUTS } from "@/types";
+import { GAME_CATEGORIES, GAME_STATUSES, COLLECTION_LAYOUTS, GAME_BADGES } from "@/types";
 
 const localeBlockSchema = z.object({
   title: z.string().min(1, "标题不能为空").max(120),
@@ -37,6 +37,14 @@ export const upsertGameSchema = z.object({
   categoryId: z.string().nullable().optional(),
   tagIds: z.array(z.string()).default([]),
   collectionIds: z.array(z.string()).default([]),
+  // 角标（new/hot 多选，默认空数组）
+  badge: z
+    .array(z.enum(GAME_BADGES as [string, ...string[]]))
+    .default([]),
+  // 排序权重（数值越大越靠前，默认 0）
+  weight: z.number().int().min(-99999).max(99999).default(0),
+  // 发布时间（Unix 秒；可由前端传入，或由后端在状态切换为 published 时自动填充）
+  publishedAt: z.number().int().nullable().optional(),
 });
 
 export type UpsertGameInput = z.infer<typeof upsertGameSchema>;

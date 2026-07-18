@@ -9,18 +9,20 @@ interface PaginationProps {
   /** 当前查询参数，会原样保留到分页链接中 */
   search?: string;
   status?: string;
+  sort?: string;
 }
 
 /**
  * 后台 URL 分页组件
  * - 服务端渲染，通过 URL searchParams 切换页码
- * - 保留 search / status 等已有筛选参数
+ * - 保留 search / status / sort 等已有筛选参数
  */
 export function Pagination({
   page,
   totalPages,
   search,
   status,
+  sort,
 }: PaginationProps) {
   if (totalPages <= 1) return null;
 
@@ -44,6 +46,7 @@ export function Pagination({
     const params = new URLSearchParams();
     if (search) params.set("search", search);
     if (status && status !== "all") params.set("status", status);
+    if (sort && sort !== "default") params.set("sort", sort);
     params.set("page", String(p));
     return `?${params.toString()}`;
   }

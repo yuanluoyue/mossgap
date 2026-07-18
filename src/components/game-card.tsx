@@ -1,6 +1,7 @@
 import Link from "next/link";
 
-import type { GameCardItem, PublicGame } from "@/types";
+import type { GameBadge, GameCardItem, PublicGame } from "@/types";
+import { GAME_BADGE_LABELS, GAME_BADGE_STYLES } from "@/types";
 import { cn } from "@/lib/utils";
 
 interface GameCardProps {
@@ -61,6 +62,8 @@ export function GameCard({ game, className, size, eager = false }: GameCardProps
           className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
         />
       ) : null}
+      {/* 角标（右上角，hot 优先于 new） */}
+      {renderBadges(game.badge)}
       {/* hover 时显示标题 */}
       <div className="absolute inset-0 flex items-end bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100">
         <h3 className="line-clamp-2 px-2.5 pb-2 text-xs font-semibold leading-tight text-white">
@@ -77,4 +80,26 @@ function hashCode(s: string): number {
     h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
   }
   return h;
+}
+
+/**
+ * 渲染角标：右上角，hot（红）优先于 new（绿）。
+ * 同时存在两个时只展示 hot，避免视觉冲突。
+ */
+function renderBadges(badges: GameBadge[] | undefined) {
+  if (!badges || badges.length === 0) return null;
+  // hot 优先展示
+  const priority: GameBadge[] = ["hot", "new"];
+  const display = priority.find((b) => badges.includes(b));
+  if (!display) return null;
+  return (
+    <span
+      className={cn(
+        "absolute right-1.5 top-1.5 z-10 inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold leading-none tracking-wide shadow-sm",
+        GAME_BADGE_STYLES[display],
+      )}
+    >
+      {GAME_BADGE_LABELS[display]}
+    </span>
+  );
 }

@@ -1,3 +1,24 @@
+/** 游戏角标（首页/卡片角标，可多选） */
+export type GameBadge = "new" | "hot";
+
+/** 全部游戏角标（用于后台多选与校验） */
+export const GAME_BADGES: GameBadge[] = ["new", "hot"];
+
+/** 角标展示文案（B 端中文） */
+export const GAME_BADGE_LABELS: Record<GameBadge, string> = {
+  new: "NEW",
+  hot: "HOT",
+};
+
+/**
+ * 角标展示样式（B 端 + C 端统一）。
+ * hot: 红色系；new: 绿色系。
+ */
+export const GAME_BADGE_STYLES: Record<GameBadge, string> = {
+  hot: "bg-red-500 text-white",
+  new: "bg-emerald-500 text-white",
+};
+
 /** 游戏状态 */
 export type GameStatus = "draft" | "published" | "archived";
 
@@ -170,6 +191,10 @@ export interface PublicGame {
   sourceType: GameSourceType;
   iframeUrl: string;
   howToPlay: string;
+  /** 角标（C 端卡片可展示） */
+  badge: GameBadge[];
+  /** 发布时间（ISO 字符串，未发布为空字符串） */
+  publishedAt: string;
 }
 
 /** 首页/列表卡片轻量数据（只含渲染卡片必需字段） */
@@ -178,6 +203,8 @@ export interface GameCardItem {
   slug: string;
   title: string;
   coverImage: string;
+  /** 角标（C 端卡片右上角展示） */
+  badge: GameBadge[];
 }
 
 /** Admin 端游戏数据（完整） */
@@ -209,6 +236,12 @@ export interface AdminGame {
   uploaderName: string | null;
   tagIds: string[];
   collectionIds: string[];
+  /** 角标（B 端可编辑，C 端可展示） */
+  badge: GameBadge[];
+  /** 排序权重（数值越大越靠前，B 端可编辑） */
+  weight: number;
+  /** 发布时间（ISO 字符串，未发布为空字符串） */
+  publishedAt: string;
   createdAt: string;
   updatedAt: string;
 }
