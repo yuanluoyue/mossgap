@@ -50,6 +50,20 @@
       "when": 1784303888392,
       "tag": "0006_reflective_machine_man",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1784344586793,
+      "tag": "0007_optimal_stryfe",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1784347819544,
+      "tag": "0008_material_annihilus",
+      "breakpoints": true
     }
   ]
 }

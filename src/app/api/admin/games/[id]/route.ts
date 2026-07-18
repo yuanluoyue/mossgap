@@ -89,15 +89,6 @@ export async function PATCH(
       slug: input.slug,
       title: input.locale.en.title || input.locale.zh.title || input.slug,
       description: input.locale.en.description,
-      category: input.category as
-        | "action"
-        | "puzzle"
-        | "arcade"
-        | "adventure"
-        | "strategy"
-        | "sports"
-        | "racing"
-        | "other",
       coverImage: input.coverImage,
       screenshots: input.screenshots,
       entryFile: input.entryFile,
@@ -105,8 +96,6 @@ export async function PATCH(
       locale: input.locale,
       sourceType: input.sourceType as "zip" | "iframe",
       iframeUrl: input.iframeUrl,
-      howToPlay: input.howToPlay,
-      relatedGameIds: input.relatedGameIds,
       internalNotes: input.internalNotes,
       categoryId: input.categoryId ?? null,
       tagIds: input.tagIds,

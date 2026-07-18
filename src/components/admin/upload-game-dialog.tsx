@@ -124,8 +124,8 @@ export function UploadGameDialog({ children }: UploadGameDialogProps) {
       );
       setOpen(false);
       reset();
-      // 跳转到编辑页配置游戏信息
-      router.push(`/admin/games/${res.data.id}/edit`);
+      // 跳转到列表页并打开基本信息抽屉
+      router.push(`/admin/games?edit=${res.data.id}`);
       router.refresh();
     } catch (err) {
       toast.error((err as Error).message ?? "上传失败");

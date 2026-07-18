@@ -115,7 +115,6 @@ export async function POST(req: Request) {
       slug: `${baseName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}-${randomUUID().slice(0, 8)}`,
       title,
       description: "",
-      category: "other",
       coverImage: "",
       screenshots: [],
       entryFile: extracted.detectedEntry ?? "index.html",

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Gamepad2, FileEdit, Eye, Archive, CheckCircle2 } from "lucide-react";
+import { Gamepad2, FileEdit, Archive, CheckCircle2 } from "lucide-react";
 
 import { getDashboardStats } from "@/db/queries";
 import { Badge } from "@/components/ui/badge";
@@ -104,7 +104,7 @@ export default async function AdminDashboardPage() {
                 return (
                   <Link
                     key={g.id}
-                    href={`/admin/games/${g.id}/edit`}
+                    href={`/admin/games?edit=${g.id}`}
                     className="flex items-center gap-4 px-6 py-3 transition-colors hover:bg-slate-50"
                   >
                     <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-100">
@@ -122,10 +122,6 @@ export default async function AdminDashboardPage() {
                       </p>
                     </div>
                     <Badge variant={st.variant}>{st.label}</Badge>
-                    <span className="hidden items-center gap-1 text-xs text-muted-foreground sm:inline-flex">
-                      <Eye className="size-3" />
-                      {g.playCount}
-                    </span>
                   </Link>
                 );
               })}

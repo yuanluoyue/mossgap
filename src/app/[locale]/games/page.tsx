@@ -4,23 +4,13 @@ import { setRequestLocale } from "next-intl/server";
 import { SearchX } from "lucide-react";
 
 import { GameCard } from "@/components/game-card";
-import { GamesFilter } from "@/components/games-filter";
-import { listPublicGames } from "@/db/queries";
-import type { GameCategory } from "@/types";
-import { GAME_CATEGORIES } from "@/types";
+import { listPublicGames, getPublicCategoryBySlug } from "@/db/queries";
 import { buildPageMetadata, getSiteUrl } from "@/lib/seo";
 
 export const revalidate = 0;
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 12;
-
-function parseCategory(v: string | undefined): GameCategory | undefined {
-  if (!v) return undefined;
-  return GAME_CATEGORIES.includes(v as GameCategory)
-    ? (v as GameCategory)
-    : undefined;
-}
 
 export async function generateMetadata({
   params,
@@ -48,7 +38,7 @@ export default async function GamesPage({
   await setRequestLocale(locale);
   const sp = await searchParams;
 
-  const category = parseCategory(firstOf(sp.category));
+  const categorySlug = firstOf(sp.category);
   const sort: "popular" | "newest" =
     firstOf(sp.sort) === "popular" ? "popular" : "newest";
   const q = firstOf(sp.q);
@@ -57,8 +47,17 @@ export default async function GamesPage({
 
   const t = await getTranslations("Games");
 
+  // ?category=xxx 现在按 slug 查 categories 表拿 categoryId
+  let categoryId: string | undefined;
+  if (categorySlug) {
+    const cat = await getPublicCategoryBySlug(categorySlug, localeCode).catch(
+      () => null,
+    );
+    if (cat) categoryId = cat.id;
+  }
+
   const { items, total } = await listPublicGames(
-    { page, pageSize: PAGE_SIZE, category, sort, q },
+    { page, pageSize: PAGE_SIZE, categoryId, sort, q },
     localeCode,
   );
 
@@ -101,14 +100,7 @@ export default async function GamesPage({
         <p className="mt-2 text-sm text-muted-foreground">{t("subtitle")}</p>
       </header>
 
-      {/* 筛选条 */}
-      {/* <div className="mb-8 rounded-3xl border border-border/60 bg-card p-5 card-shadow">
-        <GamesFilter
-          activeCategory={category}
-          activeSort={sort}
-          activeQuery={q}
-        />
-      </div> */}
+      {/* 筛选条（暂未启用）*/}
 
       {/* 结果统计 */}
       <div className="mb-4 flex items-center justify-between">
@@ -142,7 +134,7 @@ export default async function GamesPage({
           {Array.from({ length: totalPages }).map((_, i) => {
             const p = i + 1;
             const params = new URLSearchParams();
-            if (category) params.set("category", category);
+            if (categorySlug) params.set("category", categorySlug);
             if (sort) params.set("sort", sort);
             if (q) params.set("q", q);
             params.set("page", String(p));

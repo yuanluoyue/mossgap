@@ -41,7 +41,12 @@
     "plays": "{count, plural, =0 {还没有人玩过} other {# 次游玩}}",
     "back": "返回",
     "notFound": "游戏不存在",
-    "loading": "游戏加载中..."
+    "loading": "游戏加载中...",
+    "walkthrough": "攻略",
+    "tips": "技巧提示",
+    "controls": "操作说明",
+    "faqTitle": "常见问题",
+    "faqSubtitle": "关于本游戏的常见问题解答"
   },
   "Play": {
     "exit": "退出",

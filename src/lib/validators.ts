@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { GAME_CATEGORIES, GAME_STATUSES, COLLECTION_LAYOUTS, GAME_BADGES } from "@/types";
+import { GAME_STATUSES, COLLECTION_LAYOUTS, GAME_BADGES } from "@/types";
 
 const localeBlockSchema = z.object({
   title: z.string().min(1, "标题不能为空").max(120),
@@ -13,7 +13,6 @@ export const upsertGameSchema = z.object({
     .min(1)
     .max(120)
     .regex(/^[a-z0-9-]+$/, "slug 只能包含小写字母、数字和连字符"),
-  category: z.enum(GAME_CATEGORIES as [string, ...string[]]),
   coverImage: z.string().default(""),
   screenshots: z.array(z.string()).default([]),
   entryFile: z.string().min(1, "入口文件不能为空").default("index.html"),
@@ -24,14 +23,6 @@ export const upsertGameSchema = z.object({
   }),
   sourceType: z.enum(["zip", "iframe"]).default("zip"),
   iframeUrl: z.string().default(""),
-  howToPlay: z
-    .object({
-      en: z.string().max(5000).default(""),
-      zh: z.string().max(5000).default(""),
-    })
-    .default({ en: "", zh: "" }),
-  relatedGameIds: z.array(z.string()).default([]),
-  featured: z.boolean().default(false),
   // 内部备注（仅 B 端展示）
   internalNotes: z.string().max(2000).default(""),
   categoryId: z.string().nullable().optional(),
@@ -72,7 +63,6 @@ export const createIframeGameSchema = z.object({
       "请输入合法的 http/https iframe URL",
     ),
   title: z.string().min(1).max(120),
-  category: z.enum(GAME_CATEGORIES as [string, ...string[]]).default("other"),
   coverImage: z.string().default(""),
 });
 
@@ -105,7 +95,8 @@ export type UpdateGameStatusInput = z.infer<typeof updateGameStatusSchema>;
 export const publicListQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(60).default(24),
-  category: z.enum(GAME_CATEGORIES as [string, ...string[]]).optional(),
+  /** 分类 slug（来自 categories 表），后端自行查 categoryId */
+  category: z.string().optional(),
   sort: z.enum(["popular", "newest"]).default("newest"),
   q: z.string().optional(),
 });
@@ -394,3 +385,27 @@ export const collectionUpdateSchema = z.object({
 
 export type CollectionCreateInput = z.infer<typeof collectionCreateSchema>;
 export type CollectionUpdateInput = z.infer<typeof collectionUpdateSchema>;
+
+// ─── 游戏内容（攻略/SEO/FAQ）校验 ───────────────────────────────
+
+/** FAQ 项校验。 */
+export const gameFaqItemSchema = z.object({
+  question: z.string().min(1, "问题不能为空").max(500),
+  answer: z.string().min(1, "答案不能为空").max(5000),
+});
+
+/** 游戏内容 upsert 校验。 */
+export const upsertGameContentSchema = z.object({
+  locale: z.enum(["en", "zh"]),
+  summary: z.string().max(2000).default(""),
+  howToPlay: z.string().max(50000).default(""),
+  tips: z.string().max(50000).default(""),
+  controls: z.string().max(50000).default(""),
+  faq: z.array(gameFaqItemSchema).max(50, "FAQ 最多 50 条").default([]),
+  seoTitle: z.string().max(200).default(""),
+  seoDescription: z.string().max(500).default(""),
+  keywords: z.string().max(500).default(""),
+  canonical: z.string().max(1000).default(""),
+});
+
+export type UpsertGameContentInput = z.infer<typeof upsertGameContentSchema>;

@@ -1,15 +1,15 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import {
-  Pencil,
   Trash2,
   Loader2,
   Eye,
   EyeOff,
   Play,
+  Pencil,
+  FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -28,38 +28,58 @@ import {
 } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GamePlayer } from "@/components/game-player";
+import { GameBasicInfoDrawer } from "@/components/admin/game-basic-info-drawer";
+import { GameContentDrawer } from "@/components/admin/game-content-drawer";
 
 interface GameRowActionsProps {
   id: string;
-  editHref: string;
+  slug: string;
   status: string;
   title: string;
   /** 游戏可预览的 URL（zip 解压后的 index.html 完整地址，或 iframe URL） */
   playUrl: string;
-  onView?: () => void;
+  categories: { id: string; slug: string; name: string; color: string | null }[];
+  tags: { id: string; slug: string; name: string; color: string | null }[];
+  collections: { id: string; slug: string; name: string }[];
+  /** 初次挂载时是否打开基本信息抽屉（用于从仪表盘跳转过来时自动打开） */
+  initialBasicOpen?: boolean;
 }
 
 /**
- * 游戏行操作：预览 + 编辑 + 上架/下架 + 删除
- * - 预览：弹窗内嵌 GamePlayer（836×470，与 C 端一致）
- * - 上下架：调用 PATCH /api/admin/games/[id]/status
- * - 删除：确认弹窗
+ * 游戏行操作：预览 + 编辑基本信息 + 编辑详情 + 上架/下架 + 删除
  *
+ * 编辑基本信息与详情均通过侧边抽屉（Sheet）打开，不再跳转独立页面。
  * 操作按钮优先使用 icon，hover 时 Tooltip 显示描述文字。
  */
 export function GameRowActions({
   id,
-  editHref,
+  slug,
   status,
   title,
   playUrl,
-  onView,
+  categories,
+  tags,
+  collections,
+  initialBasicOpen = false,
 }: GameRowActionsProps) {
   const router = useRouter();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [basicOpen, setBasicOpen] = useState(initialBasicOpen);
+  const [contentOpen, setContentOpen] = useState(false);
   const [toggling, startTransition] = useTransition();
+
+  // 从仪表盘带 ?edit=id 跳转过来时，挂载后清掉 URL 中的 edit 参数，
+  // 避免后续刷新或保存触发抽屉重开。
+  useEffect(() => {
+    if (!initialBasicOpen) return;
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has("edit")) return;
+    url.searchParams.delete("edit");
+    router.replace(url.pathname + url.search, { scroll: false });
+  }, [initialBasicOpen, router]);
 
   async function onConfirmDelete() {
     if (deleting) return;
@@ -130,16 +150,32 @@ export function GameRowActions({
         <TooltipContent side="top">预览</TooltipContent>
       </Tooltip>
 
-      {/* 编辑 */}
+      {/* 编辑基本信息（抽屉） */}
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" asChild>
-            <Link href={editHref}>
-              <Pencil className="size-4" />
-            </Link>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setBasicOpen(true)}
+          >
+            <Pencil className="size-4" />
           </Button>
         </TooltipTrigger>
-        <TooltipContent side="top">编辑</TooltipContent>
+        <TooltipContent side="top">编辑基本信息</TooltipContent>
+      </Tooltip>
+
+      {/* 编辑详情内容（抽屉） */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setContentOpen(true)}
+          >
+            <FileText className="size-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="top">编辑详情（攻略/SEO）</TooltipContent>
       </Tooltip>
 
       {/* 上架 / 下架 */}
@@ -219,6 +255,29 @@ export function GameRowActions({
           )}
         </DialogContent>
       </Dialog>
+
+      {/* 编辑基本信息抽屉（仅在打开时挂载，避免 N 行 N 个富文本实例） */}
+      {basicOpen ? (
+        <GameBasicInfoDrawer
+          gameId={id}
+          open={basicOpen}
+          onOpenChange={setBasicOpen}
+          categories={categories}
+          tags={tags}
+          collections={collections}
+        />
+      ) : null}
+
+      {/* 编辑详情内容抽屉 */}
+      {contentOpen ? (
+        <GameContentDrawer
+          gameId={id}
+          gameSlug={slug}
+          gameStatus={status}
+          open={contentOpen}
+          onOpenChange={setContentOpen}
+        />
+      ) : null}
     </div>
   );
 }

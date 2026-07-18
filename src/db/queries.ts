@@ -18,6 +18,7 @@ import {
   collections,
   gameTags,
   gameCollections,
+  gameContents,
 } from "./schema";
 import type {
   AdminFeedback,
@@ -28,11 +29,11 @@ import type {
   FeedbackStatus,
   FeedbackType,
   GameBadge,
-  GameCategory,
+  GameContent,
+  GameFaqItem,
   GameLocale,
   GameSourceType,
   GameStatus,
-  HowToPlay,
   PublicGame,
   PublicCategory,
   PublicTag,
@@ -73,6 +74,50 @@ function stringifyBadge(badges: GameBadge[] | null | undefined): string {
   return JSON.stringify(badges ?? []);
 }
 
+/**
+ * 安全解析 FAQ 字符串为 GameFaqItem[]。
+ * 与 badge 同理，faq 字段用 plain text 存储避免 D1 json mode bug。
+ */
+function parseFaq(raw: string | null | undefined): GameFaqItem[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (item): item is GameFaqItem =>
+        item && typeof item === "object" &&
+        typeof item.question === "string" &&
+        typeof item.answer === "string",
+    );
+  } catch {
+    return [];
+  }
+}
+
+/** 将 GameFaqItem[] 序列化为存储字符串。 */
+function stringifyFaq(items: GameFaqItem[] | null | undefined): string {
+  return JSON.stringify(items ?? []);
+}
+
+/** 把 game_contents row 映射为 GameContent。 */
+function toGameContent(row: typeof gameContents.$inferSelect): GameContent {
+  return {
+    id: row.id,
+    gameId: row.gameId,
+    locale: row.locale as "en" | "zh",
+    summary: row.summary ?? "",
+    howToPlay: row.howToPlay ?? "",
+    tips: row.tips ?? "",
+    controls: row.controls ?? "",
+    faq: parseFaq(row.faq),
+    seoTitle: row.seoTitle ?? "",
+    seoDescription: row.seoDescription ?? "",
+    keywords: row.keywords ?? "",
+    canonical: row.canonical ?? "",
+    updatedAt: toIso(row.updatedAt),
+  };
+}
+
 function toAdminGame(
   row: typeof games.$inferSelect,
   opts?: { tagIds?: string[]; collectionIds?: string[]; uploaderName?: string | null },
@@ -82,23 +127,18 @@ function toAdminGame(
     slug: row.slug,
     title: row.title,
     description: row.description,
-    category: row.category as GameCategory,
     coverImage: row.coverImage,
     screenshots: row.screenshots,
     entryFile: row.entryFile,
     ossPrefix: row.ossPrefix,
     status: row.status as GameStatus,
-    playCount: row.playCount,
     likeCount: row.likeCount ?? 0,
     dislikeCount: row.dislikeCount ?? 0,
     locale: row.locale,
     sourceType: (row.sourceType ?? "zip") as GameSourceType,
     iframeUrl: row.iframeUrl ?? "",
-    howToPlay: (row.howToPlay ?? { en: "", zh: "" }) as HowToPlay,
-    relatedGameIds: row.relatedGameIds ?? [],
     ossSize: row.ossSize ?? 0,
     internalNotes: row.internalNotes ?? "",
-    featured: row.featured ? true : false,
     categoryId: row.categoryId ?? null,
     uploaderId: row.uploaderId ?? null,
     uploaderName: opts?.uploaderName ?? null,
@@ -116,8 +156,6 @@ async function toPublicGame(row: typeof games.$inferSelect, locale: Locale): Pro
   const loc = row.locale ?? { en: { title: "", description: "" }, zh: { title: "", description: "" } };
   const title = loc[locale]?.title || loc.en?.title || row.title;
   const description = loc[locale]?.description || loc.en?.description || row.description;
-  const howToPlayRaw = (row.howToPlay ?? { en: "", zh: "" }) as HowToPlay;
-  const howToPlay = howToPlayRaw[locale] || howToPlayRaw.en || "";
   const sourceType = (row.sourceType ?? "zip") as GameSourceType;
   const iframeUrl = row.iframeUrl ?? "";
   let playUrl = "";
@@ -134,19 +172,17 @@ async function toPublicGame(row: typeof games.$inferSelect, locale: Locale): Pro
     slug: row.slug,
     title,
     description,
-    category: row.category as GameCategory,
     coverImage: row.coverImage,
     screenshots: row.screenshots,
-    playCount: row.playCount,
     likeCount: row.likeCount ?? 0,
     dislikeCount: row.dislikeCount ?? 0,
     createdAt: toIso(row.createdAt),
     playUrl,
     sourceType,
     iframeUrl,
-    howToPlay,
     badge: parseBadge(row.badge),
     publishedAt: toIso(row.publishedAt),
+    categoryId: row.categoryId ?? null,
   };
 }
 
@@ -255,7 +291,6 @@ export async function createGame(input: {
   slug: string;
   title: string;
   description?: string;
-  category?: GameCategory;
   coverImage?: string;
   screenshots?: string[];
   entryFile?: string;
@@ -264,10 +299,7 @@ export async function createGame(input: {
   locale?: GameLocale;
   sourceType?: GameSourceType;
   iframeUrl?: string;
-  howToPlay?: HowToPlay;
-  relatedGameIds?: string[];
   ossSize?: number;
-  featured?: boolean;
   categoryId?: string | null;
   uploaderId?: string | null;
   tagIds?: string[];
@@ -283,7 +315,6 @@ export async function createGame(input: {
       slug: input.slug,
       title: input.title,
       description: input.description ?? "",
-      category: input.category ?? "other",
       coverImage: input.coverImage ?? "",
       screenshots: input.screenshots ?? [],
       entryFile: input.entryFile ?? "index.html",
@@ -296,10 +327,7 @@ export async function createGame(input: {
         },
       sourceType: input.sourceType ?? "zip",
       iframeUrl: input.iframeUrl ?? "",
-      howToPlay: input.howToPlay ?? { en: "", zh: "" },
-      relatedGameIds: input.relatedGameIds ?? [],
       ossSize: input.ossSize ?? 0,
-      featured: input.featured ? 1 : 0,
       categoryId: input.categoryId ?? null,
       uploaderId: input.uploaderId ?? null,
       badge: stringifyBadge(input.badge),
@@ -325,7 +353,6 @@ export async function updateGame(
     slug: string;
     title: string;
     description: string;
-    category: GameCategory;
     coverImage: string;
     screenshots: string[];
     entryFile: string;
@@ -333,11 +360,8 @@ export async function updateGame(
     locale: GameLocale;
     sourceType: GameSourceType;
     iframeUrl: string;
-    howToPlay: HowToPlay;
-    relatedGameIds: string[];
     ossSize: number;
     internalNotes: string;
-    featured: boolean;
     categoryId: string | null;
     tagIds: string[];
     collectionIds: string[];
@@ -348,12 +372,11 @@ export async function updateGame(
   }>,
 ): Promise<AdminGame | null> {
   const db = await getDb();
-  const { featured, categoryId, tagIds, collectionIds, badge, ...rest } = input;
+  const { categoryId, tagIds, collectionIds, badge, ...rest } = input;
   const [row] = await db
     .update(games)
     .set({
       ...rest,
-      ...(featured !== undefined ? { featured: featured ? 1 : 0 } : {}),
       ...(categoryId !== undefined ? { categoryId } : {}),
       ...(badge !== undefined ? { badge: stringifyBadge(badge) } : {}),
       updatedAt: Math.floor(Date.now() / 1000),
@@ -383,21 +406,6 @@ export async function updateGame(
     tagIds: tagRows.map((r) => r.tagId),
     collectionIds: collectionRows.map((r) => r.collectionId),
   });
-}
-
-/** 获取首页推荐游戏（featured=1 且已发布），按 createdAt 降序。 */
-export async function listFeaturedGames(
-  locale: Locale,
-  limit = 10,
-): Promise<PublicGame[]> {
-  const db = await getDb();
-  const rows = await db
-    .select()
-    .from(games)
-    .where(and(eq(games.status, "published"), eq(games.featured, 1)))
-    .orderBy(desc(games.createdAt))
-    .limit(limit);
-  return Promise.all(rows.map((r) => toPublicGame(r, locale)));
 }
 
 export async function deleteGame(id: string): Promise<void> {
@@ -463,7 +471,8 @@ export async function listPublicGames(
   opts: {
     page: number;
     pageSize: number;
-    category?: GameCategory;
+    /** 分类 ID（来自 categories 表） */
+    categoryId?: string;
     sort?: "popular" | "newest";
     q?: string;
   },
@@ -471,12 +480,12 @@ export async function listPublicGames(
 ): Promise<{ items: PublicGame[]; total: number }> {
   const db = await getDb();
   const conditions = [eq(games.status, "published")];
-  if (opts.category) conditions.push(eq(games.category, opts.category));
+  if (opts.categoryId) conditions.push(eq(games.categoryId, opts.categoryId));
   if (opts.q) conditions.push(like(games.title, `%${opts.q}%`));
   const where = and(...conditions);
 
   const order =
-    opts.sort === "popular" ? desc(games.playCount) : desc(games.createdAt);
+    opts.sort === "popular" ? desc(games.likeCount) : desc(games.createdAt);
 
   const [rows, totalRows] = await Promise.all([
     db
@@ -502,16 +511,17 @@ export async function listGameCards(
     page: number;
     pageSize: number;
     sort?: "popular" | "newest";
-    category?: GameCategory;
+    /** 分类 ID（来自 categories 表） */
+    categoryId?: string;
   },
   locale: Locale,
 ): Promise<{ items: GameCardItem[]; total: number }> {
   const db = await getDb();
   const conditions = [eq(games.status, "published")];
-  if (opts.category) conditions.push(eq(games.category, opts.category));
+  if (opts.categoryId) conditions.push(eq(games.categoryId, opts.categoryId));
   const where = and(...conditions);
   const order =
-    opts.sort === "popular" ? desc(games.playCount) : desc(games.createdAt);
+    opts.sort === "popular" ? desc(games.likeCount) : desc(games.createdAt);
 
   const [rows, totalRows] = await Promise.all([
     db
@@ -554,7 +564,7 @@ export async function getPublicGameBySlug(
 }
 
 /**
- * C 端相关推荐（MVP）。
+ * C 端相关推荐。
  *
  * 推荐顺序：
  * 1. 同分类（categoryId）的已发布游戏
@@ -562,16 +572,12 @@ export async function getPublicGameBySlug(
  * 3. 不足则用其他已发布游戏补齐
  *
  * @param gameId 当前游戏 ID
- * @param category 旧枚举分类（保留参数兼容，不再用于推荐）
  * @param locale 语言
- * @param _relatedIds 人工配置的相关游戏 ID（保留参数兼容，MVP 暂不使用）
  * @param limit 返回数量，默认 6
  */
 export async function listRelatedGames(
-  _category: GameCategory,
   gameId: string,
   locale: Locale,
-  _relatedIds: string[] = [],
   limit = 6,
 ): Promise<PublicGame[]> {
   const db = await getDb();
@@ -602,7 +608,7 @@ export async function listRelatedGames(
       .select()
       .from(games)
       .where(and(eq(games.categoryId, categoryId), eq(games.status, "published")))
-      .orderBy(desc(games.playCount))
+      .orderBy(desc(games.likeCount))
       .limit(limit + 1);
     for (const r of rows) {
       if (picked.length >= limit) break;
@@ -650,13 +656,13 @@ export async function listRelatedGames(
     }
   }
 
-  // 3. 不足则用其他已发布游戏补齐（按游玩数降序）
+  // 3. 不足则用其他已发布游戏补齐（按点赞数降序）
   if (picked.length < limit) {
     const rows = await db
       .select()
       .from(games)
       .where(eq(games.status, "published"))
-      .orderBy(desc(games.playCount))
+      .orderBy(desc(games.likeCount))
       .limit(limit - picked.length + pickedIds.size);
     for (const r of rows) {
       if (picked.length >= limit) break;
@@ -672,7 +678,7 @@ export async function listRelatedGames(
 /** 去重时间窗口（秒）：同一 IP 在此时间内重复访问不重复计数。 */
 const PLAY_DEDUP_WINDOW = 30 * 60; // 30 分钟
 
-export async function incrementPlayCount(
+export async function recordGamePlay(
   gameId: string,
   ip: string,
   userAgent: string,
@@ -681,7 +687,7 @@ export async function incrementPlayCount(
   const now = Math.floor(Date.now() / 1000);
   const since = now - PLAY_DEDUP_WINDOW;
 
-  // 同一 IP 在时间窗口内已有记录则不重复计数
+  // 同一 IP 在时间窗口内已有记录则不重复记录
   const recent = await db
     .select({ id: gamePlayLogs.id })
     .from(gamePlayLogs)
@@ -695,13 +701,7 @@ export async function incrementPlayCount(
     .limit(1);
   if (recent.length > 0) return;
 
-  await db.batch([
-    db
-      .update(games)
-      .set({ playCount: sql`${games.playCount} + 1` })
-      .where(eq(games.id, gameId)),
-    db.insert(gamePlayLogs).values({ gameId, userIp: ip, userAgent }),
-  ]);
+  await db.insert(gamePlayLogs).values({ gameId, userIp: ip, userAgent });
 }
 
 // ===== 点赞 =====
@@ -1781,6 +1781,13 @@ export async function getPublicCategoryBySlug(slug: string, locale: Locale): Pro
   return row[0] ? toPublicCategory(row[0], locale) : null;
 }
 
+/** 按 ID 查公开分类（用于详情页 accent 配色、JSON-LD genre 等）。 */
+export async function getPublicCategoryById(id: string, locale: Locale): Promise<PublicCategory | null> {
+  const db = await getDb();
+  const row = await db.select().from(categories).where(eq(categories.id, id)).limit(1);
+  return row[0] ? toPublicCategory(row[0], locale) : null;
+}
+
 export async function listGamesByCategory(
   categorySlug: string,
   opts: { page: number; pageSize: number; sort?: "popular" | "newest" },
@@ -1791,7 +1798,7 @@ export async function listGamesByCategory(
   if (!cat[0]) return { items: [], total: 0, category: null };
   const category = toPublicCategory(cat[0], locale);
   const where = and(eq(games.categoryId, cat[0].id), eq(games.status, "published"));
-  const order = opts.sort === "popular" ? desc(games.playCount) : desc(games.createdAt);
+  const order = opts.sort === "popular" ? desc(games.likeCount) : desc(games.createdAt);
   const [rows, totalRows] = await Promise.all([
     db.select().from(games).where(where).orderBy(order).limit(opts.pageSize).offset((opts.page - 1) * opts.pageSize),
     db.select({ value: count() }).from(games).where(where),
@@ -1939,7 +1946,7 @@ export async function listGamesByTag(
   if (gameIds.length === 0) return { items: [], total: 0, tag };
 
   const where = and(inArray(games.id, gameIds), eq(games.status, "published"));
-  const order = opts.sort === "popular" ? desc(games.playCount) : desc(games.createdAt);
+  const order = opts.sort === "popular" ? desc(games.likeCount) : desc(games.createdAt);
   const [rows, totalRows] = await Promise.all([
     db.select().from(games).where(where).orderBy(order).limit(opts.pageSize).offset((opts.page - 1) * opts.pageSize),
     db.select({ value: count() }).from(games).where(where),
@@ -2199,6 +2206,142 @@ export async function listAllCollectionsForPicker(): Promise<
     .from(collections)
     .orderBy(asc(collections.sortOrder), desc(collections.createdAt));
   return rows;
+}
+
+// ===== Game Content（攻略/SEO/FAQ，按 locale 区分）=====
+
+/** 获取单个游戏指定 locale 的内容。 */
+export async function getGameContent(
+  gameId: string,
+  locale: "en" | "zh",
+): Promise<GameContent | null> {
+  const db = await getDb();
+  const rows = await db
+    .select()
+    .from(gameContents)
+    .where(
+      and(eq(gameContents.gameId, gameId), eq(gameContents.locale, locale)),
+    )
+    .limit(1);
+  return rows[0] ? toGameContent(rows[0]) : null;
+}
+
+/** 获取单个游戏的全部 locale 内容（en + zh）。 */
+export async function getGameContentsByGameId(
+  gameId: string,
+): Promise<GameContent[]> {
+  const db = await getDb();
+  const rows = await db
+    .select()
+    .from(gameContents)
+    .where(eq(gameContents.gameId, gameId));
+  return rows.map(toGameContent);
+}
+
+/** C 端：获取已发布游戏的指定 locale 内容（仅返回必要字段）。 */
+export async function getPublicGameContent(
+  gameId: string,
+  locale: "en" | "zh",
+): Promise<GameContent | null> {
+  const db = await getDb();
+  // 先确认游戏已发布，避免泄漏草稿游戏的攻略
+  const gameRow = await db
+    .select({ id: games.id })
+    .from(games)
+    .where(and(eq(games.id, gameId), eq(games.status, "published")))
+    .limit(1);
+  if (!gameRow[0]) return null;
+  const rows = await db
+    .select()
+    .from(gameContents)
+    .where(
+      and(eq(gameContents.gameId, gameId), eq(gameContents.locale, locale)),
+    )
+    .limit(1);
+  return rows[0] ? toGameContent(rows[0]) : null;
+}
+
+/** 插入或更新游戏内容（按 gameId + locale 复合主键 upsert）。 */
+export async function upsertGameContent(input: {
+  gameId: string;
+  locale: "en" | "zh";
+  summary?: string;
+  howToPlay?: string;
+  tips?: string;
+  controls?: string;
+  faq?: GameFaqItem[];
+  seoTitle?: string;
+  seoDescription?: string;
+  keywords?: string;
+  canonical?: string;
+}): Promise<GameContent> {
+  const db = await getDb();
+  const now = Math.floor(Date.now() / 1000);
+  // 先查是否存在（复合主键 upsert 在 D1 上 drizzle 写法略复杂，先查后写更稳）
+  const existing = await db
+    .select()
+    .from(gameContents)
+    .where(
+      and(eq(gameContents.gameId, input.gameId), eq(gameContents.locale, input.locale)),
+    )
+    .limit(1);
+
+  if (existing[0]) {
+    const [row] = await db
+      .update(gameContents)
+      .set({
+        summary: input.summary ?? existing[0].summary ?? "",
+        howToPlay: input.howToPlay ?? existing[0].howToPlay ?? "",
+        tips: input.tips ?? existing[0].tips ?? "",
+        controls: input.controls ?? existing[0].controls ?? "",
+        faq: stringifyFaq(input.faq),
+        seoTitle: input.seoTitle ?? existing[0].seoTitle ?? "",
+        seoDescription: input.seoDescription ?? existing[0].seoDescription ?? "",
+        keywords: input.keywords ?? existing[0].keywords ?? "",
+        canonical: input.canonical ?? existing[0].canonical ?? "",
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(gameContents.gameId, input.gameId),
+          eq(gameContents.locale, input.locale),
+        ),
+      )
+      .returning();
+    return toGameContent(row!);
+  }
+
+  const [row] = await db
+    .insert(gameContents)
+    .values({
+      gameId: input.gameId,
+      locale: input.locale,
+      summary: input.summary ?? "",
+      howToPlay: input.howToPlay ?? "",
+      tips: input.tips ?? "",
+      controls: input.controls ?? "",
+      faq: stringifyFaq(input.faq),
+      seoTitle: input.seoTitle ?? "",
+      seoDescription: input.seoDescription ?? "",
+      keywords: input.keywords ?? "",
+      canonical: input.canonical ?? "",
+      updatedAt: now,
+    })
+    .returning();
+  return toGameContent(row!);
+}
+
+/** 删除指定 locale 的游戏内容（不删游戏本身）。 */
+export async function deleteGameContent(
+  gameId: string,
+  locale: "en" | "zh",
+): Promise<void> {
+  const db = await getDb();
+  await db
+    .delete(gameContents)
+    .where(
+      and(eq(gameContents.gameId, gameId), eq(gameContents.locale, locale)),
+    );
 }
 
 export { schema, asc };

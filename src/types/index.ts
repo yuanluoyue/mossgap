@@ -22,28 +22,6 @@ export const GAME_BADGE_STYLES: Record<GameBadge, string> = {
 /** 游戏状态 */
 export type GameStatus = "draft" | "published" | "archived";
 
-/** 游戏分类 */
-export type GameCategory =
-  | "action"
-  | "puzzle"
-  | "arcade"
-  | "adventure"
-  | "strategy"
-  | "sports"
-  | "racing"
-  | "other";
-
-export const GAME_CATEGORIES: GameCategory[] = [
-  "action",
-  "puzzle",
-  "arcade",
-  "adventure",
-  "strategy",
-  "sports",
-  "racing",
-  "other",
-];
-
 export const GAME_STATUSES: GameStatus[] = ["draft", "published", "archived"];
 
 /** 游戏来源类型：zip 上传包 / iframe 外链 */
@@ -54,24 +32,6 @@ export interface GameLocale {
   en: { title: string; description: string };
   zh: { title: string; description: string };
 }
-
-/** 玩法说明（按语言） */
-export interface HowToPlay {
-  en: string;
-  zh: string;
-}
-
-/** 分类配色（Poki 风格：每个分类一种彩色 accent） */
-export const CATEGORY_COLORS: Record<GameCategory, string> = {
-  action: "#ef4444",
-  puzzle: "#8b5cf6",
-  arcade: "#14b8a6",
-  adventure: "#f59e0b",
-  strategy: "#6366f1",
-  sports: "#10b981",
-  racing: "#06b6d4",
-  other: "#64748b",
-};
 
 // ─── 内容组织：分类 / 标签 / 专题 ───────────────────────────────
 
@@ -180,21 +140,20 @@ export interface PublicGame {
   slug: string;
   title: string;
   description: string;
-  category: GameCategory;
   coverImage: string;
   screenshots: string[];
-  playCount: number;
   likeCount: number;
   dislikeCount: number;
   createdAt: string;
   playUrl: string;
   sourceType: GameSourceType;
   iframeUrl: string;
-  howToPlay: string;
   /** 角标（C 端卡片可展示） */
   badge: GameBadge[];
   /** 发布时间（ISO 字符串，未发布为空字符串） */
   publishedAt: string;
+  /** 关联分类 ID（用于详情页查 accent 配色 / JSON-LD genre） */
+  categoryId: string | null;
 }
 
 /** 首页/列表卡片轻量数据（只含渲染卡片必需字段） */
@@ -207,30 +166,57 @@ export interface GameCardItem {
   badge: GameBadge[];
 }
 
+/** FAQ 项（game_content.faq JSON 数组元素） */
+export interface GameFaqItem {
+  question: string;
+  answer: string;
+}
+
+/** 游戏详情内容（按 locale 区分，用于攻略/SEO 长尾词） */
+export interface GameContent {
+  id: string;
+  gameId: string;
+  locale: "en" | "zh";
+  /** 摘要（短文本，用于列表/卡片副标题） */
+  summary: string;
+  /** 玩法说明（富文本 HTML） */
+  howToPlay: string;
+  /** 技巧（富文本 HTML） */
+  tips: string;
+  /** 操作说明（富文本 HTML，如键盘/鼠标操作） */
+  controls: string;
+  /** FAQ（JSON 数组，结构化数据 + C 端折叠展示） */
+  faq: GameFaqItem[];
+  /** SEO 标题（为空时回退到游戏标题） */
+  seoTitle: string;
+  /** SEO 描述（为空时回退到 summary/默认描述） */
+  seoDescription: string;
+  /** SEO 关键词（逗号分隔字符串） */
+  keywords: string;
+  /** canonical URL（为空时 C 端用当前页面 URL） */
+  canonical: string;
+  updatedAt: string;
+}
+
 /** Admin 端游戏数据（完整） */
 export interface AdminGame {
   id: string;
   slug: string;
   title: string;
   description: string;
-  category: GameCategory;
   coverImage: string;
   screenshots: string[];
   entryFile: string;
   ossPrefix: string;
   status: GameStatus;
-  playCount: number;
   likeCount: number;
   dislikeCount: number;
   locale: GameLocale;
   sourceType: GameSourceType;
   iframeUrl: string;
-  howToPlay: HowToPlay;
-  relatedGameIds: string[];
   ossSize: number;
   /** 内部备注（仅 B 端展示） */
   internalNotes: string;
-  featured: boolean;
   categoryId: string | null;
   uploaderId: string | null;
   uploaderName: string | null;

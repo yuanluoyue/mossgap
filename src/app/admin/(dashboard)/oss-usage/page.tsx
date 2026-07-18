@@ -104,7 +104,7 @@ export default async function OssUsagePage() {
                   <div key={g.id} className="space-y-1">
                     <div className="flex items-center justify-between text-sm">
                       <Link
-                        href={`/admin/games/${g.id}/edit`}
+                        href={`/admin/games?edit=${g.id}`}
                         className="truncate font-medium hover:underline"
                       >
                         <span className="mr-2 text-muted-foreground">#{i + 1}</span>
@@ -170,7 +170,7 @@ export default async function OssUsagePage() {
                         </TableCell>
                         <TableCell>
                           <Link
-                            href={`/admin/games/${g.id}/edit`}
+                            href={`/admin/games?edit=${g.id}`}
                             className="block max-w-[260px] truncate font-medium hover:underline"
                           >
                             {g.title || g.slug}

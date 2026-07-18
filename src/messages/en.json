@@ -41,7 +41,12 @@
     "plays": "{count, plural, =0 {No plays yet} one {# play} other {# plays}}",
     "back": "Back",
     "notFound": "Game not found",
-    "loading": "Loading game..."
+    "loading": "Loading game...",
+    "walkthrough": "Walkthrough",
+    "tips": "Tips & Tricks",
+    "controls": "Controls",
+    "faqTitle": "Frequently Asked Questions",
+    "faqSubtitle": "Quick answers about this game"
   },
   "Play": {
     "exit": "Exit",

@@ -59,20 +59,6 @@ export const games = sqliteTable(
     slug: text("slug").notNull(),
     title: text("title").notNull(),
     description: text("description").notNull().default(""),
-    category: text("category", {
-      enum: [
-        "action",
-        "puzzle",
-        "arcade",
-        "adventure",
-        "strategy",
-        "sports",
-        "racing",
-        "other",
-      ],
-    })
-      .notNull()
-      .default("other"),
     coverImage: text("cover_image").notNull().default(""),
     screenshots: text("screenshots", { mode: "json" })
       .$type<string[]>()
@@ -85,7 +71,6 @@ export const games = sqliteTable(
     })
       .notNull()
       .default("draft"),
-    playCount: integer("play_count").notNull().default(0),
     locale: text("locale", { mode: "json" })
       .$type<GameLocale>()
       .notNull()
@@ -93,20 +78,12 @@ export const games = sqliteTable(
     // 新增字段（均 nullable 以保持向前兼容，应用层兜底默认值）
     sourceType: text("source_type", { enum: ["zip", "iframe"] }).default("zip"),
     iframeUrl: text("iframe_url").default(""),
-    howToPlay: text("how_to_play", { mode: "json" })
-      .$type<{ en: string; zh: string }>()
-      .default({ en: "", zh: "" }),
-    relatedGameIds: text("related_game_ids", { mode: "json" })
-      .$type<string[]>()
-      .default([]),
     ossSize: integer("oss_size").default(0),
     // 内部备注（仅 B 端展示，nullable 向前兼容）
     internalNotes: text("internal_notes").default(""),
     likeCount: integer("like_count").default(0),
     dislikeCount: integer("dislike_count").default(0),
-    // 是否首页推荐（0/1），nullable 向前兼容
-    featured: integer("featured").default(0),
-    // 关联分类表（nullable 向前兼容，旧数据仍可使用 category enum 字段）
+    // 关联分类表（nullable 向前兼容）
     categoryId: text("category_id"),
     // 上传者（关联 admins 表，nullable 向前兼容，旧数据为空）
     uploaderId: text("uploader_id"),
@@ -129,11 +106,58 @@ export const games = sqliteTable(
   (t) => ({
     slugIdx: uniqueIndex("games_slug_idx").on(t.slug),
     statusIdx: index("games_status_idx").on(t.status),
-    categoryIdx: index("games_category_idx").on(t.category),
     categoryIdIdx: index("games_category_id_idx").on(t.categoryId),
     uploaderIdIdx: index("games_uploader_id_idx").on(t.uploaderId),
     weightIdx: index("games_weight_idx").on(t.weight),
     publishedAtIdx: index("games_published_at_idx").on(t.publishedAt),
+  }),
+);
+
+/**
+ * 游戏详情内容表（按 locale 区分，用于攻略/SEO 长尾词）。
+ * 一个游戏对应两条记录：en + zh。复合主键 (gameId, locale)。
+ * 所有内容字段均 nullable 向前兼容，应用层兜底为空字符串/空数组。
+ */
+export const gameContents = sqliteTable(
+  "game_contents",
+  {
+    id: text("id")
+      .notNull()
+      .$defaultFn(genUuid),
+    gameId: text("game_id")
+      .notNull()
+      .references(() => games.id, { onDelete: "cascade" }),
+    locale: text("locale").notNull(), // "en" | "zh"
+    /** 摘要（短文本） */
+    summary: text("summary").default(""),
+    /** 玩法说明（富文本 HTML） */
+    howToPlay: text("how_to_play").default(""),
+    /** 技巧（富文本 HTML） */
+    tips: text("tips").default(""),
+    /** 操作说明（富文本 HTML） */
+    controls: text("controls").default(""),
+    /**
+     * FAQ（JSON 数组字符串 [{question, answer}]）。
+     * 故意不用 { mode: "json" }，避免 D1 .raw() schema 演进 bug（参考 badge 字段）。
+     * 应用层手动 parse/stringify。
+     */
+    faq: text("faq").default("[]"),
+    /** SEO 标题 */
+    seoTitle: text("seo_title").default(""),
+    /** SEO 描述 */
+    seoDescription: text("seo_description").default(""),
+    /** SEO 关键词（逗号分隔字符串） */
+    keywords: text("keywords").default(""),
+    /** canonical URL */
+    canonical: text("canonical").default(""),
+    updatedAt: integer("updated_at")
+      .notNull()
+      .$defaultFn(nowSeconds),
+  },
+  (t) => ({
+    // 复合主键：一个游戏每个 locale 只有一条记录
+    pk: primaryKey({ columns: [t.gameId, t.locale] }),
+    gameIdIdx: index("game_contents_game_id_idx").on(t.gameId),
   }),
 );
 
@@ -569,4 +593,4 @@ export const insertGameSchema = createInsertSchema(games);
 export const selectGameSchema = createSelectSchema(games);
 
 // 业务类型导出（与 src/types 对齐）
-export type { GameCategory, GameLocale, GameStatus, TaxonomyLocale, CollectionLayout } from "@/types";
+export type { GameLocale, GameStatus, TaxonomyLocale, CollectionLayout } from "@/types";

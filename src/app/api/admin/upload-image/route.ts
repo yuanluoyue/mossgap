@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
 /** 单张图片最大 5MB */
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 
-const VALID_CATEGORIES: ImageCategory[] = ["cover", "screenshot"];
+const VALID_CATEGORIES: ImageCategory[] = ["cover", "screenshot", "editor"];
 
 /** POST /api/admin/upload-image — 上传图片到 OSS
  * Body: multipart/form-data

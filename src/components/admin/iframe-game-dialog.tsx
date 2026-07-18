@@ -84,7 +84,7 @@ export function IframeGameDialog({ children }: IframeGameDialogProps) {
       toast.success("已创建，请补充更多信息");
       setOpen(false);
       reset();
-      router.push(`/admin/games/${data.data.id}/edit`);
+      router.push(`/admin/games?edit=${data.data.id}`);
       router.refresh();
     } catch {
       toast.error("网络错误");

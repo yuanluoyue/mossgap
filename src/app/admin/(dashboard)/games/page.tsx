@@ -1,7 +1,12 @@
 import Link from "next/link";
 import { Gamepad2, Upload, Search, HardDrive, StickyNote, Link2, ArrowUpDown } from "lucide-react";
 
-import { listAdminGames, listAllCategoriesForPicker } from "@/db/queries";
+import {
+  listAdminGames,
+  listAllCategoriesForPicker,
+  listAllTagsForPicker,
+  listAllCollectionsForPicker,
+} from "@/db/queries";
 import { GAME_BADGE_LABELS, GAME_BADGE_STYLES } from "@/types";
 import { cn } from "@/lib/utils";
 import { publicObjectUrl } from "@/lib/oss";
@@ -60,6 +65,8 @@ export default async function AdminGamesPage({
   const search = firstOf(sp.search) ?? "";
   const status = firstOf(sp.status) ?? "all";
   const sort = (firstOf(sp.sort) ?? "default") as "default" | "weight";
+  // 仪表盘跳转过来时带 ?edit=id，列表页匹配到对应行后自动打开基本信息抽屉
+  const editId = firstOf(sp.edit);
 
   const result = await listAdminGames({
     page,
@@ -69,8 +76,12 @@ export default async function AdminGamesPage({
     sort,
   });
 
-  // 加载所有分类，用于在列表中按 categoryId 显示分类名
-  const allCategories = await listAllCategoriesForPicker();
+  // 加载所有分类、标签、专题，用于抽屉编辑器
+  const [allCategories, allTags, allCollections] = await Promise.all([
+    listAllCategoriesForPicker(),
+    listAllTagsForPicker(),
+    listAllCollectionsForPicker(),
+  ]);
   const categoryNameMap = new Map(allCategories.map((c) => [c.id, c.name]));
 
   const totalPages = Math.max(1, Math.ceil(result.total / PAGE_SIZE));
@@ -204,12 +215,9 @@ export default async function AdminGamesPage({
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Link
-                      href={`/admin/games/${g.id}/edit`}
-                      className="block max-w-[240px] truncate font-medium hover:underline"
-                    >
+                    <div className="block max-w-[240px] truncate font-medium">
                       {g.title || g.slug}
-                    </Link>
+                    </div>
                     <p className="max-w-[240px] truncate text-xs text-muted-foreground">
                       {g.slug}
                     </p>
@@ -274,10 +282,14 @@ export default async function AdminGamesPage({
                   <TableCell>
                     <GameRowActions
                       id={g.id}
-                      editHref={`/admin/games/${g.id}/edit`}
+                      slug={g.slug}
                       status={g.status}
                       title={g.title || g.slug}
                       playUrl={g.playUrl}
+                      categories={allCategories}
+                      tags={allTags}
+                      collections={allCollections}
+                      initialBasicOpen={editId === g.id}
                     />
                   </TableCell>
                 </TableRow>

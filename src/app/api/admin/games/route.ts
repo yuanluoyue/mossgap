@@ -78,15 +78,6 @@ export async function POST(req: Request) {
       slug: input.slug,
       title: input.title,
       description: "",
-      category: input.category as
-        | "action"
-        | "puzzle"
-        | "arcade"
-        | "adventure"
-        | "strategy"
-        | "sports"
-        | "racing"
-        | "other",
       coverImage: input.coverImage,
       screenshots: [],
       entryFile: "index.html",
