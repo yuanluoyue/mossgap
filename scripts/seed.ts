@@ -44,16 +44,23 @@ const menuTree = [
     ],
   },
   {
-    name: "系统管理",
-    icon: "Shield",
+    name: "客户管理",
+    icon: "UserCircle",
     sort_order: 2,
     children: [
+      { name: "C端用户", path: "/admin/c-users", icon: "Users", sort_order: 0 },
+    ],
+  },
+  {
+    name: "系统管理",
+    icon: "Shield",
+    sort_order: 3,
+    children: [
       { name: "用户管理", path: "/admin/users", icon: "Users", sort_order: 0 },
-      { name: "C端用户管理", path: "/admin/c-users", icon: "UserCircle", sort_order: 1 },
-      { name: "角色管理", path: "/admin/roles", icon: "UserCog", sort_order: 2 },
-      { name: "菜单管理", path: "/admin/menus", icon: "Menu", sort_order: 3 },
-      { name: "系统配置", path: "/admin/settings", icon: "Settings", sort_order: 4 },
-      { name: "操作日志", path: "/admin/audit-logs", icon: "ScrollText", sort_order: 5 },
+      { name: "角色管理", path: "/admin/roles", icon: "UserCog", sort_order: 1 },
+      { name: "菜单管理", path: "/admin/menus", icon: "Menu", sort_order: 2 },
+      { name: "系统配置", path: "/admin/settings", icon: "Settings", sort_order: 3 },
+      { name: "操作日志", path: "/admin/audit-logs", icon: "ScrollText", sort_order: 4 },
     ],
   },
 ];

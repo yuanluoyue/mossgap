@@ -23,10 +23,15 @@ get_env() {
 }
 
 # 需要设置为 secret 的敏感变量
+# 注意：secrets 永久保留在 Cloudflare，wrangler deploy 不会清空。
+# GOOGLE_CLIENT_ID 严格说不是敏感信息（会出现在前端授权 URL 中），
+# 但放 secret 更省心，避免 wrangler.jsonc 改动导致丢失。
 SENSITIVE_VARS=(
   "S3_ACCESS_KEY_ID"
   "S3_SECRET_ACCESS_KEY"
   "JWT_SECRET"
+  "GOOGLE_CLIENT_ID"
+  "GOOGLE_CLIENT_SECRET"
 )
 
 echo "=========================================="
