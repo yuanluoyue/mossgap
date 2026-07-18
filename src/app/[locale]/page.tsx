@@ -44,8 +44,9 @@ export default async function HomePage({
 
   const localeCode = (locale === "zh" ? "zh" : "en") as "en" | "zh";
 
+  // 首页展示 10 个权重最高的游戏（权重高在前，同权重按创建时间倒序）
   const newest = await listGameCards(
-    { page: 1, pageSize: 8, sort: "newest" },
+    { page: 1, pageSize: 10, sort: "weight" },
     localeCode,
   );
 

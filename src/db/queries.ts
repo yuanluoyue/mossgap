@@ -510,7 +510,7 @@ export async function listGameCards(
   opts: {
     page: number;
     pageSize: number;
-    sort?: "popular" | "newest";
+    sort?: "popular" | "newest" | "weight";
     /** 分类 ID（来自 categories 表） */
     categoryId?: string;
   },
@@ -520,8 +520,12 @@ export async function listGameCards(
   const conditions = [eq(games.status, "published")];
   if (opts.categoryId) conditions.push(eq(games.categoryId, opts.categoryId));
   const where = and(...conditions);
-  const order =
-    opts.sort === "popular" ? desc(games.likeCount) : desc(games.createdAt);
+  const orderBy =
+    opts.sort === "popular"
+      ? [desc(games.likeCount)]
+      : opts.sort === "weight"
+        ? [desc(games.weight), desc(games.createdAt)]
+        : [desc(games.createdAt)];
 
   const [rows, totalRows] = await Promise.all([
     db
@@ -535,7 +539,7 @@ export async function listGameCards(
       })
       .from(games)
       .where(where)
-      .orderBy(order)
+      .orderBy(...orderBy)
       .limit(opts.pageSize)
       .offset((opts.page - 1) * opts.pageSize),
     db.select({ value: count() }).from(games).where(where),
