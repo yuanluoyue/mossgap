@@ -4,8 +4,7 @@ import Link from "next/link";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { ArrowLeft } from "lucide-react";
 
-import { GamePlayer } from "@/components/game-player";
-import { GameToolbar } from "@/components/game-toolbar";
+import { GamePlayerSection } from "@/components/game-player-section";
 import { GameCard } from "@/components/game-card";
 import {
   getPublicGameBySlug,
@@ -13,7 +12,6 @@ import {
   getPublicCategoryById,
   listRelatedGames,
   hasLiked,
-  hasDisliked,
 } from "@/db/queries";
 import { getClientIp } from "@/lib/api-guard";
 import { hasServerEnv } from "@/env";
@@ -104,16 +102,12 @@ export default async function GameDetailPage({
   if (!game) notFound();
 
   const clientIp = await getClientIp().catch(() => "0.0.0.0");
-  const [related, liked, disliked, content, category] = await Promise.all([
+  const [related, liked, content, category] = await Promise.all([
     listRelatedGames(game.id, localeCode, 6).then(
       (r) => r,
       () => [] as Awaited<ReturnType<typeof listRelatedGames>>,
     ),
     hasLiked(game.id, clientIp).then(
-      (v) => v,
-      () => false,
-    ),
-    hasDisliked(game.id, clientIp).then(
       (v) => v,
       () => false,
     ),
@@ -231,24 +225,22 @@ export default async function GameDetailPage({
           {t("back")}
         </Link>
 
-        <div className="mt-4 flex flex-col items-center">
-          <div className="w-[95%] max-w-[836px] overflow-hidden rounded-md shadow-sm">
-            <GamePlayer src={game.playUrl} title={game.title} loadingLabel={t("loading")} />
-            <GameToolbar
-            slug={game.slug}
-            gameId={game.id}
-            coverImage={game.coverImage}
-            title={game.title}
-            creator=""
-            initialLiked={liked}
-            initialLikeCount={game.likeCount}
-            initialDisliked={disliked}
-            initialDislikeCount={game.dislikeCount}
-            accent={accent}
-            feedbackLabels={feedbackLabels}
-          />
-          </div>
-        </div>
+        <GamePlayerSection
+          src={game.playUrl}
+          title={game.title}
+          loadingLabel={t("loading")}
+          toolbar={{
+            slug: game.slug,
+            gameId: game.id,
+            coverImage: game.coverImage,
+            title: game.title,
+            creator: "",
+            initialLiked: liked,
+            initialLikeCount: game.likeCount,
+            accent,
+            feedbackLabels,
+          }}
+        />
 
         {game.description ? (
           <section className="mx-auto mt-10 max-w-[836px]">

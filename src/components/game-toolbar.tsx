@@ -1,13 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import {
-  Maximize,
-  Minimize,
-  ThumbsUp,
-  ThumbsDown,
-  MessageSquare,
-} from "lucide-react";
+import { Maximize, Minimize, ThumbsUp, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
@@ -15,7 +9,7 @@ import { FeedbackDialog } from "@/components/feedback-dialog";
 import { analytics } from "@/sdk";
 
 interface GameToolbarProps {
-  /** 游戏 slug，用于调用点赞/点踩 API */
+  /** 游戏 slug，用于调用点赞 API */
   slug: string;
   /** 游戏 ID，用于反馈 */
   gameId: string;
@@ -29,10 +23,6 @@ interface GameToolbarProps {
   initialLiked: boolean;
   /** 初始点赞数 */
   initialLikeCount: number;
-  /** 初始是否已点踩 */
-  initialDisliked: boolean;
-  /** 初始点踩数 */
-  initialDislikeCount: number;
   /** 分类 accent 色 */
   accent?: string;
   /** 反馈弹窗文案 */
@@ -48,12 +38,16 @@ interface GameToolbarProps {
     success: string;
     error: string;
   };
+  /** 大屏模式状态（受控） */
+  largeMode: boolean;
+  /** 切换大屏模式 */
+  onToggleLarge: () => void;
 }
 
 /**
- * 游戏工具栏：836x64，紧跟 iframe 下方。
+ * 游戏工具栏：紧跟 iframe 下方。
  * - 左：游戏 icon + 名字 + 制作方
- * - 右：全屏按钮 + 点赞 + 点踩
+ * - 右：反馈 + 点赞 + 大屏
  */
 export function GameToolbar({
   slug,
@@ -63,38 +57,22 @@ export function GameToolbar({
   creator,
   initialLiked,
   initialLikeCount,
-  initialDisliked,
-  initialDislikeCount,
   accent = "#7c3aed",
   feedbackLabels,
+  largeMode,
+  onToggleLarge,
 }: GameToolbarProps) {
-  const [fullscreen, setFullscreen] = useState(false);
   const [liked, setLiked] = useState(initialLiked);
   const [likeCount, setLikeCount] = useState(initialLikeCount);
-  const [disliked, setDisliked] = useState(initialDisliked);
-  const [dislikeCount, setDislikeCount] = useState(initialDislikeCount);
   const [pending, startTransition] = useTransition();
 
-  function toggleFullscreen() {
-    const el = document.getElementById("game-player-container");
-    if (!el) return;
-    if (document.fullscreenElement) {
-      document.exitFullscreen();
-      setFullscreen(false);
-      analytics.platform("toolbar_button_click", {
-        button: "fullscreen",
-        action: "exit",
-        slug,
-      });
-    } else {
-      el.requestFullscreen();
-      setFullscreen(true);
-      analytics.platform("toolbar_button_click", {
-        button: "fullscreen",
-        action: "enter",
-        slug,
-      });
-    }
+  function handleToggleLarge() {
+    analytics.platform("toolbar_button_click", {
+      button: "large-mode",
+      action: largeMode ? "exit" : "enter",
+      slug,
+    });
+    onToggleLarge();
   }
 
   async function onToggleLike() {
@@ -109,11 +87,6 @@ export function GameToolbar({
     // 乐观更新
     setLiked(!prevLiked);
     setLikeCount(prevLiked ? Math.max(0, prevCount - 1) : prevCount + 1);
-    // 如果点踩了，取消点踩
-    if (disliked) {
-      setDisliked(false);
-      setDislikeCount(Math.max(0, dislikeCount - 1));
-    }
 
     startTransition(async () => {
       try {
@@ -139,50 +112,13 @@ export function GameToolbar({
     });
   }
 
-  async function onToggleDislike() {
-    if (pending) return;
-    const prevDisliked = disliked;
-    const prevCount = dislikeCount;
-    analytics.platform("toolbar_button_click", {
-      button: "dislike",
-      action: disliked ? "undislike" : "dislike",
-      slug,
-    });
-    // 乐观更新
-    setDisliked(!prevDisliked);
-    setDislikeCount(prevDisliked ? Math.max(0, prevCount - 1) : prevCount + 1);
-    // 如果点赞了，取消点赞
-    if (liked) {
-      setLiked(false);
-      setLikeCount(Math.max(0, likeCount - 1));
-    }
-
-    startTransition(async () => {
-      try {
-        const res = await fetch(`/api/games/${slug}/dislike`, { method: "POST" });
-        const data = (await res.json()) as {
-          success?: boolean;
-          data?: { disliked: boolean; dislikeCount: number };
-          error?: { message?: string };
-        };
-        if (!res.ok || !data.success || !data.data) {
-          setDisliked(prevDisliked);
-          setDislikeCount(prevCount);
-          toast.error(data?.error?.message ?? "操作失败");
-          return;
-        }
-        setDisliked(data.data.disliked);
-        setDislikeCount(data.data.dislikeCount);
-      } catch {
-        setDisliked(prevDisliked);
-        setDislikeCount(prevCount);
-        toast.error("网络错误");
-      }
-    });
-  }
-
   return (
-    <div className="flex h-14 w-full items-center justify-between bg-card px-3 sm:h-16 sm:px-4 lg:w-[836px]">
+    <div
+      className={cn(
+        "flex h-14 w-full items-center justify-between bg-card px-3 sm:h-16 sm:px-4",
+        largeMode ? "lg:w-full" : "lg:w-[836px]",
+      )}
+    >
       {/* 左：游戏 icon + 名字 + 制作方 */}
       <div className="flex min-w-0 items-center gap-3">
         <div className="size-10 shrink-0 overflow-hidden rounded-lg border border-border/60 bg-muted">
@@ -199,9 +135,9 @@ export function GameToolbar({
         </div>
       </div>
 
-      {/* 右：反馈 + 点赞 + 点踩 + 全屏 */}
+      {/* 右：反馈 + 点赞 + 大屏 */}
       <div className="flex items-center gap-1.5">
-        {/* 反馈（点赞按钮左边） — 移动端隐藏 */}
+        {/* 反馈 — 移动端隐藏 */}
         <div className="hidden sm:block">
           <FeedbackDialog
             type="game"
@@ -243,30 +179,14 @@ export function GameToolbar({
           <span>{likeCount}</span>
         </button>
 
-        {/* 点踩 — 移动端隐藏 */}
+        {/* 大屏 — 始终显示（移动端核心交互） */}
         <button
           type="button"
-          onClick={onToggleDislike}
-          disabled={pending}
-          className={cn(
-            "btn-press hidden items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors sm:inline-flex",
-            disliked
-              ? "bg-red-500/10 text-red-600 shadow-sm"
-              : "text-muted-foreground hover:bg-muted hover:text-foreground",
-          )}
-        >
-          <ThumbsDown className="size-3.5" fill={disliked ? "currentColor" : "none"} />
-          <span>{dislikeCount}</span>
-        </button>
-
-        {/* 全屏 — 始终显示（移动端核心交互） */}
-        <button
-          type="button"
-          onClick={toggleFullscreen}
+          onClick={handleToggleLarge}
           className="btn-press inline-flex items-center justify-center rounded-full p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          aria-label="fullscreen"
+          aria-label={largeMode ? "exit large mode" : "enter large mode"}
         >
-          {fullscreen ? (
+          {largeMode ? (
             <Minimize className="size-4" />
           ) : (
             <Maximize className="size-4" />

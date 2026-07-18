@@ -3,17 +3,21 @@
 import { useState, useRef, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 
+import { cn } from "@/lib/utils";
+
 interface GamePlayerProps {
   src: string;
   title: string;
   loadingLabel: string;
+  /** 大屏模式：容器撑满父容器（父容器已放大） */
+  large?: boolean;
 }
 
 /**
- * 游戏播放器：固定 836x470，参考 Poki 尺寸。
- * 全屏按钮和工具栏由外部 GameToolbar 控制。
+ * 游戏播放器：默认 836x470（参考 Poki 尺寸）。
+ * 大屏模式由父组件控制容器尺寸，组件内部用 h-full w-full 填满。
  */
-export function GamePlayer({ src, title, loadingLabel }: GamePlayerProps) {
+export function GamePlayer({ src, title, loadingLabel, large = false }: GamePlayerProps) {
   const [loading, setLoading] = useState(true);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
@@ -37,7 +41,12 @@ export function GamePlayer({ src, title, loadingLabel }: GamePlayerProps) {
   return (
     <div
       id="game-player-container"
-      className="relative aspect-[836/470] w-full overflow-hidden sm:h-[470px] sm:w-[836px]"
+      className={cn(
+        "relative overflow-hidden",
+        large
+          ? "h-full w-full"
+          : "aspect-[836/470] w-full sm:h-[470px] sm:w-[836px]",
+      )}
     >
       {loading ? (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-black">
