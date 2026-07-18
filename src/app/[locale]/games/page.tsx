@@ -1,16 +1,22 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { setRequestLocale } from "next-intl/server";
-import { SearchX } from "lucide-react";
+import { SearchX, ChevronLeft, ChevronRight } from "lucide-react";
 
 import { GameCard } from "@/components/game-card";
-import { listPublicGames, getPublicCategoryBySlug } from "@/db/queries";
+import { GamesFilter } from "@/components/games-filter";
+import {
+  listPublicGames,
+  getPublicCategoryBySlug,
+  listPublicCategories,
+} from "@/db/queries";
 import { buildPageMetadata, getSiteUrl } from "@/lib/seo";
+import { cn } from "@/lib/utils";
 
 export const revalidate = 0;
 export const dynamic = "force-dynamic";
 
-const PAGE_SIZE = 12;
+const PAGE_SIZE = 30;
 
 export async function generateMetadata({
   params,
@@ -56,6 +62,9 @@ export default async function GamesPage({
     if (cat) categoryId = cat.id;
   }
 
+  // 拉取所有可见分类供筛选下拉使用
+  const allCategories = await listPublicCategories(localeCode).catch(() => []);
+
   const { items, total } = await listPublicGames(
     { page, pageSize: PAGE_SIZE, categoryId, sort, q },
     localeCode,
@@ -84,6 +93,35 @@ export default async function GamesPage({
     ],
   };
 
+  // 构建分页 URL 的辅助函数
+  function pageHref(p: number): string {
+    const params = new URLSearchParams();
+    if (categorySlug) params.set("category", categorySlug);
+    if (sort !== "newest") params.set("sort", sort);
+    if (q) params.set("q", q);
+    if (p !== 1) params.set("page", String(p));
+    const qs = params.toString();
+    return qs ? `?${qs}` : "?";
+  }
+
+  // 窗口式分页：1 ... (p-1) p (p+1) ... totalPages
+  const pageNumbers: (number | "...")[] = [];
+  if (totalPages <= 7) {
+    for (let i = 1; i <= totalPages; i++) pageNumbers.push(i);
+  } else {
+    pageNumbers.push(1);
+    if (page > 3) pageNumbers.push("...");
+    for (
+      let i = Math.max(2, page - 1);
+      i <= Math.min(totalPages - 1, page + 1);
+      i++
+    ) {
+      pageNumbers.push(i);
+    }
+    if (page < totalPages - 2) pageNumbers.push("...");
+    pageNumbers.push(totalPages);
+  }
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
       <script
@@ -100,13 +138,25 @@ export default async function GamesPage({
         <p className="mt-2 text-sm text-muted-foreground">{t("subtitle")}</p>
       </header>
 
-      {/* 筛选条（暂未启用）*/}
+      {/* 筛选条：分类 + 搜索 + 排序 */}
+      <GamesFilter
+        categories={allCategories.map((c) => ({
+          slug: c.slug,
+          name: c.name,
+          gameCount: c.gameCount,
+        }))}
+      />
 
       {/* 结果统计 */}
       <div className="mb-4 flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
           {t("results", { count: total })}
         </p>
+        {totalPages > 1 ? (
+          <p className="text-sm text-muted-foreground">
+            {t("pageOf", { page, total: totalPages })}
+          </p>
+        ) : null}
       </div>
 
       {/* 游戏网格 */}
@@ -128,20 +178,40 @@ export default async function GamesPage({
         </div>
       )}
 
-      {/* 分页 */}
+      {/* 分页：prev + 窗口页码 + next */}
       {totalPages > 1 ? (
-        <div className="mt-12 flex items-center justify-center gap-2">
-          {Array.from({ length: totalPages }).map((_, i) => {
-            const p = i + 1;
-            const params = new URLSearchParams();
-            if (categorySlug) params.set("category", categorySlug);
-            if (sort) params.set("sort", sort);
-            if (q) params.set("q", q);
-            params.set("page", String(p));
-            return (
+        <nav
+          className="mt-12 flex items-center justify-center gap-2"
+          aria-label="Pagination"
+        >
+          {/* 上一页 */}
+          <a
+            href={pageHref(Math.max(1, page - 1))}
+            aria-label={t("prev")}
+            aria-disabled={page <= 1}
+            className={cn(
+              "btn-press inline-flex size-10 items-center justify-center rounded-full border border-border bg-card card-shadow hover:text-foreground",
+              page <= 1 && "pointer-events-none opacity-40",
+            )}
+          >
+            <ChevronLeft className="size-4" />
+          </a>
+
+          {/* 页码 */}
+          {pageNumbers.map((p, i) =>
+            p === "..." ? (
+              <span
+                key={`dot-${i}`}
+                className="inline-flex size-10 items-center justify-center text-sm text-muted-foreground"
+              >
+                ...
+              </span>
+            ) : (
               <a
                 key={p}
-                href={`?${params.toString()}`}
+                href={pageHref(p)}
+                aria-label={`Page ${p}`}
+                aria-current={p === page ? "page" : undefined}
                 className={
                   p === page
                     ? "btn-press inline-flex size-10 items-center justify-center rounded-full bg-primary font-semibold text-primary-foreground card-shadow"
@@ -150,9 +220,22 @@ export default async function GamesPage({
               >
                 {p}
               </a>
-            );
-          })}
-        </div>
+            ),
+          )}
+
+          {/* 下一页 */}
+          <a
+            href={pageHref(Math.min(totalPages, page + 1))}
+            aria-label={t("next")}
+            aria-disabled={page >= totalPages}
+            className={cn(
+              "btn-press inline-flex size-10 items-center justify-center rounded-full border border-border bg-card card-shadow hover:text-foreground",
+              page >= totalPages && "pointer-events-none opacity-40",
+            )}
+          >
+            <ChevronRight className="size-4" />
+          </a>
+        </nav>
       ) : null}
     </div>
   );

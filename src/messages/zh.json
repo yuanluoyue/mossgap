@@ -24,11 +24,15 @@
     "sortLabel": "排序：",
     "sortNewest": "最新",
     "sortPopular": "最热",
+    "categoryLabel": "分类：",
     "results": "{count, plural, =0 {未找到游戏} other {# 个游戏}}",
     "empty": "暂无符合筛选条件的游戏。",
     "emptyHint": "试试其他分类或搜索关键词。",
     "play": "开玩",
-    "allCategories": "全部"
+    "allCategories": "全部",
+    "prev": "上一页",
+    "next": "下一页",
+    "pageOf": "第 {page} / {total} 页"
   },
   "GameDetail": {
     "play": "立即开玩",

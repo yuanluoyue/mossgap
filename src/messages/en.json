@@ -24,11 +24,15 @@
     "sortLabel": "Sort:",
     "sortNewest": "Newest",
     "sortPopular": "Most popular",
+    "categoryLabel": "Category:",
     "results": "{count, plural, =0 {No games found} one {# game} other {# games}}",
     "empty": "No games match your filters yet.",
     "emptyHint": "Try a different category or search term.",
     "play": "Play",
-    "allCategories": "All"
+    "allCategories": "All",
+    "prev": "Previous",
+    "next": "Next",
+    "pageOf": "Page {page} of {total}"
   },
   "GameDetail": {
     "play": "Play now",
