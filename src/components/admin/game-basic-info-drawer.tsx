@@ -2,7 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Save, Loader2, Plus, X, ExternalLink } from "lucide-react";
+import {
+  Save,
+  Loader2,
+  Plus,
+  X,
+  ExternalLink,
+  UploadCloud,
+  FileArchive,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import type { AdminGame, GameBadge, GameStatus } from "@/types";
@@ -93,6 +101,11 @@ export function GameBasicInfoDrawer({
   const [iframeUrl, setIframeUrl] = useState<string>("");
   const [badge, setBadge] = useState<GameBadge[]>([]);
   const [weight, setWeight] = useState<number>(0);
+
+  // 重新上传 zip 相关状态
+  const [reuploadFile, setReuploadFile] = useState<File | null>(null);
+  const [reuploading, setReuploading] = useState(false);
+  const [reuploadProgress, setReuploadProgress] = useState(0);
 
   // 打开时拉取游戏详情
   useEffect(() => {
@@ -200,6 +213,92 @@ export function GameBasicInfoDrawer({
   }
 
   const isIframe = game?.sourceType === "iframe";
+
+  function handleReuploadFile(f: File) {
+    if (!f.name.toLowerCase().endsWith(".zip")) {
+      toast.error("请上传 .zip 文件");
+      return;
+    }
+    if (f.size > 200 * 1024 * 1024) {
+      toast.error("文件大小不能超过 200MB");
+      return;
+    }
+    setReuploadFile(f);
+    setReuploadProgress(0);
+  }
+
+  async function onReupload() {
+    if (!game || !reuploadFile || reuploading) return;
+    setReuploading(true);
+    setReuploadProgress(0);
+    try {
+      const formData = new FormData();
+      formData.append("file", reuploadFile);
+
+      const res = await new Promise<{
+        ok: boolean;
+        data?: {
+          ossPrefix?: string;
+          entryFile?: string;
+          ossSize?: number;
+          detectedEntry?: string | null;
+        };
+        error?: string;
+      }>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", `/api/admin/games/${game.id}/reupload`);
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            setReuploadProgress(Math.round((e.loaded / e.total) * 100));
+          }
+        };
+        xhr.onload = () => {
+          try {
+            const json = JSON.parse(xhr.responseText);
+            if (xhr.status >= 200 && xhr.status < 300 && json.success) {
+              resolve({ ok: true, data: json.data });
+            } else {
+              resolve({
+                ok: false,
+                error: json?.error?.message ?? "重新上传失败",
+              });
+            }
+          } catch {
+            reject(new Error("响应解析失败"));
+          }
+        };
+        xhr.onerror = () => reject(new Error("网络错误"));
+        xhr.send(formData);
+      });
+
+      if (!res.ok) {
+        toast.error(res.error ?? "重新上传失败");
+        return;
+      }
+
+      // 同步更新本地状态，让用户立即看到新的 OSS 路径和入口文件
+      if (res.data?.ossPrefix) {
+        setGame({
+          ...game,
+          ossPrefix: res.data.ossPrefix,
+          entryFile: res.data.entryFile ?? game.entryFile,
+          ossSize: res.data.ossSize ?? game.ossSize,
+        });
+        if (res.data.entryFile) setEntryFile(res.data.entryFile);
+      }
+
+      toast.success(
+        `重新上传成功！检测到入口：${res.data?.detectedEntry ?? "未检测到"}`,
+      );
+      setReuploadFile(null);
+      setReuploadProgress(0);
+      router.refresh();
+    } catch (err) {
+      toast.error((err as Error).message ?? "重新上传失败");
+    } finally {
+      setReuploading(false);
+    }
+  }
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -517,9 +616,100 @@ export function GameBasicInfoDrawer({
                               {game.ossPrefix || "（无）"}
                             </p>
                           </div>
-                          <p className="text-xs text-muted-foreground">
-                            如需替换资源，请到编辑页面上传新 zip 包
-                          </p>
+
+                          {/* 重新上传 zip */}
+                          <div className="space-y-2 rounded-lg border border-dashed p-3">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-xs">重新上传 zip</Label>
+                              <span className="text-[11px] text-muted-foreground">
+                                替换后会自动清理旧资源
+                              </span>
+                            </div>
+
+                            {reuploadFile ? (
+                              <div className="flex w-full items-center gap-2 rounded-md border bg-background p-2">
+                                <FileArchive className="size-5 shrink-0 text-primary" />
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-xs font-medium">
+                                    {reuploadFile.name}
+                                  </p>
+                                  <p className="text-[11px] text-muted-foreground">
+                                    {(reuploadFile.size / 1024 / 1024).toFixed(2)} MB
+                                  </p>
+                                </div>
+                                {!reuploading ? (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    type="button"
+                                    onClick={() => {
+                                      setReuploadFile(null);
+                                      setReuploadProgress(0);
+                                    }}
+                                  >
+                                    <X className="size-3.5" />
+                                  </Button>
+                                ) : null}
+                              </div>
+                            ) : (
+                              <label>
+                                <input
+                                  type="file"
+                                  accept=".zip"
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    const f = e.target.files?.[0];
+                                    if (f) handleReuploadFile(f);
+                                    e.target.value = "";
+                                  }}
+                                />
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  type="button"
+                                  asChild
+                                  className="w-full"
+                                >
+                                  <span>
+                                    <UploadCloud className="size-4" />
+                                    选择 zip 文件
+                                  </span>
+                                </Button>
+                              </label>
+                            )}
+
+                            {reuploading ? (
+                              <div className="space-y-1">
+                                <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                                  <span className="inline-flex items-center gap-1">
+                                    <Loader2 className="size-3 animate-spin" />
+                                    上传中...
+                                  </span>
+                                  <span className="tabular-nums">
+                                    {reuploadProgress}%
+                                  </span>
+                                </div>
+                                <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                                  <div
+                                    className="h-full rounded-full bg-primary transition-all duration-300"
+                                    style={{ width: `${reuploadProgress}%` }}
+                                  />
+                                </div>
+                              </div>
+                            ) : null}
+
+                            {reuploadFile && !reuploading ? (
+                              <Button
+                                size="sm"
+                                type="button"
+                                onClick={onReupload}
+                                className="w-full"
+                              >
+                                <UploadCloud className="size-4" />
+                                开始上传并替换
+                              </Button>
+                            ) : null}
+                          </div>
                         </>
                       )}
                     </CardContent>
