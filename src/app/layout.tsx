@@ -10,6 +10,7 @@ import {
   GoogleTagManagerNoScript,
 } from "@/components/gtm";
 import { SITE_NAME } from "@/lib/seo";
+import { themeInitScript } from "@/lib/theme-init";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -61,6 +62,19 @@ export default async function RootLayout({
     <html lang={locale} suppressHydrationWarning className="h-full antialiased">
       <head>
         <GoogleTagManagerHead />
+        {/*
+          前置主题初始化 script：在 next-themes 的 inline script 之前执行，
+          提前把主题设置到 <html> 上，避免 FOUC。
+
+          背景：next-themes 0.4.6 在 Next.js 16 Turbopack 构建下，其 inline
+          script 被错误 minify，注入了未定义的变量调用（e is not defined），
+          导致脚本抛错中断，主题不会被提前应用。这里用独立的前置 script 绕过
+          该 bug —— 即使 next-themes 的 script 报错，主题已经设好了。
+        */}
+        <script
+          dangerouslySetInnerHTML={{ __html: themeInitScript }}
+          data-theme-init
+        />
       </head>
       <body className="min-h-full flex flex-col">
         <GoogleTagManagerNoScript />
