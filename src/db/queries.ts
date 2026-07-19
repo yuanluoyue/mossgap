@@ -520,12 +520,15 @@ export async function listGameCards(
     sort?: "popular" | "newest" | "weight";
     /** 分类 ID（来自 categories 表） */
     categoryId?: string;
+    /** 标题模糊搜索 */
+    q?: string;
   },
   locale: Locale,
 ): Promise<{ items: GameCardItem[]; total: number }> {
   const db = await getDb();
   const conditions = [eq(games.status, "published")];
   if (opts.categoryId) conditions.push(eq(games.categoryId, opts.categoryId));
+  if (opts.q) conditions.push(like(games.title, `%${opts.q}%`));
   const where = and(...conditions);
   const orderBy =
     opts.sort === "popular"

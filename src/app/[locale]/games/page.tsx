@@ -6,7 +6,7 @@ import { SearchX, ChevronLeft, ChevronRight } from "lucide-react";
 import { GameCard } from "@/components/game-card";
 import { GamesFilter } from "@/components/games-filter";
 import {
-  listPublicGames,
+  listGameCards,
   getPublicCategoryBySlug,
   listPublicCategories,
 } from "@/db/queries";
@@ -20,16 +20,22 @@ const PAGE_SIZE = 30;
 
 export async function generateMetadata({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }): Promise<Metadata> {
   const { locale } = await params;
+  const sp = await searchParams;
   const t = await getTranslations({ locale, namespace: "Seo" });
+  // 带筛选/搜索/分页参数的页面不索引，避免参数化 URL 稀释主页面权重
+  const hasFilters = Boolean(sp.q || sp.page || sp.category || sp.sort);
   return buildPageMetadata({
     title: t("gamesTitle"),
     description: t("gamesDescription"),
     path: "/games",
     locale,
+    noIndex: hasFilters,
   });
 }
 
@@ -65,7 +71,7 @@ export default async function GamesPage({
   // 拉取所有可见分类供筛选下拉使用
   const allCategories = await listPublicCategories(localeCode).catch(() => []);
 
-  const { items, total } = await listPublicGames(
+  const { items, total } = await listGameCards(
     { page, pageSize: PAGE_SIZE, categoryId, sort, q },
     localeCode,
   );
