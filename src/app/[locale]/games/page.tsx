@@ -167,7 +167,7 @@ export default async function GamesPage({
 
       {/* 游戏网格 */}
       {hasResults ? (
-        <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,200px)] justify-center">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:[grid-template-columns:repeat(auto-fill,200px)] sm:justify-center">
           {items.map((g) => (
             <GameCard key={g.id} game={g} />
           ))}

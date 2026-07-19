@@ -3,6 +3,7 @@ import Image from "next/image";
 import { getTranslations } from "next-intl/server";
 
 import { LanguageSwitcher } from "@/components/language-switcher";
+import { MobileNav } from "@/components/mobile-nav";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { UserMenu } from "@/components/user-menu";
 import { getCurrentUserOrNull } from "@/lib/user-session";
@@ -13,7 +14,10 @@ export async function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background">
-      <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex h-16 max-w-[1600px] items-center gap-4 px-4 sm:px-6 lg:px-10">
+        {/* 移动端菜单（< md） */}
+        <MobileNav />
+
         {/* Logo */}
         <Link href="/" className="group flex items-center gap-2.5">
           <Image
@@ -29,7 +33,7 @@ export async function SiteHeader() {
           </span>
         </Link>
 
-        {/* 主导航 */}
+        {/* 主导航（≥ md） */}
         <nav className="hidden items-center gap-1 md:flex">
           <NavLink href="/games">{t("games")}</NavLink>
           <NavLink href="/about">{t("about")}</NavLink>

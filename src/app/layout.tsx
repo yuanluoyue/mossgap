@@ -33,6 +33,7 @@ const CLIENT_NAMESPACES = [
   "Games",
   "Categories",
   "Common",
+  "Nav",
   "Auth",
   "Profile",
   "Mission",
