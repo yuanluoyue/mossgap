@@ -711,6 +711,85 @@ export type NewAuthAccount = typeof authAccounts.$inferInsert;
 export type Session = typeof sessions.$inferSelect;
 export type NewSession = typeof sessions.$inferInsert;
 
+// ─── 积分系统 ───────────────────────────────────────────────
+
+/**
+ * C 端用户积分账户表。
+ *
+ * - 每个用户最多一个账户（userId 唯一）
+ * - balance 可正可负（允许透支场景，业务侧自行约束）
+ * - 调整积分请走 adjustPoints()，保证账户自动创建 + 日志写入
+ */
+export const pointAccounts = sqliteTable(
+  "point_accounts",
+  {
+    id: text("id")
+      .primaryKey()
+      .notNull()
+      .$defaultFn(genUuid),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    // 当前余额（可为负，业务侧约束）
+    balance: integer("balance").notNull().default(0),
+    createdAt: integer("created_at")
+      .notNull()
+      .$defaultFn(nowSeconds),
+    updatedAt: integer("updated_at")
+      .notNull()
+      .$defaultFn(nowSeconds),
+  },
+  (t) => ({
+    userIdIdx: uniqueIndex("point_accounts_user_id_idx").on(t.userId),
+  }),
+);
+
+/**
+ * 积分变动日志表。每次 balance 变化都写一条。
+ *
+ * - type: earn（获得）/ spend（消耗）/ adjust（B 端手动调整）/ revoke（回滚）
+ * - bizType: 业务类型（login / daily_signin / mission / game_play / admin_adjust 等）
+ * - bizId: 业务实体 ID（如 missionId、gameId），用于幂等去重和回查
+ */
+export const pointLogs = sqliteTable(
+  "point_logs",
+  {
+    id: text("id")
+      .primaryKey()
+      .notNull()
+      .$defaultFn(genUuid),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    // 变动值（正数获得，负数消耗）
+    change: integer("change").notNull(),
+    // 变动后余额（便于审计/对账）
+    balanceAfter: integer("balance_after").notNull(),
+    // 变动类型
+    type: text("type").notNull(),
+    // 业务类型（nullable：B 端手动调整时可空）
+    bizType: text("biz_type"),
+    // 业务实体 ID
+    bizId: text("biz_id"),
+    // 备注（nullable）
+    remark: text("remark"),
+    createdAt: integer("created_at")
+      .notNull()
+      .$defaultFn(nowSeconds),
+  },
+  (t) => ({
+    userIdIdx: index("point_logs_user_id_idx").on(t.userId),
+    // 业务幂等查询：按 (bizType, bizId) 查是否已发放
+    bizIdx: index("point_logs_biz_idx").on(t.bizType, t.bizId),
+    createdAtIdx: index("point_logs_created_at_idx").on(t.createdAt),
+  }),
+);
+
+export type PointAccount = typeof pointAccounts.$inferSelect;
+export type NewPointAccount = typeof pointAccounts.$inferInsert;
+export type PointLog = typeof pointLogs.$inferSelect;
+export type NewPointLog = typeof pointLogs.$inferInsert;
+
 // Zod Schemas（前后端共享校验）
 export const insertGameSchema = createInsertSchema(games);
 export const selectGameSchema = createSelectSchema(games);

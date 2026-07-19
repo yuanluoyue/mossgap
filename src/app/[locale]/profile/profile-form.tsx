@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Camera, Loader2, Save } from "lucide-react";
+import { Camera, Coins, Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -29,7 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { formatDate, formatDateTime } from "@/lib/format";
-import type { PublicUser } from "@/db/queries";
+import type { PublicUser, PointLogItem } from "@/db/queries";
 
 interface ProfileFormProps {
   user: PublicUser | null;
@@ -78,6 +78,38 @@ export function ProfileForm({ user: initialUser }: ProfileFormProps) {
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
+  // 积分日志
+  const [logs, setLogs] = useState<PointLogItem[]>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [logsPage, setLogsPage] = useState(1);
+  const [logsTotal, setLogsTotal] = useState(0);
+  const logsPageSize = 5;
+
+  const fetchLogs = useCallback(async (page: number) => {
+    setLogsLoading(true);
+    try {
+      const res = await fetch(`/api/auth/points/logs?page=${page}&pageSize=${logsPageSize}`);
+      const json = (await res.json()) as {
+        success?: boolean;
+        data?: { items: PointLogItem[]; total: number };
+      };
+      if (res.ok && json.success && json.data) {
+        setLogs(json.data.items);
+        setLogsTotal(json.data.total);
+      }
+    } catch {
+      // 静默失败，不打扰用户
+    } finally {
+      setLogsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (initialUser) {
+      Promise.resolve().then(() => fetchLogs(1));
+    }
+  }, [initialUser, fetchLogs]);
+
   // 未登录：展示登录引导
   if (!user) {
     function handleSignIn() {
@@ -100,6 +132,28 @@ export function ProfileForm({ user: initialUser }: ProfileFormProps) {
         </CardContent>
       </Card>
     );
+  }
+
+  const logsTotalPages = Math.max(1, Math.ceil(logsTotal / logsPageSize));
+
+  function describeChange(log: PointLogItem): string {
+    const sign = log.change > 0 ? "+" : "";
+    return `${sign}${log.change}`;
+  }
+
+  function logTypeLabel(type: string): string {
+    switch (type) {
+      case "earn":
+        return t("pointTypeEarn");
+      case "spend":
+        return t("pointTypeSpend");
+      case "adjust":
+        return t("pointTypeAdjust");
+      case "revoke":
+        return t("pointTypeRevoke");
+      default:
+        return type;
+    }
   }
 
   async function handleSaveProfile(e: React.FormEvent) {
@@ -177,13 +231,14 @@ export function ProfileForm({ user: initialUser }: ProfileFormProps) {
 
   return (
     <div className="grid gap-6 lg:grid-cols-3">
-      {/* 左：账号基本信息 + 头像 */}
-      <Card className="lg:col-span-1">
-        <CardHeader>
-          <CardTitle>{t("basicInfo")}</CardTitle>
-          <CardDescription>{t("basicInfoDesc")}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      {/* 左：账号基本信息 + 头像 + 积分余额 */}
+      <div className="space-y-6 lg:col-span-1">
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("basicInfo")}</CardTitle>
+            <CardDescription>{t("basicInfoDesc")}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
           {/* 头像 */}
           <div className="flex flex-col items-center gap-3">
             <div className="relative">
@@ -267,60 +322,176 @@ export function ProfileForm({ user: initialUser }: ProfileFormProps) {
         </CardContent>
       </Card>
 
-      {/* 右：资料编辑表单 */}
-      <Card className="lg:col-span-2">
-        <CardHeader>
-          <CardTitle>{t("editInfo")}</CardTitle>
-          <CardDescription>{t("editInfoDesc")}</CardDescription>
+      {/* 积分余额卡片 */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-sm">
+            <Coins className="size-4 text-amber-500" />
+            {t("pointBalance")}
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSaveProfile} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="profile-name">{t("nickname")}</Label>
-              <Input
-                id="profile-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder={t("nickname")}
-                maxLength={64}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="profile-email">{t("email")}</Label>
-              <Input
-                id="profile-email"
-                type="email"
-                value={user.email ?? ""}
-                disabled
-                placeholder="—"
-              />
-              <p className="text-xs text-muted-foreground">
-                {t("emailReadOnly")}
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="profile-locale">{t("language")}</Label>
-              <Select value={locale} onValueChange={setLocale}>
-                <SelectTrigger id="profile-locale" className="w-full">
-                  <SelectValue placeholder={t("language")} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="en">{t("languageEn")}</SelectItem>
-                  <SelectItem value="zh">{t("languageZh")}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <Button type="submit" disabled={saving}>
-              {saving ? (
-                <Loader2 className="mr-2 size-4 animate-spin" />
-              ) : (
-                <Save className="mr-2 size-4" />
-              )}
-              {saving ? t("saving") : t("save")}
-            </Button>
-          </form>
+          <div className="text-4xl font-bold tracking-tight tabular-nums">
+            {user.pointBalance.toLocaleString()}
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {t("pointBalanceHint")}
+          </p>
         </CardContent>
       </Card>
+      </div>
+
+      {/* 右：资料编辑 + 积分日志 */}
+      <div className="space-y-6 lg:col-span-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("editInfo")}</CardTitle>
+            <CardDescription>{t("editInfoDesc")}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSaveProfile} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="profile-name">{t("nickname")}</Label>
+                <Input
+                  id="profile-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder={t("nickname")}
+                  maxLength={64}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="profile-email">{t("email")}</Label>
+                <Input
+                  id="profile-email"
+                  type="email"
+                  value={user.email ?? ""}
+                  disabled
+                  placeholder="—"
+                />
+                <p className="text-xs text-muted-foreground">
+                  {t("emailReadOnly")}
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="profile-locale">{t("language")}</Label>
+                <Select value={locale} onValueChange={setLocale}>
+                  <SelectTrigger id="profile-locale" className="w-full">
+                    <SelectValue placeholder={t("language")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="en">{t("languageEn")}</SelectItem>
+                    <SelectItem value="zh">{t("languageZh")}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button type="submit" disabled={saving}>
+                {saving ? (
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                ) : (
+                  <Save className="mr-2 size-4" />
+                )}
+                {saving ? t("saving") : t("save")}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+
+        {/* 积分日志 */}
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("pointLogs")}</CardTitle>
+            <CardDescription>{t("pointLogsHint")}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {logsLoading && logs.length === 0 ? (
+              <div className="flex items-center justify-center py-8 text-muted-foreground">
+                <Loader2 className="size-5 animate-spin" />
+              </div>
+            ) : logs.length === 0 ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                {t("pointLogsEmpty")}
+              </p>
+            ) : (
+              <ul className="divide-y">
+                {logs.map((log) => {
+                  const positive = log.change > 0;
+                  return (
+                    <li key={log.id} className="flex items-center justify-between py-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium">
+                            {logTypeLabel(log.type)}
+                          </span>
+                          {log.bizType ? (
+                            <span className="rounded bg-secondary px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+                              {log.bizType}
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
+                          <span>{formatDateTime(log.createdAt)}</span>
+                          {log.remark ? (
+                            <span className="truncate">· {log.remark}</span>
+                          ) : null}
+                        </div>
+                      </div>
+                      <div className="ml-4 flex flex-col items-end">
+                        <span
+                          className={`tabular-nums font-semibold ${
+                            positive
+                              ? "text-emerald-600 dark:text-emerald-400"
+                              : "text-destructive"
+                          }`}
+                        >
+                          {describeChange(log)}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">
+                          {t("pointBalanceAfter")}: {log.balanceAfter.toLocaleString()}
+                        </span>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+
+            {logsTotalPages > 1 ? (
+              <div className="mt-4 flex items-center justify-between">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={logsPage <= 1 || logsLoading}
+                  onClick={() => {
+                    const p = logsPage - 1;
+                    setLogsPage(p);
+                    Promise.resolve().then(() => fetchLogs(p));
+                  }}
+                >
+                  {t("prev")}
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  {logsPage} / {logsTotalPages}
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={logsPage >= logsTotalPages || logsLoading}
+                  onClick={() => {
+                    const p = logsPage + 1;
+                    setLogsPage(p);
+                    Promise.resolve().then(() => fetchLogs(p));
+                  }}
+                >
+                  {t("next")}
+                </Button>
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

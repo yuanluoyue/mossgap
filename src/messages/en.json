@@ -367,6 +367,21 @@
     "notLinked": "No linked accounts",
     "backHome": "Back to home",
     "active": "Active",
-    "inactive": "Disabled"
+    "inactive": "Disabled",
+    "pointBalance": "Points balance",
+    "pointBalanceHint": "Earn points by playing games, checking in, or completing tasks",
+    "pointLogs": "Points history",
+    "pointLogsHint": "Recent changes to your points",
+    "pointLogsEmpty": "No points activity yet",
+    "pointTypeEarn": "Earned",
+    "pointTypeSpend": "Spent",
+    "pointTypeAdjust": "Adjusted",
+    "pointTypeRevoke": "Revoked",
+    "pointChange": "Change",
+    "pointBalanceAfter": "Balance after",
+    "pointRemark": "Remark",
+    "pointTime": "Time",
+    "prev": "Previous",
+    "next": "Next"
   }
 }

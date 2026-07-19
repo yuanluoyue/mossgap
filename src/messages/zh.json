@@ -367,6 +367,21 @@
     "notLinked": "未绑定第三方账号",
     "backHome": "返回首页",
     "active": "正常",
-    "inactive": "已停用"
+    "inactive": "已停用",
+    "pointBalance": "积分余额",
+    "pointBalanceHint": "玩游戏、签到、完成任务均可获得积分",
+    "pointLogs": "积分记录",
+    "pointLogsHint": "最近的积分变动明细",
+    "pointLogsEmpty": "暂无积分记录",
+    "pointTypeEarn": "获得",
+    "pointTypeSpend": "消耗",
+    "pointTypeAdjust": "调整",
+    "pointTypeRevoke": "撤销",
+    "pointChange": "变动",
+    "pointBalanceAfter": "变动后余额",
+    "pointRemark": "备注",
+    "pointTime": "时间",
+    "prev": "上一页",
+    "next": "下一页"
   }
 }

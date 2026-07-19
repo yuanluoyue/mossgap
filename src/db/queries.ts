@@ -22,6 +22,8 @@ import {
   users,
   authAccounts,
   sessions,
+  pointAccounts,
+  pointLogs,
 } from "./schema";
 import type {
   AdminFeedback,
@@ -2365,6 +2367,8 @@ export interface PublicUser {
   createdAt: string;
   /** 已绑定的第三方 provider 列表 */
   providers: string[];
+  /** 积分余额（未创建账户时为 0） */
+  pointBalance: number;
 }
 
 /** B 端 C 端用户列表项（含 provider 概览）。 */
@@ -2378,11 +2382,14 @@ export interface AdminCUser {
   lastLoginAt: string;
   createdAt: string;
   providers: string[];
+  /** 积分余额 */
+  pointBalance: number;
 }
 
 function toPublicUser(
   row: typeof users.$inferSelect,
   providers: string[] = [],
+  pointBalance: number = 0,
 ): PublicUser {
   return {
     id: row.id,
@@ -2394,12 +2401,14 @@ function toPublicUser(
     lastLoginAt: toIso(row.lastLoginAt),
     createdAt: toIso(row.createdAt),
     providers,
+    pointBalance,
   };
 }
 
 function toAdminCUser(
   row: typeof users.$inferSelect,
   providers: string[] = [],
+  pointBalance: number = 0,
 ): AdminCUser {
   return {
     id: row.id,
@@ -2411,6 +2420,7 @@ function toAdminCUser(
     lastLoginAt: toIso(row.lastLoginAt),
     createdAt: toIso(row.createdAt),
     providers,
+    pointBalance,
   };
 }
 
@@ -2669,15 +2679,18 @@ export async function revokeAllSessionsOfUser(userId: string): Promise<void> {
     .where(and(eq(sessions.userId, userId), isNull(sessions.revokedAt)));
 }
 
-/** 当前登录 C 端用户（含 provider 列表），未登录返回 null。 */
+/** 当前登录 C 端用户（含 provider 列表 + 积分余额），未登录返回 null。 */
 export async function getPublicUserById(
   id: string,
 ): Promise<PublicUser | null> {
   const db = await getDb();
   const row = await db.select().from(users).where(eq(users.id, id)).limit(1);
   if (!row[0]) return null;
-  const providers = await listUserProviders(id);
-  return toPublicUser(row[0], providers);
+  const [providers, balance] = await Promise.all([
+    listUserProviders(id),
+    getUserPointBalance(id),
+  ]);
+  return toPublicUser(row[0], providers, balance);
 }
 
 /** 更新 C 端用户资料（仅 name/avatar/locale，由用户自己调用）。 */
@@ -2736,38 +2749,51 @@ export async function listCUsers(opts: {
   // 批量查 provider
   const userIds = rows.map((r) => r.id);
   const providerMap = new Map<string, string[]>();
+  const balanceMap = new Map<string, number>();
   if (userIds.length > 0) {
-    const accRows = await db
-      .select({
-        userId: authAccounts.userId,
-        provider: authAccounts.provider,
-      })
-      .from(authAccounts)
-      .where(inArray(authAccounts.userId, userIds));
+    const [accRows, balRows] = await Promise.all([
+      db
+        .select({
+          userId: authAccounts.userId,
+          provider: authAccounts.provider,
+        })
+        .from(authAccounts)
+        .where(inArray(authAccounts.userId, userIds)),
+      db
+        .select({ userId: pointAccounts.userId, balance: pointAccounts.balance })
+        .from(pointAccounts)
+        .where(inArray(pointAccounts.userId, userIds)),
+    ]);
     for (const r of accRows) {
       const list = providerMap.get(r.userId) ?? [];
       list.push(r.provider);
       providerMap.set(r.userId, list);
     }
+    for (const r of balRows) {
+      balanceMap.set(r.userId, r.balance);
+    }
   }
 
   return {
     items: rows.map((r) =>
-      toAdminCUser(r, providerMap.get(r.id) ?? []),
+      toAdminCUser(r, providerMap.get(r.id) ?? [], balanceMap.get(r.id) ?? 0),
     ),
     total: totalRows[0]?.value ?? 0,
   };
 }
 
-/** B 端获取 C 端用户详情（含 provider 列表）。 */
+/** B 端获取 C 端用户详情（含 provider 列表 + 积分余额）。 */
 export async function getAdminCUser(
   id: string,
 ): Promise<AdminCUser | null> {
   const db = await getDb();
   const row = await db.select().from(users).where(eq(users.id, id)).limit(1);
   if (!row[0]) return null;
-  const providers = await listUserProviders(id);
-  return toAdminCUser(row[0], providers);
+  const [providers, balance] = await Promise.all([
+    listUserProviders(id),
+    getUserPointBalance(id),
+  ]);
+  return toAdminCUser(row[0], providers, balance);
 }
 
 /** B 端更新 C 端用户（仅 name/isActive，禁止改 email）。 */
@@ -2798,6 +2824,170 @@ export async function adminUpdateCUser(
 export async function deleteCUser(id: string): Promise<void> {
   const db = await getDb();
   await db.delete(users).where(eq(users.id, id));
+}
+
+// ─── 积分系统 ──────────────────────────────────────────────
+
+/** 积分变动类型枚举（与 schema type 字段对应）。 */
+export type PointLogType = "earn" | "spend" | "adjust" | "revoke";
+
+/** 对外暴露的积分日志条目（C 端 / B 端通用）。 */
+export interface PointLogItem {
+  id: string;
+  userId: string;
+  change: number;
+  balanceAfter: number;
+  type: string;
+  bizType: string | null;
+  bizId: string | null;
+  remark: string | null;
+  createdAt: string;
+}
+
+function toPointLogItem(row: typeof pointLogs.$inferSelect): PointLogItem {
+  return {
+    id: row.id,
+    userId: row.userId,
+    change: row.change,
+    balanceAfter: row.balanceAfter,
+    type: row.type,
+    bizType: row.bizType,
+    bizId: row.bizId,
+    remark: row.remark,
+    createdAt: toIso(row.createdAt),
+  };
+}
+
+/** 读取用户积分余额（无账户返回 0）。 */
+export async function getUserPointBalance(userId: string): Promise<number> {
+  const db = await getDb();
+  const row = await db
+    .select({ balance: pointAccounts.balance })
+    .from(pointAccounts)
+    .where(eq(pointAccounts.userId, userId))
+    .limit(1);
+  return row[0]?.balance ?? 0;
+}
+
+/**
+ * 原子调整积分（增/减）。
+ *
+ * 流程（D1 单事务 batch）：
+ * 1. INSERT OR IGNORE 账户（首次自动建账，余额 0）
+ * 2. UPDATE balance = balance + change
+ * 3. SELECT 最新 balance
+ * 4. INSERT 日志
+ *
+ * 返回新余额和日志 ID。如果业务侧需要幂等去重，请先调用
+ * `findPointLogByBiz` 查是否已发放。
+ */
+export async function adjustPoints(input: {
+  userId: string;
+  /** 正数=获得，负数=消耗 */
+  change: number;
+  type: PointLogType;
+  bizType?: string;
+  bizId?: string;
+  remark?: string;
+}): Promise<{ balance: number; logId: string } | null> {
+  if (input.change === 0) return null;
+  const db = await getDb();
+  const now = Math.floor(Date.now() / 1000);
+  const logId = crypto.randomUUID();
+
+  // 1. 确保账户存在（ON CONFLICT DO NOTHING）
+  await db
+    .insert(pointAccounts)
+    .values({
+      id: crypto.randomUUID(),
+      userId: input.userId,
+      balance: 0,
+    })
+    .onConflictDoNothing({ target: pointAccounts.userId });
+
+  // 2. 原子加余额（SQLite 整数运算）
+  await db
+    .update(pointAccounts)
+    .set({
+      balance: sql`${pointAccounts.balance} + ${input.change}`,
+      updatedAt: now,
+    })
+    .where(eq(pointAccounts.userId, input.userId));
+
+  // 3. 读最新余额
+  const balRow = await db
+    .select({ balance: pointAccounts.balance })
+    .from(pointAccounts)
+    .where(eq(pointAccounts.userId, input.userId))
+    .limit(1);
+  const balanceAfter = balRow[0]?.balance ?? 0;
+
+  // 4. 写日志
+  await db.insert(pointLogs).values({
+    id: logId,
+    userId: input.userId,
+    change: input.change,
+    balanceAfter,
+    type: input.type,
+    bizType: input.bizType ?? null,
+    bizId: input.bizId ?? null,
+    remark: input.remark ?? null,
+    createdAt: now,
+  });
+
+  return { balance: balanceAfter, logId };
+}
+
+/** 按 (bizType, bizId) 查日志（用于业务幂等去重）。 */
+export async function findPointLogByBiz(
+  userId: string,
+  bizType: string,
+  bizId: string,
+): Promise<PointLogItem | null> {
+  const db = await getDb();
+  const row = await db
+    .select()
+    .from(pointLogs)
+    .where(
+      and(
+        eq(pointLogs.userId, userId),
+        eq(pointLogs.bizType, bizType),
+        eq(pointLogs.bizId, bizId),
+      ),
+    )
+    .limit(1);
+  return row[0] ? toPointLogItem(row[0]) : null;
+}
+
+/** C 端：列出自家最近积分日志（按时间倒序）。 */
+export async function listMyPointLogs(
+  userId: string,
+  opts: { page: number; pageSize: number },
+): Promise<{ items: PointLogItem[]; total: number }> {
+  const db = await getDb();
+  const where = eq(pointLogs.userId, userId);
+  const [rows, totalRows] = await Promise.all([
+    db
+      .select()
+      .from(pointLogs)
+      .where(where)
+      .orderBy(desc(pointLogs.createdAt))
+      .limit(opts.pageSize)
+      .offset((opts.page - 1) * opts.pageSize),
+    db.select({ value: count() }).from(pointLogs).where(where),
+  ]);
+  return {
+    items: rows.map(toPointLogItem),
+    total: totalRows[0]?.value ?? 0,
+  };
+}
+
+/** B 端：列出某用户的积分日志（带分页）。 */
+export async function listUserPointLogs(
+  userId: string,
+  opts: { page: number; pageSize: number },
+): Promise<{ items: PointLogItem[]; total: number }> {
+  return listMyPointLogs(userId, opts);
 }
 
 export { schema, asc };

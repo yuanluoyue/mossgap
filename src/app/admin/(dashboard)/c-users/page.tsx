@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Search, Users } from "lucide-react";
+import { Coins, Search, Users } from "lucide-react";
 
 import { listCUsers } from "@/db/queries";
 import { Badge } from "@/components/ui/badge";
@@ -116,6 +116,7 @@ export default async function CUsersPage({
               <TableHead className="w-[220px]">邮箱</TableHead>
               <TableHead className="w-[160px]">登录方式</TableHead>
               <TableHead className="w-[120px]">语言</TableHead>
+              <TableHead className="w-[120px]">积分</TableHead>
               <TableHead className="w-[100px]">状态</TableHead>
               <TableHead className="w-[160px]">最近登录</TableHead>
               <TableHead className="w-[140px]">注册时间</TableHead>
@@ -125,7 +126,7 @@ export default async function CUsersPage({
           <TableBody>
             {result.items.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="h-32 text-center">
+                <TableCell colSpan={9} className="h-32 text-center">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <Users className="size-8" />
                     <p className="text-sm">暂无用户</p>
@@ -176,6 +177,12 @@ export default async function CUsersPage({
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {u.locale === "zh" ? "中文" : "English"}
+                    </TableCell>
+                    <TableCell>
+                      <span className="inline-flex items-center gap-1 font-medium tabular-nums">
+                        <Coins className="size-3.5 text-amber-500" />
+                        {u.pointBalance.toLocaleString()}
+                      </span>
                     </TableCell>
                     <TableCell>
                       <CUserStatusSwitch

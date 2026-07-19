@@ -439,3 +439,24 @@ export const cUserUpdateSchema = z.object({
 });
 
 export type CUserUpdateInput = z.infer<typeof cUserUpdateSchema>;
+
+/** C 端积分日志列表查询参数。 */
+export const listMyPointLogsQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(50).default(10),
+});
+
+/** B 端手动调整积分校验。 */
+export const adminAdjustPointsSchema = z.object({
+  /** 正数=增加，负数=扣减，0 不允许 */
+  change: z.number().int().min(-1000000).max(1000000).refine((v) => v !== 0, "变动值不能为 0"),
+  remark: z.string().max(500, "备注过长").optional().nullable().default(null),
+});
+
+export type AdminAdjustPointsInput = z.infer<typeof adminAdjustPointsSchema>;
+
+/** B 端积分日志列表查询参数。 */
+export const listPointLogsQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(10),
+});
