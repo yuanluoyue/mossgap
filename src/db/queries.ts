@@ -3453,13 +3453,14 @@ export async function claimMissionReward(
   const existingLog = await findPointLogByBiz(um.userId, bizType, bizId);
   let balance = 0;
   if (!existingLog && mission.rewardValue > 0) {
+    const missionName = parseLocalized(mission.name);
     const result = await adjustPoints({
       userId: um.userId,
       change: mission.rewardValue,
       type: "earn",
       bizType,
       bizId,
-      remark: mission.name,
+      remark: missionName.en || missionName.zh,
     });
     balance = result?.balance ?? 0;
   } else {
