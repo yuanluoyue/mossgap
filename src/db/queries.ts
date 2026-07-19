@@ -459,22 +459,31 @@ export async function listPublishedGameSlugs(): Promise<
   return rows;
 }
 
-/** 获取所有可见分类的 slug（供 generateStaticParams 使用）。 */
-export async function listPublicCategorySlugs(): Promise<{ slug: string }[]> {
+/** 获取所有可见分类的 slug（供 generateStaticParams / sitemap 使用）。 */
+export async function listPublicCategorySlugs(): Promise<{ slug: string; updatedAt: number | null }[]> {
   const db = await getDb();
-  return db.select({ slug: categories.slug }).from(categories).where(eq(categories.isVisible, 1));
+  return db
+    .select({ slug: categories.slug, updatedAt: categories.updatedAt })
+    .from(categories)
+    .where(eq(categories.isVisible, 1));
 }
 
-/** 获取所有可见标签的 slug（供 generateStaticParams 使用）。 */
-export async function listPublicTagSlugs(): Promise<{ slug: string }[]> {
+/** 获取所有可见标签的 slug（供 generateStaticParams / sitemap 使用）。 */
+export async function listPublicTagSlugs(): Promise<{ slug: string; updatedAt: number | null }[]> {
   const db = await getDb();
-  return db.select({ slug: tags.slug }).from(tags).where(eq(tags.isVisible, 1));
+  return db
+    .select({ slug: tags.slug, updatedAt: tags.updatedAt })
+    .from(tags)
+    .where(eq(tags.isVisible, 1));
 }
 
-/** 获取所有可见专题的 slug（供 generateStaticParams 使用）。 */
-export async function listPublicCollectionSlugs(): Promise<{ slug: string }[]> {
+/** 获取所有可见专题的 slug（供 generateStaticParams / sitemap 使用）。 */
+export async function listPublicCollectionSlugs(): Promise<{ slug: string; updatedAt: number | null }[]> {
   const db = await getDb();
-  return db.select({ slug: collections.slug }).from(collections).where(eq(collections.isVisible, 1));
+  return db
+    .select({ slug: collections.slug, updatedAt: collections.updatedAt })
+    .from(collections)
+    .where(eq(collections.isVisible, 1));
 }
 
 export async function listPublicGames(
