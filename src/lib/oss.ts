@@ -277,6 +277,7 @@ const IMAGE_PREFIXES = {
   screenshot: "images/screenshots",
   avatar: "images/avatars",
   editor: "images/editor",
+  item: "images/items",
 } as const;
 
 export type ImageCategory = keyof typeof IMAGE_PREFIXES;

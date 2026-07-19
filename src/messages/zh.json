@@ -403,5 +403,29 @@
     "typeDaily": "每日",
     "typeWeekly": "每周",
     "typeAchievement": "成就"
+  },
+  "Inventory": {
+    "title": "我的背包",
+    "description": "你收集到的物品",
+    "loading": "加载背包中...",
+    "empty": "背包空空如也",
+    "kinds": "种",
+    "total": "件",
+    "noDescription": "暂无描述",
+    "yes": "是",
+    "no": "否",
+    "fieldType": "类型",
+    "fieldRarity": "稀有度",
+    "fieldStackable": "可堆叠",
+    "fieldQuantity": "数量",
+    "typeConsumable": "消耗品",
+    "typeMaterial": "材料",
+    "typeGift": "礼物",
+    "typeCurrency": "货币",
+    "typeEquipment": "装备",
+    "rarityCommon": "普通",
+    "rarityRare": "稀有",
+    "rarityEpic": "史诗",
+    "rarityLegendary": "传说"
   }
 }

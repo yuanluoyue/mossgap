@@ -31,6 +31,7 @@ import {
 import { formatDate, formatDateTime } from "@/lib/format";
 import type { PublicUser, PointLogItem } from "@/db/queries";
 import { MissionsSection } from "./missions-section";
+import { InventorySection } from "./inventory-section";
 
 interface ProfileFormProps {
   user: PublicUser | null;
@@ -543,6 +544,9 @@ export function ProfileForm({ user: initialUser }: ProfileFormProps) {
             router.refresh();
           }}
         />
+
+        {/* 我的背包 */}
+        <InventorySection />
       </div>
     </div>
   );

@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
 /** 单张图片最大 5MB */
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 
-const VALID_CATEGORIES: ImageCategory[] = ["cover", "screenshot", "editor"];
+const VALID_CATEGORIES: ImageCategory[] = ["cover", "screenshot", "editor", "item"];
 
 /** POST /api/admin/upload-image — 上传图片到 OSS
  * Body: multipart/form-data
@@ -54,7 +54,7 @@ export async function POST(req: Request) {
   const category = String(formData.get("category") ?? "cover") as ImageCategory;
   if (!VALID_CATEGORIES.includes(category)) {
     return NextResponse.json(
-      fail("BAD_REQUEST", "category 必须是 cover 或 screenshot"),
+      fail("BAD_REQUEST", "category 必须是 cover/screenshot/editor/item"),
       { status: 400 },
     );
   }

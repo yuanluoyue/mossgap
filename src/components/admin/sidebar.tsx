@@ -20,6 +20,7 @@ import {
   Tags,
   LayoutGrid,
   Target,
+  Package,
   Menu as MenuIcon,
   ChevronRight,
   ChevronDown,
@@ -50,6 +51,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Tags,
   LayoutGrid,
   Target,
+  Package,
   Menu: MenuIcon,
 };
 

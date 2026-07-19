@@ -8,8 +8,8 @@ import { FileDropzone } from "@/components/ui/file-dropzone";
 import { cn } from "@/lib/utils";
 
 interface ImageUploaderProps {
-  /** 资源类型：封面图 / 截图 */
-  category: "cover" | "screenshot";
+  /** 资源类型：封面图 / 截图 / 物品图标 */
+  category: "cover" | "screenshot" | "item";
   /** 当前图片 URL（已有或刚上传的） */
   url: string;
   /** URL 变化回调 */

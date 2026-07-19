@@ -891,6 +891,131 @@ export type NewMission = typeof missions.$inferInsert;
 export type UserMission = typeof userMissions.$inferSelect;
 export type NewUserMission = typeof userMissions.$inferInsert;
 
+// ─── 背包系统 ───────────────────────────────────────────────
+
+/**
+ * 物品模板表。
+ *
+ * - code: 物品英文唯一编码（业务侧引用，如 "coin_pack"）
+ * - type: 物品类型（英文，如 "consumable" / "material" / "gift"）
+ * - name/description: 多语言，以 JSON 字符串存储 { en, zh }
+ * - icon: 物品图标 URL（上传到 OSS 单独目录 images/items）
+ * - rarity: 稀有度（英文，如 "common" / "rare" / "epic" / "legendary"）
+ * - stackable: 0/1 是否可堆叠
+ * - maxStack: 最大堆叠数（stackable=1 时生效；0 表示不限）
+ * - enabled: 0/1 启用状态
+ * - sortOrder: 排序权重
+ */
+export const itemTemplates = sqliteTable(
+  "item_templates",
+  {
+    id: text("id")
+      .primaryKey()
+      .notNull()
+      .$defaultFn(genUuid),
+    code: text("code").notNull(),
+    type: text("type").notNull().default("consumable"),
+    name: text("name").notNull(),
+    description: text("description").default(""),
+    icon: text("icon"),
+    rarity: text("rarity").default("common"),
+    stackable: integer("stackable").default(0),
+    maxStack: integer("max_stack").default(0),
+    enabled: integer("enabled").default(1),
+    sortOrder: integer("sort_order").default(0),
+    createdAt: integer("created_at")
+      .notNull()
+      .$defaultFn(nowSeconds),
+    updatedAt: integer("updated_at")
+      .notNull()
+      .$defaultFn(nowSeconds),
+  },
+  (t) => ({
+    codeIdx: uniqueIndex("item_templates_code_idx").on(t.code),
+    typeIdx: index("item_templates_type_idx").on(t.type),
+    enabledIdx: index("item_templates_enabled_idx").on(t.enabled),
+    sortIdx: index("item_templates_sort_idx").on(t.sortOrder),
+  }),
+);
+
+/**
+ * 用户背包表。
+ *
+ * - 同一用户同一物品最多一行（userId + itemId 唯一）
+ * - quantity: 当前数量（>=0）
+ * - 通过 grantItem() 调整数量并写入 inventory_logs
+ */
+export const userInventory = sqliteTable(
+  "user_inventory",
+  {
+    id: text("id")
+      .primaryKey()
+      .notNull()
+      .$defaultFn(genUuid),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    itemId: text("item_id")
+      .notNull()
+      .references(() => itemTemplates.id, { onDelete: "cascade" }),
+    quantity: integer("quantity").notNull().default(0),
+    updatedAt: integer("updated_at")
+      .notNull()
+      .$defaultFn(nowSeconds),
+  },
+  (t) => ({
+    userItemIdx: uniqueIndex("user_inventory_user_item_idx").on(t.userId, t.itemId),
+    userIdx: index("user_inventory_user_id_idx").on(t.userId),
+    itemIdIdx: index("user_inventory_item_id_idx").on(t.itemId),
+  }),
+);
+
+/**
+ * 背包变动日志表。每次 quantity 变化都写一条。
+ *
+ * - change: 变动值（正数获得，负数消耗）
+ * - balanceAfter: 变动后数量
+ * - reason: 业务原因描述（英文，便于跨语言展示）
+ * - bizType: 业务类型（如 mission / admin_grant / shop_purchase 等）
+ * - bizId: 业务实体 ID（用于幂等去重）
+ */
+export const inventoryLogs = sqliteTable(
+  "inventory_logs",
+  {
+    id: text("id")
+      .primaryKey()
+      .notNull()
+      .$defaultFn(genUuid),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    itemId: text("item_id")
+      .notNull()
+      .references(() => itemTemplates.id, { onDelete: "cascade" }),
+    change: integer("change").notNull(),
+    balanceAfter: integer("balance_after").notNull(),
+    reason: text("reason"),
+    bizType: text("biz_type"),
+    bizId: text("biz_id"),
+    createdAt: integer("created_at")
+      .notNull()
+      .$defaultFn(nowSeconds),
+  },
+  (t) => ({
+    userIdIdx: index("inventory_logs_user_id_idx").on(t.userId),
+    itemIdIdx: index("inventory_logs_item_id_idx").on(t.itemId),
+    bizIdx: index("inventory_logs_biz_idx").on(t.bizType, t.bizId),
+    createdAtIdx: index("inventory_logs_created_at_idx").on(t.createdAt),
+  }),
+);
+
+export type ItemTemplate = typeof itemTemplates.$inferSelect;
+export type NewItemTemplate = typeof itemTemplates.$inferInsert;
+export type UserInventory = typeof userInventory.$inferSelect;
+export type NewUserInventory = typeof userInventory.$inferInsert;
+export type InventoryLog = typeof inventoryLogs.$inferSelect;
+export type NewInventoryLog = typeof inventoryLogs.$inferInsert;
+
 // Zod Schemas（前后端共享校验）
 export const insertGameSchema = createInsertSchema(games);
 export const selectGameSchema = createSelectSchema(games);

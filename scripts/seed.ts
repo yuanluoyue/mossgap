@@ -51,6 +51,7 @@ const menuTree = [
     children: [
       { name: "C端用户", path: "/admin/c-users", icon: "Users", sort_order: 0 },
       { name: "任务管理", path: "/admin/missions", icon: "Target", sort_order: 1 },
+      { name: "物品管理", path: "/admin/items", icon: "Package", sort_order: 2 },
     ],
   },
   {

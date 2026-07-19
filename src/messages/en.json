@@ -403,5 +403,29 @@
     "typeDaily": "Daily",
     "typeWeekly": "Weekly",
     "typeAchievement": "Achievement"
+  },
+  "Inventory": {
+    "title": "My Inventory",
+    "description": "Items you have collected",
+    "loading": "Loading inventory...",
+    "empty": "Your inventory is empty",
+    "kinds": "kinds",
+    "total": "total",
+    "noDescription": "No description",
+    "yes": "Yes",
+    "no": "No",
+    "fieldType": "Type",
+    "fieldRarity": "Rarity",
+    "fieldStackable": "Stackable",
+    "fieldQuantity": "Quantity",
+    "typeConsumable": "Consumable",
+    "typeMaterial": "Material",
+    "typeGift": "Gift",
+    "typeCurrency": "Currency",
+    "typeEquipment": "Equipment",
+    "rarityCommon": "Common",
+    "rarityRare": "Rare",
+    "rarityEpic": "Epic",
+    "rarityLegendary": "Legendary"
   }
 }

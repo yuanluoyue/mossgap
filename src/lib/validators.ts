@@ -525,3 +525,75 @@ export const missionUpdateSchema = z.object({
 
 export type MissionCreateInput = z.infer<typeof missionCreateSchema>;
 export type MissionUpdateInput = z.infer<typeof missionUpdateSchema>;
+
+// ─── 背包系统 ───────────────────────────────────────────────
+
+/** 物品 code：仅英文小写字母、数字、下划线，2-64 字符。 */
+const itemCodeSchema = z
+  .string()
+  .min(2, "code 至少 2 个字符")
+  .max(64, "code 最多 64 个字符")
+  .regex(/^[a-z][a-z0-9_]*$/, "code 只能包含小写字母、数字和下划线，且以字母开头");
+
+/** 物品 type：仅英文，常见值 consumable/material/gift/currency。 */
+const itemTypeSchema = z
+  .string()
+  .min(1, "type 不能为空")
+  .max(32, "type 最多 32 个字符")
+  .regex(/^[a-z][a-z0-9_]*$/, "type 只能包含小写字母、数字和下划线");
+
+/** 物品 rarity：仅英文。 */
+const itemRaritySchema = z.enum(["common", "rare", "epic", "legendary"]);
+
+/** B 端物品列表查询参数。 */
+export const listItemsQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(10),
+  search: z.string().optional(),
+  type: z.string().optional(),
+  enabled: z
+    .enum(["true", "false", "1", "0"])
+    .optional()
+    .transform((v) => (v === undefined ? undefined : v === "true" || v === "1")),
+});
+
+/** 物品创建校验。 */
+export const itemCreateSchema = z.object({
+  code: itemCodeSchema,
+  type: itemTypeSchema.default("consumable"),
+  name: localizedTextSchema,
+  description: z
+    .object({
+      en: z.string().max(2000).default(""),
+      zh: z.string().max(2000).default(""),
+    })
+    .default({ en: "", zh: "" }),
+  icon: z.string().max(512).nullable().optional().default(null),
+  rarity: itemRaritySchema.default("common"),
+  stackable: z.boolean().optional().default(false),
+  maxStack: z.number().int().min(0).max(99999999).optional().default(0),
+  enabled: z.boolean().optional().default(true),
+  sortOrder: z.number().int().min(0).max(9999).optional().default(0),
+});
+
+/** 物品更新校验（全字段可选）。 */
+export const itemUpdateSchema = z.object({
+  code: itemCodeSchema.optional(),
+  type: itemTypeSchema.optional(),
+  name: localizedTextSchema.optional(),
+  description: z
+    .object({
+      en: z.string().max(2000),
+      zh: z.string().max(2000),
+    })
+    .optional(),
+  icon: z.string().max(512).nullable().optional(),
+  rarity: itemRaritySchema.optional(),
+  stackable: z.boolean().optional(),
+  maxStack: z.number().int().min(0).max(99999999).optional(),
+  enabled: z.boolean().optional(),
+  sortOrder: z.number().int().min(0).max(9999).optional(),
+});
+
+export type ItemCreateInput = z.infer<typeof itemCreateSchema>;
+export type ItemUpdateInput = z.infer<typeof itemUpdateSchema>;

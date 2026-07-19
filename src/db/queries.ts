@@ -26,6 +26,9 @@ import {
   pointLogs,
   missions,
   userMissions,
+  itemTemplates,
+  userInventory,
+  inventoryLogs,
 } from "./schema";
 import type {
   AdminFeedback,
@@ -3550,6 +3553,420 @@ export async function cleanupOldUserMissions(
     .where(lt(userMissions.updatedAt, cutoff));
   const changes = (res as unknown as { meta?: { changes?: number } })?.meta?.changes ?? 0;
   return { deleted: changes };
+}
+
+// ─── 背包系统 ───────────────────────────────────────────────
+
+export type ItemRarity = "common" | "rare" | "epic" | "legendary";
+
+export interface ItemTemplateItem {
+  id: string;
+  code: string;
+  type: string;
+  name: LocalizedText;
+  description: LocalizedText;
+  icon: string;
+  rarity: string;
+  stackable: boolean;
+  maxStack: number;
+  enabled: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UserInventoryItem {
+  id: string;
+  userId: string;
+  itemId: string;
+  quantity: number;
+  updatedAt: string;
+  /** 关联的物品模板（C 端列表展示用） */
+  item?: ItemTemplateItem;
+}
+
+export interface InventoryLogItem {
+  id: string;
+  userId: string;
+  itemId: string;
+  change: number;
+  balanceAfter: number;
+  reason: string;
+  bizType: string;
+  bizId: string;
+  createdAt: string;
+  /** 关联的物品模板（B 端日志展示用） */
+  item?: ItemTemplateItem;
+}
+
+function toItemTemplateItem(row: typeof itemTemplates.$inferSelect): ItemTemplateItem {
+  return {
+    id: row.id,
+    code: row.code,
+    type: row.type,
+    name: parseLocalized(row.name),
+    description: parseLocalized(row.description ?? ""),
+    icon: row.icon ?? "",
+    rarity: row.rarity ?? "common",
+    stackable: !!row.stackable,
+    maxStack: row.maxStack ?? 0,
+    enabled: !!row.enabled,
+    sortOrder: row.sortOrder ?? 0,
+    createdAt: toIso(row.createdAt),
+    updatedAt: toIso(row.updatedAt),
+  };
+}
+
+/** B 端：分页列出物品模板。 */
+export async function listAllItems(opts: {
+  page: number;
+  pageSize: number;
+  search?: string;
+  type?: string;
+  enabled?: boolean;
+}): Promise<{ items: ItemTemplateItem[]; total: number }> {
+  const db = await getDb();
+  const conds = [];
+  if (opts.search) {
+    const kw = `%${opts.search}%`;
+    conds.push(or(like(itemTemplates.name, kw), like(itemTemplates.code, kw)));
+  }
+  if (opts.type) {
+    conds.push(eq(itemTemplates.type, opts.type));
+  }
+  if (opts.enabled !== undefined) {
+    conds.push(eq(itemTemplates.enabled, opts.enabled ? 1 : 0));
+  }
+  const where = conds.length > 0 ? and(...conds) : undefined;
+  const [rows, totalRows] = await Promise.all([
+    db
+      .select()
+      .from(itemTemplates)
+      .where(where)
+      .orderBy(asc(itemTemplates.sortOrder), desc(itemTemplates.createdAt))
+      .limit(opts.pageSize)
+      .offset((opts.page - 1) * opts.pageSize),
+    db.select({ value: count() }).from(itemTemplates).where(where),
+  ]);
+  return {
+    items: rows.map(toItemTemplateItem),
+    total: totalRows[0]?.value ?? 0,
+  };
+}
+
+/** 列出所有启用的物品模板（C 端展示）。 */
+export async function listEnabledItems(): Promise<ItemTemplateItem[]> {
+  const db = await getDb();
+  const rows = await db
+    .select()
+    .from(itemTemplates)
+    .where(eq(itemTemplates.enabled, 1))
+    .orderBy(asc(itemTemplates.sortOrder), asc(itemTemplates.code));
+  return rows.map(toItemTemplateItem);
+}
+
+/** 按 ID 取物品模板。 */
+export async function getItemById(id: string): Promise<ItemTemplateItem | null> {
+  const db = await getDb();
+  const row = await db
+    .select()
+    .from(itemTemplates)
+    .where(eq(itemTemplates.id, id))
+    .limit(1);
+  return row[0] ? toItemTemplateItem(row[0]) : null;
+}
+
+/** 按 code 取物品模板。 */
+export async function getItemByCode(code: string): Promise<ItemTemplateItem | null> {
+  const db = await getDb();
+  const row = await db
+    .select()
+    .from(itemTemplates)
+    .where(eq(itemTemplates.code, code))
+    .limit(1);
+  return row[0] ? toItemTemplateItem(row[0]) : null;
+}
+
+/** 取物品原始行（内部用）。 */
+async function getItemRaw(id: string): Promise<typeof itemTemplates.$inferSelect | null> {
+  const db = await getDb();
+  const row = await db
+    .select()
+    .from(itemTemplates)
+    .where(eq(itemTemplates.id, id))
+    .limit(1);
+  return row[0] ?? null;
+}
+
+/** 创建物品。 */
+export async function createItem(input: {
+  code: string;
+  type?: string;
+  name: LocalizedText;
+  description?: LocalizedText;
+  icon?: string | null;
+  rarity?: string;
+  stackable?: boolean;
+  maxStack?: number;
+  enabled?: boolean;
+  sortOrder?: number;
+}): Promise<ItemTemplateItem> {
+  const db = await getDb();
+  const [row] = await db
+    .insert(itemTemplates)
+    .values({
+      code: input.code,
+      type: input.type ?? "consumable",
+      name: stringifyLocalized(input.name),
+      description: stringifyLocalized(input.description ?? { en: "", zh: "" }),
+      icon: input.icon ?? null,
+      rarity: input.rarity ?? "common",
+      stackable: input.stackable ? 1 : 0,
+      maxStack: input.maxStack ?? 0,
+      enabled: input.enabled === false ? 0 : 1,
+      sortOrder: input.sortOrder ?? 0,
+    })
+    .returning();
+  return toItemTemplateItem(row!);
+}
+
+/** 更新物品（全字段可选）。 */
+export async function updateItem(
+  id: string,
+  input: Partial<{
+    code: string;
+    type: string;
+    name: LocalizedText;
+    description: LocalizedText;
+    icon: string | null;
+    rarity: string;
+    stackable: boolean;
+    maxStack: number;
+    enabled: boolean;
+    sortOrder: number;
+  }>,
+): Promise<ItemTemplateItem | null> {
+  const db = await getDb();
+  const patch: Record<string, unknown> = { updatedAt: Math.floor(Date.now() / 1000) };
+  if (input.code !== undefined) patch.code = input.code;
+  if (input.type !== undefined) patch.type = input.type;
+  if (input.name !== undefined) patch.name = stringifyLocalized(input.name);
+  if (input.description !== undefined) patch.description = stringifyLocalized(input.description);
+  if (input.icon !== undefined) patch.icon = input.icon;
+  if (input.rarity !== undefined) patch.rarity = input.rarity;
+  if (input.stackable !== undefined) patch.stackable = input.stackable ? 1 : 0;
+  if (input.maxStack !== undefined) patch.maxStack = input.maxStack;
+  if (input.enabled !== undefined) patch.enabled = input.enabled ? 1 : 0;
+  if (input.sortOrder !== undefined) patch.sortOrder = input.sortOrder;
+  const [row] = await db
+    .update(itemTemplates)
+    .set(patch)
+    .where(eq(itemTemplates.id, id))
+    .returning();
+  return row ? toItemTemplateItem(row) : null;
+}
+
+/** 删除物品（cascade 会清理 user_inventory 和 inventory_logs）。 */
+export async function deleteItem(id: string): Promise<boolean> {
+  const db = await getDb();
+  const res = await db.delete(itemTemplates).where(eq(itemTemplates.id, id));
+  const changes = (res as unknown as { meta?: { changes?: number } })?.meta?.changes ?? 0;
+  return changes > 0;
+}
+
+/**
+ * 调整用户背包中某物品的数量（带日志写入）。
+ *
+ * - 自动创建 user_inventory 行（懒创建）
+ * - 若 quantity 会变为负数，返回 insufficient 错误
+ * - 写入 inventory_logs
+ *
+ * 返回 { ok, balance } 或 { ok: false, reason }
+ */
+export async function adjustInventory(input: {
+  userId: string;
+  itemId: string;
+  change: number;
+  reason?: string;
+  bizType?: string;
+  bizId?: string;
+}): Promise<
+  | { ok: true; balance: number }
+  | { ok: false; reason: "not_found" | "insufficient" }
+> {
+  if (input.change === 0) return { ok: false, reason: "not_found" };
+
+  const db = await getDb();
+  const now = Math.floor(Date.now() / 1000);
+  const item = await getItemRaw(input.itemId);
+  if (!item) return { ok: false, reason: "not_found" };
+
+  // 懒创建 user_inventory 行
+  await db
+    .insert(userInventory)
+    .values({
+      id: crypto.randomUUID(),
+      userId: input.userId,
+      itemId: input.itemId,
+      quantity: 0,
+      updatedAt: now,
+    })
+    .onConflictDoNothing({
+      target: [userInventory.userId, userInventory.itemId],
+    });
+
+  // 读取当前数量
+  const existing = await db
+    .select()
+    .from(userInventory)
+    .where(
+      and(
+        eq(userInventory.userId, input.userId),
+        eq(userInventory.itemId, input.itemId),
+      ),
+    )
+    .limit(1);
+  const cur = existing[0];
+  if (!cur) return { ok: false, reason: "not_found" };
+
+  const next = cur.quantity + input.change;
+  if (next < 0) return { ok: false, reason: "insufficient" };
+
+  // 更新数量
+  await db
+    .update(userInventory)
+    .set({ quantity: next, updatedAt: now })
+    .where(eq(userInventory.id, cur.id));
+
+  // 写日志
+  await db.insert(inventoryLogs).values({
+    id: crypto.randomUUID(),
+    userId: input.userId,
+    itemId: input.itemId,
+    change: input.change,
+    balanceAfter: next,
+    reason: input.reason ?? null,
+    bizType: input.bizType ?? null,
+    bizId: input.bizId ?? null,
+  });
+
+  return { ok: true, balance: next };
+}
+
+/**
+ * 按 bizType+bizId 查找背包日志（用于幂等去重）。
+ */
+export async function findInventoryLogByBiz(
+  userId: string,
+  bizType: string,
+  bizId: string,
+): Promise<boolean> {
+  const db = await getDb();
+  const rows = await db
+    .select({ id: inventoryLogs.id })
+    .from(inventoryLogs)
+    .where(
+      and(
+        eq(inventoryLogs.userId, userId),
+        eq(inventoryLogs.bizType, bizType),
+        eq(inventoryLogs.bizId, bizId),
+      ),
+    )
+    .limit(1);
+  return rows.length > 0;
+}
+
+/** 查询某用户某物品的当前数量（无则 0）。 */
+export async function getUserItemQuantity(
+  userId: string,
+  itemId: string,
+): Promise<number> {
+  const db = await getDb();
+  const rows = await db
+    .select({ quantity: userInventory.quantity })
+    .from(userInventory)
+    .where(
+      and(
+        eq(userInventory.userId, userId),
+        eq(userInventory.itemId, itemId),
+      ),
+    )
+    .limit(1);
+  return rows[0]?.quantity ?? 0;
+}
+
+/**
+ * 列出当前用户的全部背包物品（仅 quantity>0 的）。
+ * 返回关联的物品模板信息。
+ */
+export async function listMyInventory(
+  userId: string,
+): Promise<UserInventoryItem[]> {
+  const db = await getDb();
+  const rows = await db
+    .select({
+      inv: userInventory,
+      item: itemTemplates,
+    })
+    .from(userInventory)
+    .innerJoin(itemTemplates, eq(userInventory.itemId, itemTemplates.id))
+    .where(
+      and(
+        eq(userInventory.userId, userId),
+        eq(itemTemplates.enabled, 1),
+        sql`${userInventory.quantity} > 0`,
+      ),
+    )
+    .orderBy(asc(itemTemplates.sortOrder), asc(itemTemplates.code));
+
+  return rows.map(({ inv, item }) => ({
+    id: inv.id,
+    userId: inv.userId,
+    itemId: inv.itemId,
+    quantity: inv.quantity,
+    updatedAt: toIso(inv.updatedAt),
+    item: toItemTemplateItem(item),
+  }));
+}
+
+/** B 端：分页查询某用户的背包日志（含物品模板信息）。 */
+export async function listInventoryLogs(opts: {
+  userId: string;
+  page: number;
+  pageSize: number;
+}): Promise<{ items: InventoryLogItem[]; total: number }> {
+  const db = await getDb();
+  const where = eq(inventoryLogs.userId, opts.userId);
+  const [rows, totalRows] = await Promise.all([
+    db
+      .select({
+        log: inventoryLogs,
+        item: itemTemplates,
+      })
+      .from(inventoryLogs)
+      .leftJoin(itemTemplates, eq(inventoryLogs.itemId, itemTemplates.id))
+      .where(where)
+      .orderBy(desc(inventoryLogs.createdAt))
+      .limit(opts.pageSize)
+      .offset((opts.page - 1) * opts.pageSize),
+    db.select({ value: count() }).from(inventoryLogs).where(where),
+  ]);
+
+  return {
+    items: rows.map(({ log, item }) => ({
+      id: log.id,
+      userId: log.userId,
+      itemId: log.itemId,
+      change: log.change,
+      balanceAfter: log.balanceAfter,
+      reason: log.reason ?? "",
+      bizType: log.bizType ?? "",
+      bizId: log.bizId ?? "",
+      createdAt: toIso(log.createdAt),
+      item: item ? toItemTemplateItem(item) : undefined,
+    })),
+    total: totalRows[0]?.value ?? 0,
+  };
 }
 
 export { schema, asc };
