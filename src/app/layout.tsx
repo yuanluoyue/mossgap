@@ -34,6 +34,7 @@ const CLIENT_NAMESPACES = [
   "Common",
   "Auth",
   "Profile",
+  "Mission",
 ] as const;
 
 function pickMessages(

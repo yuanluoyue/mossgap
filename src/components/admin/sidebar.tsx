@@ -19,6 +19,7 @@ import {
   FolderTree,
   Tags,
   LayoutGrid,
+  Target,
   Menu as MenuIcon,
   ChevronRight,
   ChevronDown,
@@ -48,6 +49,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   FolderTree,
   Tags,
   LayoutGrid,
+  Target,
   Menu: MenuIcon,
 };
 

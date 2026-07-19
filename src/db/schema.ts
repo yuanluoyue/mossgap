@@ -790,6 +790,107 @@ export type NewPointAccount = typeof pointAccounts.$inferInsert;
 export type PointLog = typeof pointLogs.$inferSelect;
 export type NewPointLog = typeof pointLogs.$inferInsert;
 
+// ─── 任务系统 ───────────────────────────────────────────────
+
+/**
+ * 任务定义表。
+ *
+ * - type: daily（每日重置）/ weekly（每周重置）/ achievement（成就，一次性）
+ * - event: 触发事件名（LOGIN / GAME_FINISH 等，nullable 表示只能手动触发）
+ * - target: 完成所需的进度阈值
+ * - rewardType: 奖励类型（目前仅 "point"）
+ * - rewardValue: 奖励数值（积分数量）
+ * - enabled: 0/1 启用状态
+ * - startAt/endAt: 有效期（nullable 表示不限）
+ */
+export const missions = sqliteTable(
+  "missions",
+  {
+    id: text("id")
+      .primaryKey()
+      .notNull()
+      .$defaultFn(genUuid),
+    name: text("name").notNull(),
+    description: text("description").default(""),
+    type: text("type", {
+      enum: ["daily", "weekly", "achievement"],
+    }).notNull(),
+    event: text("event"),
+    target: integer("target").notNull().default(1),
+    rewardType: text("reward_type").notNull().default("point"),
+    rewardValue: integer("reward_value").notNull().default(0),
+    icon: text("icon"),
+    sortOrder: integer("sort_order").default(0),
+    enabled: integer("enabled").default(1),
+    startAt: integer("start_at"),
+    endAt: integer("end_at"),
+    createdAt: integer("created_at")
+      .notNull()
+      .$defaultFn(nowSeconds),
+    updatedAt: integer("updated_at")
+      .notNull()
+      .$defaultFn(nowSeconds),
+  },
+  (t) => ({
+    typeIdx: index("missions_type_idx").on(t.type),
+    eventIdx: index("missions_event_idx").on(t.event),
+    enabledIdx: index("missions_enabled_idx").on(t.enabled),
+    sortIdx: index("missions_sort_idx").on(t.sortOrder),
+  }),
+);
+
+/**
+ * 用户任务进度表（懒创建 + 周期键）。
+ *
+ * - cycleKey: 周期标识。daily="YYYY-MM-DD"，weekly="YYYY-Www"，achievement="once"
+ *   同一周期内 (userId, missionId, cycleKey) 唯一，跨周期可重复
+ * - progress: 当前进度
+ * - status: pending（进行中）/ completed（已完成待领取）/ claimed（已领取）
+ * - claimedAt: 领取奖励时间（nullable）
+ *
+ * 设计：首次触发事件时 INSERT OR IGNORE 创建记录，后续 UPDATE progress。
+ */
+export const userMissions = sqliteTable(
+  "user_missions",
+  {
+    id: text("id")
+      .primaryKey()
+      .notNull()
+      .$defaultFn(genUuid),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    missionId: text("mission_id")
+      .notNull()
+      .references(() => missions.id, { onDelete: "cascade" }),
+    cycleKey: text("cycle_key").notNull().default(""),
+    progress: integer("progress").notNull().default(0),
+    status: text("status", {
+      enum: ["pending", "completed", "claimed"],
+    }).notNull().default("pending"),
+    claimedAt: integer("claimed_at"),
+    updatedAt: integer("updated_at")
+      .notNull()
+      .$defaultFn(nowSeconds),
+  },
+  (t) => ({
+    userMissionCycleIdx: uniqueIndex("user_missions_user_mission_cycle_idx").on(
+      t.userId,
+      t.missionId,
+      t.cycleKey,
+    ),
+    userIdx: index("user_missions_user_id_idx").on(t.userId),
+    missionIdx: index("user_missions_mission_id_idx").on(t.missionId),
+    statusIdx: index("user_missions_status_idx").on(t.status),
+    updatedAtIdx: index("user_missions_updated_at_idx").on(t.updatedAt),
+  }),
+);
+
+export type Mission = typeof missions.$inferSelect;
+export type NewMission = typeof missions.$inferInsert;
+export type UserMission = typeof userMissions.$inferSelect;
+export type NewUserMission = typeof userMissions.$inferInsert;
+
 // Zod Schemas（前后端共享校验）
 export const insertGameSchema = createInsertSchema(games);
 export const selectGameSchema = createSelectSchema(games);

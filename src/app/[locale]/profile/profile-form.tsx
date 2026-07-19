@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/select";
 import { formatDate, formatDateTime } from "@/lib/format";
 import type { PublicUser, PointLogItem } from "@/db/queries";
+import { MissionsSection } from "./missions-section";
 
 interface ProfileFormProps {
   user: PublicUser | null;
@@ -68,6 +69,7 @@ function GoogleIcon({ className }: { className?: string }) {
 export function ProfileForm({ user: initialUser }: ProfileFormProps) {
   const t = useTranslations("Profile");
   const tAuth = useTranslations("Auth");
+  const tCommon = useTranslations("Common");
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -110,8 +112,46 @@ export function ProfileForm({ user: initialUser }: ProfileFormProps) {
     }
   }, [initialUser, fetchLogs]);
 
-  // 未登录：展示登录引导
+  // 未登录：先客户端探测一次（access token 可能过期但 refresh 还有效），
+  // 避免登录态加载慢时卡在登录引导。探测完成前显示 loading，确认未登录才渲染引导。
+  const [authChecking, setAuthChecking] = useState(!initialUser);
+  useEffect(() => {
+    if (!authChecking) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/auth/me", { cache: "no-store" });
+        const json = (await res.json()) as {
+          success?: boolean;
+          data?: { authenticated?: boolean };
+        };
+        if (cancelled) return;
+        if (json.success && json.data?.authenticated) {
+          // 实际已登录，触发 SSR 重渲
+          router.refresh();
+          return;
+        }
+        setAuthChecking(false);
+      } catch {
+        if (!cancelled) setAuthChecking(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [authChecking, router]);
+
   if (!user) {
+    if (authChecking) {
+      return (
+        <Card>
+          <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
+            <Loader2 className="size-6 animate-spin text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">{tCommon("loading")}</p>
+          </CardContent>
+        </Card>
+      );
+    }
     function handleSignIn() {
       const next = window.location.pathname + window.location.search;
       window.location.href = `/api/auth/google?next=${encodeURIComponent(next)}`;
@@ -491,6 +531,18 @@ export function ProfileForm({ user: initialUser }: ProfileFormProps) {
             ) : null}
           </CardContent>
         </Card>
+
+        {/* 任务中心 */}
+        <MissionsSection
+          onBalanceChange={(b) => {
+            setUser((prev) =>
+              prev ? { ...prev, pointBalance: b } : prev,
+            );
+            // 余额变动后重新拉日志首页
+            Promise.resolve().then(() => fetchLogs(1));
+            router.refresh();
+          }}
+        />
       </div>
     </div>
   );

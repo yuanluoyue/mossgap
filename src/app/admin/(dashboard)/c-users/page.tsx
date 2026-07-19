@@ -69,7 +69,7 @@ export default async function CUsersPage({
     <div className="space-y-6">
       <div>
         <h1 className="font-heading text-2xl font-bold tracking-tight">
-          C 端用户管理
+          C 端用户
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
           共 {result.total} 个用户

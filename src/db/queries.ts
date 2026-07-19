@@ -1,4 +1,4 @@
-import { and, desc, eq, like, sql, asc, count, inArray, or, isNull } from "drizzle-orm";
+import { and, desc, eq, like, sql, asc, count, inArray, or, isNull, lt, lte, gte } from "drizzle-orm";
 import { getDb, schema } from "./index";
 import {
   admins,
@@ -24,6 +24,8 @@ import {
   sessions,
   pointAccounts,
   pointLogs,
+  missions,
+  userMissions,
 } from "./schema";
 import type {
   AdminFeedback,
@@ -2988,6 +2990,562 @@ export async function listUserPointLogs(
   opts: { page: number; pageSize: number },
 ): Promise<{ items: PointLogItem[]; total: number }> {
   return listMyPointLogs(userId, opts);
+}
+
+// ─── 任务系统 ───────────────────────────────────────────────
+
+export type MissionType = "daily" | "weekly" | "achievement";
+export type MissionStatus = "pending" | "completed" | "claimed";
+export type MissionEvent = "LOGIN" | "GAME_FINISH" | string;
+
+/**
+ * 多语言文本。数据库中以 JSON 字符串存储（向前兼容旧纯文本数据，
+ * 读取时若 JSON 解析失败则视为 { en: <原文>, zh: <原文> }）。
+ */
+export interface LocalizedText {
+  en: string;
+  zh: string;
+}
+
+/**
+ * 解析数据库中的 name/description 字段为 LocalizedText。
+ * - 标准：`{"en":"...","zh":"..."}`
+ * - 兼容：旧数据为纯字符串，en/zh 都取原文
+ */
+function parseLocalized(raw: string | null | undefined, fallback = ""): LocalizedText {
+  if (!raw) return { en: fallback, zh: fallback };
+  // 尝试 JSON 解析
+  if (raw.startsWith("{")) {
+    try {
+      const obj = JSON.parse(raw) as Partial<LocalizedText>;
+      return {
+        en: typeof obj.en === "string" ? obj.en : fallback,
+        zh: typeof obj.zh === "string" ? obj.zh : fallback,
+      };
+    } catch {
+      // 非法 JSON，走 fallback
+    }
+  }
+  return { en: raw, zh: raw };
+}
+
+/** 序列化 LocalizedText 为数据库存储的 JSON 字符串。 */
+function stringifyLocalized(value: LocalizedText): string {
+  return JSON.stringify(value);
+}
+
+/** 按 locale 取本地化文本（缺失则回退 en，再回退另一语言）。 */
+export function pickLocalized(value: LocalizedText, locale: string): string {
+  if (locale === "zh") {
+    return value.zh || value.en || "";
+  }
+  return value.en || value.zh || "";
+}
+
+export interface MissionItem {
+  id: string;
+  name: LocalizedText;
+  description: LocalizedText;
+  type: MissionType;
+  event: string | null;
+  target: number;
+  rewardType: string;
+  rewardValue: number;
+  icon: string | null;
+  sortOrder: number;
+  enabled: boolean;
+  startAt: string;
+  endAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UserMissionItem {
+  id: string;
+  userId: string;
+  missionId: string;
+  cycleKey: string;
+  progress: number;
+  status: MissionStatus;
+  claimedAt: string;
+  updatedAt: string;
+  /** 关联的任务定义（C 端列表需要展示） */
+  mission?: MissionItem;
+}
+
+function toMissionItem(row: typeof missions.$inferSelect): MissionItem {
+  return {
+    id: row.id,
+    name: parseLocalized(row.name),
+    description: parseLocalized(row.description ?? ""),
+    type: row.type as MissionType,
+    event: row.event,
+    target: row.target,
+    rewardType: row.rewardType,
+    rewardValue: row.rewardValue,
+    icon: row.icon,
+    sortOrder: row.sortOrder ?? 0,
+    enabled: !!row.enabled,
+    startAt: row.startAt ? toIso(row.startAt) : "",
+    endAt: row.endAt ? toIso(row.endAt) : "",
+    createdAt: toIso(row.createdAt),
+    updatedAt: toIso(row.updatedAt),
+  };
+}
+
+function toUserMissionItem(
+  row: typeof userMissions.$inferSelect,
+  mission?: typeof missions.$inferSelect,
+): UserMissionItem {
+  return {
+    id: row.id,
+    userId: row.userId,
+    missionId: row.missionId,
+    cycleKey: row.cycleKey,
+    progress: row.progress,
+    status: row.status as MissionStatus,
+    claimedAt: row.claimedAt ? toIso(row.claimedAt) : "",
+    updatedAt: toIso(row.updatedAt),
+    mission: mission ? toMissionItem(mission) : undefined,
+  };
+}
+
+/**
+ * 计算周期键。
+ * - daily: YYYY-MM-DD（UTC）
+ * - weekly: YYYY-Www（ISO 周历）
+ * - achievement: "once"（一次性，永不重置）
+ */
+export function computeCycleKey(
+  type: MissionType,
+  date: Date = new Date(),
+): string {
+  if (type === "achievement") return "once";
+  if (type === "daily") {
+    const y = date.getUTCFullYear();
+    const m = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const d = String(date.getUTCDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
+  // weekly: ISO 8601 周历 YYYY-Www
+  const tmp = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const dayNum = tmp.getUTCDay() || 7;
+  tmp.setUTCDate(tmp.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(tmp.getUTCFullYear(), 0, 1));
+  const weekNum = Math.ceil(((tmp.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  return `${tmp.getUTCFullYear()}-W${String(weekNum).padStart(2, "0")}`;
+}
+
+/** 判断任务在当前时间是否在有效期内。 */
+export function isMissionActiveAt(
+  mission: { startAt: number | null; endAt: number | null },
+  now: number = Math.floor(Date.now() / 1000),
+): boolean {
+  if (mission.startAt && now < mission.startAt) return false;
+  if (mission.endAt && now > mission.endAt) return false;
+  return true;
+}
+
+/** 列出所有已启用且当前有效期内的任务（C 端用）。 */
+export async function listActiveMissions(): Promise<MissionItem[]> {
+  const db = await getDb();
+  const now = Math.floor(Date.now() / 1000);
+  const rows = await db
+    .select()
+    .from(missions)
+    .where(
+      and(
+        eq(missions.enabled, 1),
+        or(isNull(missions.startAt), lte(missions.startAt, now)),
+        or(isNull(missions.endAt), gte(missions.endAt, now)),
+      ),
+    )
+    .orderBy(asc(missions.sortOrder), asc(missions.name));
+  return rows.map(toMissionItem);
+}
+
+/** 列出全部任务（B 端，分页 + 可选过滤）。 */
+export async function listAllMissions(opts: {
+  page: number;
+  pageSize: number;
+  search?: string;
+  type?: MissionType;
+  enabled?: boolean;
+}): Promise<{ items: MissionItem[]; total: number }> {
+  const db = await getDb();
+  const conds = [];
+  if (opts.search) {
+    conds.push(like(missions.name, `%${opts.search}%`));
+  }
+  if (opts.type) {
+    conds.push(eq(missions.type, opts.type));
+  }
+  if (opts.enabled !== undefined) {
+    conds.push(eq(missions.enabled, opts.enabled ? 1 : 0));
+  }
+  const where = conds.length > 0 ? and(...conds) : undefined;
+  const [rows, totalRows] = await Promise.all([
+    db
+      .select()
+      .from(missions)
+      .where(where)
+      .orderBy(asc(missions.sortOrder), desc(missions.createdAt))
+      .limit(opts.pageSize)
+      .offset((opts.page - 1) * opts.pageSize),
+    db.select({ value: count() }).from(missions).where(where),
+  ]);
+  return {
+    items: rows.map(toMissionItem),
+    total: totalRows[0]?.value ?? 0,
+  };
+}
+
+/** 按 ID 取任务定义。 */
+export async function getMissionById(id: string): Promise<MissionItem | null> {
+  const db = await getDb();
+  const row = await db
+    .select()
+    .from(missions)
+    .where(eq(missions.id, id))
+    .limit(1);
+  return row[0] ? toMissionItem(row[0]) : null;
+}
+
+/** 取任务原始行（用于内部判断 startAt/endAt 等）。 */
+async function getMissionRaw(id: string): Promise<typeof missions.$inferSelect | null> {
+  const db = await getDb();
+  const row = await db
+    .select()
+    .from(missions)
+    .where(eq(missions.id, id))
+    .limit(1);
+  return row[0] ?? null;
+}
+
+/** 创建任务。 */
+export async function createMission(input: {
+  name: LocalizedText;
+  description?: LocalizedText;
+  type: MissionType;
+  event?: string | null;
+  target: number;
+  rewardType?: string;
+  rewardValue?: number;
+  icon?: string | null;
+  sortOrder?: number;
+  enabled?: boolean;
+  startAt?: number | null;
+  endAt?: number | null;
+}): Promise<MissionItem> {
+  const db = await getDb();
+  const [row] = await db
+    .insert(missions)
+    .values({
+      name: stringifyLocalized(input.name),
+      description: stringifyLocalized(input.description ?? { en: "", zh: "" }),
+      type: input.type,
+      event: input.event ?? null,
+      target: input.target,
+      rewardType: input.rewardType ?? "point",
+      rewardValue: input.rewardValue ?? 0,
+      icon: input.icon ?? null,
+      sortOrder: input.sortOrder ?? 0,
+      enabled: input.enabled === false ? 0 : 1,
+      startAt: input.startAt ?? null,
+      endAt: input.endAt ?? null,
+    })
+    .returning();
+  return toMissionItem(row!);
+}
+
+/** 更新任务（全字段可选）。 */
+export async function updateMission(
+  id: string,
+  input: Partial<{
+    name: LocalizedText;
+    description: LocalizedText;
+    type: MissionType;
+    event: string | null;
+    target: number;
+    rewardType: string;
+    rewardValue: number;
+    icon: string | null;
+    sortOrder: number;
+    enabled: boolean;
+    startAt: number | null;
+    endAt: number | null;
+  }>,
+): Promise<MissionItem | null> {
+  const db = await getDb();
+  const patch: Record<string, unknown> = { updatedAt: Math.floor(Date.now() / 1000) };
+  if (input.name !== undefined) patch.name = stringifyLocalized(input.name);
+  if (input.description !== undefined) patch.description = stringifyLocalized(input.description);
+  if (input.type !== undefined) patch.type = input.type;
+  if (input.event !== undefined) patch.event = input.event;
+  if (input.target !== undefined) patch.target = input.target;
+  if (input.rewardType !== undefined) patch.rewardType = input.rewardType;
+  if (input.rewardValue !== undefined) patch.rewardValue = input.rewardValue;
+  if (input.icon !== undefined) patch.icon = input.icon;
+  if (input.sortOrder !== undefined) patch.sortOrder = input.sortOrder;
+  if (input.enabled !== undefined) patch.enabled = input.enabled ? 1 : 0;
+  if (input.startAt !== undefined) patch.startAt = input.startAt;
+  if (input.endAt !== undefined) patch.endAt = input.endAt;
+  const [row] = await db
+    .update(missions)
+    .set(patch)
+    .where(eq(missions.id, id))
+    .returning();
+  return row ? toMissionItem(row) : null;
+}
+
+/** 删除任务（cascade 会清理 user_missions）。 */
+export async function deleteMission(id: string): Promise<boolean> {
+  const db = await getDb();
+  const res = await db.delete(missions).where(eq(missions.id, id));
+  const changes = (res as unknown as { meta?: { changes?: number } })?.meta?.changes ?? 0;
+  return changes > 0;
+}
+
+/**
+ * 触发任务事件：推进所有匹配该 event 的已启用任务进度。
+ *
+ * 懒创建：若当前周期内 user_mission 不存在，先 INSERT（progress=0）。
+ * 然后自增 amount（封顶 target），达到 target 则标记 status=completed。
+ *
+ * 返回受影响的 userMission 列表（含 mission 关联）。
+ */
+export async function triggerMissionEvent(input: {
+  userId: string;
+  event: MissionEvent;
+  amount?: number;
+  /** 可选的业务 ID，用于幂等（如 gameId） */
+  bizId?: string;
+}): Promise<UserMissionItem[]> {
+  const db = await getDb();
+  const amount = Math.max(1, input.amount ?? 1);
+  const now = Math.floor(Date.now() / 1000);
+
+  // 1. 找匹配的已启用任务
+  const matched = await db
+    .select()
+    .from(missions)
+    .where(
+      and(
+        eq(missions.event, input.event),
+        eq(missions.enabled, 1),
+        or(isNull(missions.startAt), lte(missions.startAt, now)),
+        or(isNull(missions.endAt), gte(missions.endAt, now)),
+      ),
+    );
+
+  if (matched.length === 0) return [];
+
+  const updated: UserMissionItem[] = [];
+
+  for (const mission of matched) {
+    const cycleKey = computeCycleKey(mission.type as MissionType);
+
+    // 2. 懒创建（INSERT OR IGNORE）
+    await db
+      .insert(userMissions)
+      .values({
+        id: crypto.randomUUID(),
+        userId: input.userId,
+        missionId: mission.id,
+        cycleKey,
+        progress: 0,
+        status: "pending",
+        updatedAt: now,
+      })
+      .onConflictDoNothing({
+        target: [
+          userMissions.userId,
+          userMissions.missionId,
+          userMissions.cycleKey,
+        ],
+      });
+
+    // 3. 读当前状态
+    const existing = await db
+      .select()
+      .from(userMissions)
+      .where(
+        and(
+          eq(userMissions.userId, input.userId),
+          eq(userMissions.missionId, mission.id),
+          eq(userMissions.cycleKey, cycleKey),
+        ),
+      )
+      .limit(1);
+
+    const um = existing[0];
+    if (!um) continue;
+    // 已领取或已完成则不再推进
+    if (um.status === "completed" || um.status === "claimed") {
+      updated.push(toUserMissionItem(um, mission));
+      continue;
+    }
+
+    // 4. 推进进度（封顶 target）
+    const newProgress = Math.min(mission.target, um.progress + amount);
+    const newStatus = newProgress >= mission.target ? "completed" : "pending";
+    await db
+      .update(userMissions)
+      .set({
+        progress: newProgress,
+        status: newStatus,
+        updatedAt: now,
+      })
+      .where(eq(userMissions.id, um.id));
+
+    updated.push(
+      toUserMissionItem(
+        {
+          ...um,
+          progress: newProgress,
+          status: newStatus as MissionStatus,
+          updatedAt: now,
+        },
+        mission,
+      ),
+    );
+  }
+
+  return updated;
+}
+
+/**
+ * 领取任务奖励。
+ *
+ * 要求 status=completed。原子地：
+ * 1. 调用 adjustPoints 发放奖励（type=earn, bizType="mission:<missionId>", bizId=cycleKey）
+ * 2. 标记 status=claimed, claimedAt=now
+ *
+ * 若已领取过（point_logs 已存在同 bizType+bizId），仍标记为 claimed 但不重复发奖。
+ */
+export async function claimMissionReward(
+  userMissionId: string,
+  ownerUserId?: string,
+): Promise<{ ok: true; balance: number; reward: number } | { ok: false; reason: "not_found" | "not_completed" | "already_claimed" | "forbidden" }> {
+  const db = await getDb();
+  const now = Math.floor(Date.now() / 1000);
+
+  const umRow = await db
+    .select()
+    .from(userMissions)
+    .where(eq(userMissions.id, userMissionId))
+    .limit(1);
+  const um = umRow[0];
+  if (!um) return { ok: false, reason: "not_found" };
+  if (ownerUserId && um.userId !== ownerUserId) return { ok: false, reason: "forbidden" };
+  if (um.status === "claimed") return { ok: false, reason: "already_claimed" };
+  if (um.status !== "completed") return { ok: false, reason: "not_completed" };
+
+  const mission = await getMissionRaw(um.missionId);
+  if (!mission) return { ok: false, reason: "not_found" };
+
+  // 幂等检查：是否已发过奖
+  const bizType = `mission:${mission.id}`;
+  const bizId = um.cycleKey;
+  const existingLog = await findPointLogByBiz(um.userId, bizType, bizId);
+  let balance = 0;
+  if (!existingLog && mission.rewardValue > 0) {
+    const result = await adjustPoints({
+      userId: um.userId,
+      change: mission.rewardValue,
+      type: "earn",
+      bizType,
+      bizId,
+      remark: mission.name,
+    });
+    balance = result?.balance ?? 0;
+  } else {
+    balance = await getUserPointBalance(um.userId);
+  }
+
+  await db
+    .update(userMissions)
+    .set({
+      status: "claimed",
+      claimedAt: now,
+      updatedAt: now,
+    })
+    .where(eq(userMissions.id, userMissionId));
+
+  return { ok: true, balance, reward: mission.rewardValue };
+}
+
+/**
+ * 列出当前用户在当前周期内所有可领取/进行中的任务进度。
+ * 含未触发的任务（lazy 创建后 progress=0）。
+ */
+export async function listMyMissions(
+  userId: string,
+): Promise<UserMissionItem[]> {
+  const db = await getDb();
+  const activeMissions = await listActiveMissions();
+  if (activeMissions.length === 0) return [];
+
+  const now = Math.floor(Date.now() / 1000);
+  const result: UserMissionItem[] = [];
+
+  for (const m of activeMissions) {
+    const cycleKey = computeCycleKey(m.type);
+    // 懒创建（INSERT OR IGNORE）
+    const missionRaw = await getMissionRaw(m.id);
+    if (!missionRaw) continue;
+    await db
+      .insert(userMissions)
+      .values({
+        id: crypto.randomUUID(),
+        userId,
+        missionId: m.id,
+        cycleKey,
+        progress: 0,
+        status: "pending",
+        updatedAt: now,
+      })
+      .onConflictDoNothing({
+        target: [
+          userMissions.userId,
+          userMissions.missionId,
+          userMissions.cycleKey,
+        ],
+      });
+
+    const row = await db
+      .select()
+      .from(userMissions)
+      .where(
+        and(
+          eq(userMissions.userId, userId),
+          eq(userMissions.missionId, m.id),
+          eq(userMissions.cycleKey, cycleKey),
+        ),
+      )
+      .limit(1);
+    if (row[0]) {
+      result.push(toUserMissionItem(row[0], missionRaw));
+    }
+  }
+
+  return result;
+}
+
+/**
+ * 清理 N 天前的 user_missions（用于 Cloudflare Cron）。
+ * 仅清理已领取或周期已结束的记录；保留近 N 天用于审计。
+ */
+export async function cleanupOldUserMissions(
+  days: number = 180,
+): Promise<{ deleted: number }> {
+  const db = await getDb();
+  const cutoff = Math.floor(Date.now() / 1000) - days * 86400;
+  const res = await db
+    .delete(userMissions)
+    .where(lt(userMissions.updatedAt, cutoff));
+  const changes = (res as unknown as { meta?: { changes?: number } })?.meta?.changes ?? 0;
+  return { deleted: changes };
 }
 
 export { schema, asc };

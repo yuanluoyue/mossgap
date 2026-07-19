@@ -12,13 +12,14 @@
  */
 import { getPlatformProxy } from "wrangler";
 import { drizzle } from "drizzle-orm/d1";
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, isNull, like } from "drizzle-orm";
 import {
   admins,
   sysRoles,
   sysMenus,
   sysRoleMenus,
   sysUserRoles,
+  missions,
 } from "../src/db/schema";
 import { hashPassword } from "../src/lib/password";
 
@@ -49,6 +50,7 @@ const menuTree = [
     sort_order: 2,
     children: [
       { name: "C端用户", path: "/admin/c-users", icon: "Users", sort_order: 0 },
+      { name: "任务管理", path: "/admin/missions", icon: "Target", sort_order: 1 },
     ],
   },
   {
@@ -65,13 +67,52 @@ const menuTree = [
   },
 ];
 
+/**
+ * 内置任务定义（幂等：按 name.en 唯一性插入）。
+ * 每日签到：C 端登录后触发 LOGIN 事件，自动领取 1 积分。
+ * name/description 为 {en, zh} 双语结构，数据库以 JSON 字符串存储。
+ */
+const builtinMissions: Array<{
+  name: { en: string; zh: string };
+  description: { en: string; zh: string };
+  type: "daily" | "weekly" | "achievement";
+  event: string | null;
+  target: number;
+  rewardType: string;
+  rewardValue: number;
+  icon: string;
+  sortOrder: number;
+  enabled: number;
+}> = [
+  {
+    name: { en: "Daily Check-in", zh: "每日签到" },
+    description: {
+      en: "Sign in daily to claim 1 point reward.",
+      zh: "每日登录并签到，领取 1 积分奖励。",
+    },
+    type: "daily",
+    event: "LOGIN",
+    target: 1,
+    rewardType: "point",
+    rewardValue: 1,
+    icon: "🎁",
+    sortOrder: 0,
+    enabled: 1,
+  },
+];
+
+/** 将 LocalizedText 序列化为数据库存储的 JSON 字符串。 */
+function locJson(v: { en: string; zh: string }): string {
+  return JSON.stringify(v);
+}
+
 // ===== 本地 seed（通过 wrangler 本地 D1 binding） =====
 
 async function seedLocal() {
   const proxy = await getPlatformProxy({ configPath: "./wrangler.jsonc" });
   try {
     const db = drizzle(proxy.env.DB as D1Database, {
-      schema: { admins, sysRoles, sysMenus, sysRoleMenus, sysUserRoles },
+      schema: { admins, sysRoles, sysMenus, sysRoleMenus, sysUserRoles, missions },
     });
 
     // 1. admin 账号
@@ -222,6 +263,33 @@ async function seedLocal() {
       console.log(`[skip] 用户-角色映射已存在`);
     }
 
+    // 6. 内置任务（按 name JSON 中的 en 字段幂等插入）
+    for (const m of builtinMissions) {
+      // name 存的是 JSON 字符串，用 like 匹配 "en":"<value>" 判断是否已存在
+      const exists = await db
+        .select({ id: missions.id })
+        .from(missions)
+        .where(like(missions.name, `%"en":"${m.name.en}"%`))
+        .limit(1);
+      if (exists.length === 0) {
+        await db.insert(missions).values({
+          name: locJson(m.name),
+          description: locJson(m.description),
+          type: m.type,
+          event: m.event,
+          target: m.target,
+          rewardType: m.rewardType,
+          rewardValue: m.rewardValue,
+          icon: m.icon,
+          sortOrder: m.sortOrder,
+          enabled: m.enabled,
+        });
+        console.log(`[ok] 任务: ${m.name.en}`);
+      } else {
+        console.log(`[skip] 任务 "${m.name.en}" 已存在`);
+      }
+    }
+
     console.log("\n[done] seed 完成");
   } finally {
     await proxy.dispose();
@@ -282,6 +350,15 @@ async function seedRemote() {
   lines.push(
     `INSERT OR IGNORE INTO sys_user_roles (admin_id, role_id, created_at) SELECT a.id, r.id, ${now} FROM admins a, sys_roles r WHERE a.username = 'admin' AND r.code = 'admin' AND NOT EXISTS (SELECT 1 FROM sys_user_roles ur WHERE ur.admin_id = a.id AND ur.role_id = r.id);`,
   );
+
+  // 内置任务（按 name JSON 中的 en 字段幂等插入）
+  for (const m of builtinMissions) {
+    const nameJson = locJson(m.name);
+    const descJson = locJson(m.description);
+    lines.push(
+      `INSERT INTO missions (id, name, description, type, event, target, reward_type, reward_value, icon, sort_order, enabled, created_at, updated_at) SELECT ${sqlStr(crypto.randomUUID())}, ${sqlStr(nameJson)}, ${sqlStr(descJson)}, ${sqlStr(m.type)}, ${sqlStr(m.event)}, ${m.target}, ${sqlStr(m.rewardType)}, ${m.rewardValue}, ${sqlStr(m.icon)}, ${m.sortOrder}, ${m.enabled}, ${now}, ${now} WHERE NOT EXISTS (SELECT 1 FROM missions WHERE name LIKE ${sqlStr(`%"en":"${m.name.en}"%`)});`,
+    );
+  }
 
   const sql = lines.join("\n");
 

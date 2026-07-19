@@ -39,6 +39,10 @@
     // 生产站点 URL，供 sitemap.ts / SEO 元信息使用
     "NEXT_PUBLIC_APP_URL": "https://mossgap.com",
   },
+  // 定时任务清理 180 天前的 user_missions：
+  // OpenNext worker 仅导出 fetch，无法使用 [triggers] crons 直接触发 scheduled handler。
+  // 使用外部 cron（cron-job.org / GitHub Actions）定时 POST /api/cron/cleanup-missions，
+  // 通过 X-Cron-Secret 头校验。CRON_SECRET 通过 `wrangler secret put CRON_SECRET` 设置。
   "images": {
     "binding": "IMAGES"
   },

@@ -383,5 +383,25 @@
     "pointTime": "Time",
     "prev": "Previous",
     "next": "Next"
+  },
+  "Mission": {
+    "title": "Missions",
+    "description": "Complete missions to earn rewards",
+    "checkIn": "Check in",
+    "checkedIn": "Checked in",
+    "checkInSuccess": "Checked in! +{reward} points",
+    "checkInAlready": "Already checked in today",
+    "checkInFailed": "Check-in failed",
+    "claim": "Claim",
+    "claimSuccess": "Reward claimed! +{reward} points",
+    "claimFailed": "Failed to claim reward",
+    "loading": "Loading missions...",
+    "empty": "No missions available",
+    "statusPending": "In progress",
+    "statusCompleted": "Ready to claim",
+    "statusClaimed": "Claimed",
+    "typeDaily": "Daily",
+    "typeWeekly": "Weekly",
+    "typeAchievement": "Achievement"
   }
 }

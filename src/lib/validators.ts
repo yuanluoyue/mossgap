@@ -460,3 +460,68 @@ export const listPointLogsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(10),
 });
+
+// ─── 任务系统 ───────────────────────────────────────────────
+
+/** 多语言文本校验：{ en, zh }，en 必填，zh 可空。 */
+const localizedTextSchema = z.object({
+  en: z.string().min(1, "英文名称不能为空").max(120),
+  zh: z.string().max(120).default(""),
+});
+
+/** B 端任务列表查询参数。 */
+export const listMissionsQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(10),
+  search: z.string().optional(),
+  type: z.enum(["daily", "weekly", "achievement"]).optional(),
+  enabled: z
+    .enum(["true", "false", "1", "0"])
+    .optional()
+    .transform((v) => (v === undefined ? undefined : v === "true" || v === "1")),
+});
+
+/** 任务创建校验。 */
+export const missionCreateSchema = z.object({
+  name: localizedTextSchema,
+  description: z
+    .object({
+      en: z.string().max(2000).default(""),
+      zh: z.string().max(2000).default(""),
+    })
+    .default({ en: "", zh: "" }),
+  type: z.enum(["daily", "weekly", "achievement"]),
+  event: z.string().max(64).optional().nullable().default(null),
+  target: z.number().int().min(1, "目标值至少为 1").max(1000000).default(1),
+  rewardType: z.string().max(32).default("point"),
+  rewardValue: z.number().int().min(0).max(1000000).default(0),
+  icon: z.string().max(255).optional().nullable().default(null),
+  sortOrder: z.number().int().min(0).max(9999).optional().default(0),
+  enabled: z.boolean().optional().default(true),
+  startAt: z.number().int().nullable().optional().default(null),
+  endAt: z.number().int().nullable().optional().default(null),
+});
+
+/** 任务更新校验（全字段可选）。 */
+export const missionUpdateSchema = z.object({
+  name: localizedTextSchema.optional(),
+  description: z
+    .object({
+      en: z.string().max(2000),
+      zh: z.string().max(2000),
+    })
+    .optional(),
+  type: z.enum(["daily", "weekly", "achievement"]).optional(),
+  event: z.string().max(64).nullable().optional(),
+  target: z.number().int().min(1).max(1000000).optional(),
+  rewardType: z.string().max(32).optional(),
+  rewardValue: z.number().int().min(0).max(1000000).optional(),
+  icon: z.string().max(255).nullable().optional(),
+  sortOrder: z.number().int().min(0).max(9999).optional(),
+  enabled: z.boolean().optional(),
+  startAt: z.number().int().nullable().optional(),
+  endAt: z.number().int().nullable().optional(),
+});
+
+export type MissionCreateInput = z.infer<typeof missionCreateSchema>;
+export type MissionUpdateInput = z.infer<typeof missionUpdateSchema>;
