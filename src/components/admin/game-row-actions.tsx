@@ -20,14 +20,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogClose,
-} from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GamePlayer } from "@/components/game-player";
 import { GameBasicInfoDrawer } from "@/components/admin/game-basic-info-drawer";
@@ -82,6 +74,23 @@ export function GameRowActions({
     url.searchParams.delete("edit");
     router.replace(url.pathname + url.search, { scroll: false });
   }, [initialBasicOpen, router]);
+
+  // 预览弹窗打开时：ESC 关闭 + 锁定 body 滚动。
+  // 不用 Radix Dialog 是因为 Dialog 的 transform 居中会创建额外 compositing layer，
+  // 导致 iframe 内游戏渲染掉帧（Chromium 已知行为）。
+  useEffect(() => {
+    if (!previewOpen) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setPreviewOpen(false);
+    }
+    document.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [previewOpen]);
 
   async function onConfirmDelete() {
     if (deleting) return;
@@ -234,42 +243,54 @@ export function GameRowActions({
         onConfirm={onConfirmDelete}
       />
 
-      {/* 预览弹窗：header（标题 + 关闭按钮） + 带边框的 GamePlayer */}
-      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent
-          className="max-w-fit gap-0 overflow-hidden p-0 sm:max-w-fit"
-          showCloseButton={false}
+      {/* 预览弹窗：自定义 fixed overlay（不用 Radix Dialog）。
+          原因：Radix Dialog 用 transform 居中 + zoom-in 动画，
+          会创建额外 compositing layer，导致 iframe 内游戏掉帧。
+          这里用 flex 居中，无 transform，iframe 走正常合成路径。 */}
+      {previewOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/10 p-4 supports-backdrop-filter:backdrop-blur-xs"
+          onClick={(e) => {
+            // 点击遮罩（非卡片内部）关闭
+            if (e.target === e.currentTarget) setPreviewOpen(false);
+          }}
         >
-          <DialogHeader className="sr-only">
-            <DialogTitle>{title}</DialogTitle>
-            <DialogDescription>游戏预览</DialogDescription>
-          </DialogHeader>
-          {/* 顶部 bar：标题 + 显式关闭按钮（放在游戏 iframe 外，避免误点游戏） */}
-          <div className="flex items-center justify-between gap-3 border-b bg-background px-4 py-2.5">
-            <span className="truncate text-sm font-medium">{title}</span>
-            <DialogClose asChild>
-              <Button variant="ghost" size="icon-sm" aria-label="关闭预览">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={`预览：${title}`}
+            className="overflow-hidden rounded-xl bg-popover shadow-lg ring-1 ring-foreground/10"
+          >
+            {/* 顶部 bar：标题 + 显式关闭按钮（放在游戏 iframe 外，避免误点游戏） */}
+            <div className="flex items-center justify-between gap-3 border-b bg-background px-4 py-2.5">
+              <span className="truncate text-sm font-medium">{title}</span>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="关闭预览"
+                onClick={() => setPreviewOpen(false)}
+              >
                 <X className="size-4" />
               </Button>
-            </DialogClose>
-          </div>
-          {playUrl ? (
-            <div className="bg-muted/30 p-3">
-              <div className="overflow-hidden rounded-lg border-2 border-border/80 shadow-sm">
-                <GamePlayer
-                  src={playUrl}
-                  title={title}
-                  loadingLabel="加载中..."
-                />
+            </div>
+            {playUrl ? (
+              <div className="bg-muted/30 p-3">
+                <div className="overflow-hidden rounded-lg border-2 border-border/80 shadow-sm">
+                  <GamePlayer
+                    src={playUrl}
+                    title={title}
+                    loadingLabel="加载中..."
+                  />
+                </div>
               </div>
-            </div>
-          ) : (
-            <div className="flex h-[470px] w-[836px] items-center justify-center text-sm text-muted-foreground">
-              暂无可预览的游戏资源
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+            ) : (
+              <div className="flex h-[470px] w-[836px] items-center justify-center text-sm text-muted-foreground">
+                暂无可预览的游戏资源
+              </div>
+            )}
+          </div>
+        </div>
+      ) : null}
 
       {/* 编辑基本信息抽屉（仅在打开时挂载，避免 N 行 N 个富文本实例） */}
       {basicOpen ? (
