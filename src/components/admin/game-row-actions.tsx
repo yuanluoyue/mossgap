@@ -10,6 +10,7 @@ import {
   Play,
   Pencil,
   FileText,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -25,6 +26,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogClose,
 } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GamePlayer } from "@/components/game-player";
@@ -232,22 +234,35 @@ export function GameRowActions({
         onConfirm={onConfirmDelete}
       />
 
-      {/* 预览弹窗：与 C 端一致的 GamePlayer 836×470 */}
+      {/* 预览弹窗：header（标题 + 关闭按钮） + 带边框的 GamePlayer */}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent
           className="max-w-fit gap-0 overflow-hidden p-0 sm:max-w-fit"
-          showCloseButton
+          showCloseButton={false}
         >
           <DialogHeader className="sr-only">
             <DialogTitle>{title}</DialogTitle>
             <DialogDescription>游戏预览</DialogDescription>
           </DialogHeader>
+          {/* 顶部 bar：标题 + 显式关闭按钮（放在游戏 iframe 外，避免误点游戏） */}
+          <div className="flex items-center justify-between gap-3 border-b bg-background px-4 py-2.5">
+            <span className="truncate text-sm font-medium">{title}</span>
+            <DialogClose asChild>
+              <Button variant="ghost" size="icon-sm" aria-label="关闭预览">
+                <X className="size-4" />
+              </Button>
+            </DialogClose>
+          </div>
           {playUrl ? (
-            <GamePlayer
-              src={playUrl}
-              title={title}
-              loadingLabel="加载中..."
-            />
+            <div className="bg-muted/30 p-3">
+              <div className="overflow-hidden rounded-lg border-2 border-border/80 shadow-sm">
+                <GamePlayer
+                  src={playUrl}
+                  title={title}
+                  loadingLabel="加载中..."
+                />
+              </div>
+            </div>
           ) : (
             <div className="flex h-[470px] w-[836px] items-center justify-center text-sm text-muted-foreground">
               暂无可预览的游戏资源

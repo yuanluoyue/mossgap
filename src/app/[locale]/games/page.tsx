@@ -9,6 +9,7 @@ import {
   listGameCards,
   getPublicCategoryBySlug,
   listPublicCategories,
+  listPublicTags,
 } from "@/db/queries";
 import { buildPageMetadata, getSiteUrl } from "@/lib/seo";
 import { cn } from "@/lib/utils";
@@ -70,6 +71,8 @@ export default async function GamesPage({
 
   // 拉取所有可见分类供筛选下拉使用
   const allCategories = await listPublicCategories(localeCode).catch(() => []);
+  // 拉取所有可见标签供筛选下拉使用（选中后跳转到 /tags/[slug] 聚合页）
+  const allTags = await listPublicTags(localeCode).catch(() => []);
 
   const { items, total } = await listGameCards(
     { page, pageSize: PAGE_SIZE, categoryId, sort, q },
@@ -144,12 +147,17 @@ export default async function GamesPage({
         <p className="mt-2 text-sm text-muted-foreground">{t("subtitle")}</p>
       </header>
 
-      {/* 筛选条：分类 + 搜索 + 排序 */}
+      {/* 筛选条：分类 + 标签 + 搜索 + 排序 */}
       <GamesFilter
         categories={allCategories.map((c) => ({
           slug: c.slug,
           name: c.name,
           gameCount: c.gameCount,
+        }))}
+        tags={allTags.map((t) => ({
+          slug: t.slug,
+          name: t.name,
+          gameCount: t.gameCount,
         }))}
       />
 

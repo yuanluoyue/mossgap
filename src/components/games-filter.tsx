@@ -20,19 +20,29 @@ export interface GamesFilterCategory {
   gameCount: number;
 }
 
+export interface GamesFilterTag {
+  slug: string;
+  name: string;
+  gameCount: number;
+}
+
 interface GamesFilterProps {
   categories: GamesFilterCategory[];
+  /** 可见标签列表；选中后跳转到 /tags/[slug] 聚合页 */
+  tags: GamesFilterTag[];
 }
 
 /**
  * C 端游戏列表筛选条
  * - 分类下拉（按 slug）
+ * - 标签下拉（选中即跳转到 /tags/[slug] 聚合页）
  * - 搜索框（带防抖，回车立即触发）
  * - 排序下拉（最新 / 最热）
  *
- * 所有筛选条件通过 URL searchParams 驱动，方便 SEO 抓取与分享。
+ * 分类/搜索/排序通过 URL searchParams 驱动，方便 SEO 抓取与分享；
+ * 标签筛选是页面跳转，由 /tags/[slug] 路由处理。
  */
-export function GamesFilter({ categories }: GamesFilterProps) {
+export function GamesFilter({ categories, tags }: GamesFilterProps) {
   const t = useTranslations("Games");
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -65,6 +75,14 @@ export function GamesFilter({ categories }: GamesFilterProps) {
     updateParams({
       category: value === "all" ? null : value,
     });
+  }
+
+  /**
+   * 选中标签后直接跳转到 /tags/[slug] 聚合页。
+   * 不在 /games 页内做标签筛选，避免与 /tags 页面职责重叠。
+   */
+  function onTagChange(slug: string) {
+    router.push(`/tags/${slug}`);
   }
 
   function onSortChange(value: string) {
@@ -100,7 +118,7 @@ export function GamesFilter({ categories }: GamesFilterProps) {
 
   return (
     <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      {/* 左：分类 + 搜索 */}
+      {/* 左：分类 + 标签 + 搜索 */}
       <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
         <Select value={currentCategory} onValueChange={onCategoryChange}>
           <SelectTrigger className="h-10 w-full sm:w-[180px]">
@@ -120,6 +138,26 @@ export function GamesFilter({ categories }: GamesFilterProps) {
             ))}
           </SelectContent>
         </Select>
+
+        {tags.length > 0 ? (
+          <Select onValueChange={onTagChange}>
+            <SelectTrigger className="h-10 w-full sm:w-[180px]">
+              <SelectValue placeholder={t("tagsLabel")} />
+            </SelectTrigger>
+            <SelectContent>
+              {tags.map((tg) => (
+                <SelectItem key={tg.slug} value={tg.slug}>
+                  {tg.name}
+                  {tg.gameCount > 0 ? (
+                    <span className="ml-1 text-xs text-muted-foreground">
+                      ({tg.gameCount})
+                    </span>
+                  ) : null}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : null}
 
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
