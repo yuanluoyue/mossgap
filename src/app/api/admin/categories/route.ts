@@ -11,7 +11,7 @@ import {
 } from "@/lib/validators";
 import { requireAdmin, parseJson } from "@/lib/api-guard";
 import { createAuditLog } from "@/lib/audit-log";
-import { handleApiError, isZodError, collectZodIssues } from "@/lib/api-error";
+import { handleApiError } from "@/lib/api-error";
 import { ok, fail } from "@/types";
 import { hasServerEnv } from "@/env";
 
@@ -92,20 +92,6 @@ export async function POST(req: Request) {
 
     return NextResponse.json(ok(category), { status: 201 });
   } catch (err) {
-    if (isZodError(err)) {
-      const issues = collectZodIssues(err);
-      console.error("[API] POST /api/admin/categories · 校验失败", {
-        issues,
-        raw: (err as { issues?: unknown }).issues,
-      });
-      return NextResponse.json(
-        fail(
-          "VALIDATION_ERROR",
-          issues.length > 0 ? issues.join("; ") : "参数校验失败",
-        ),
-        { status: 400 },
-      );
-    }
     return handleApiError("POST /api/admin/categories", err);
   }
 }

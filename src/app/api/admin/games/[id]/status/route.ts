@@ -7,7 +7,7 @@ import {
   parseJson,
 } from "@/lib/api-guard";
 import { createAuditLog } from "@/lib/audit-log";
-import { handleApiError, isZodError, collectZodIssues } from "@/lib/api-error";
+import { handleApiError } from "@/lib/api-error";
 import { ok, fail } from "@/types";
 import { hasServerEnv } from "@/env";
 
@@ -51,20 +51,6 @@ export async function PATCH(
   try {
     input = updateGameStatusSchema.parse(data);
   } catch (err) {
-    if (isZodError(err)) {
-      const issues = collectZodIssues(err);
-      console.error(`[API] PATCH /api/admin/games/${id}/status · 校验失败`, {
-        id,
-        issues,
-      });
-      return NextResponse.json(
-        fail(
-          "VALIDATION_ERROR",
-          issues.length > 0 ? issues.join("; ") : "参数校验失败",
-        ),
-        { status: 400 },
-      );
-    }
     return handleApiError(`PATCH /api/admin/games/${id}/status · parse`, err);
   }
 

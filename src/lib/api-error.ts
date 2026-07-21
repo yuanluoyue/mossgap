@@ -40,12 +40,15 @@ export function collectZodIssues(err: unknown): string[] {
  *
  * 这是排查 500 的关键：之前 catch 块只返回错误码，没有任何日志，
  * 导致无法定位真实原因。现在统一在此打印完整详情。
+ *
+ * ZodError 用 console.warn：参数校验失败属于业务错误（用户提交非法输入），
+ * 不应上报为系统错误触发告警。真正的服务端异常才用 console.error。
  */
 export function logApiError(context: string, err: unknown): void {
   const ts = new Date().toISOString();
   if (isZodError(err)) {
     const issues = collectZodIssues(err);
-    console.error(`[${ts}] [API ERROR] ${context} · ZodError`, {
+    console.warn(`[${ts}] [API WARN] ${context} · ZodError`, {
       context,
       issues,
       allIssues: (err as { issues?: unknown }).issues,

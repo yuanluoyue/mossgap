@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { signIn, setAuthCookie } from "@/lib/auth";
 import { loginSchema } from "@/lib/validators";
-import { handleApiError, isZodError, collectZodIssues } from "@/lib/api-error";
+import { handleApiError } from "@/lib/api-error";
 import { ok, fail } from "@/types";
 import { hasServerEnv } from "@/env";
 
@@ -43,20 +43,6 @@ export async function POST(req: Request) {
     await setAuthCookie(result.token);
     return NextResponse.json(ok({ username }));
   } catch (err) {
-    if (isZodError(err)) {
-      const issues = collectZodIssues(err);
-      console.error("[API] POST /api/admin/login · 校验失败", {
-        issues,
-        raw: (err as { issues?: unknown }).issues,
-      });
-      return NextResponse.json(
-        fail(
-          "VALIDATION_ERROR",
-          issues.length > 0 ? issues.join("; ") : "参数校验失败",
-        ),
-        { status: 400 },
-      );
-    }
     return handleApiError("POST /api/admin/login", err);
   }
 }
