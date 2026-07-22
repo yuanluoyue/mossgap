@@ -1016,6 +1016,63 @@ export type NewUserInventory = typeof userInventory.$inferInsert;
 export type InventoryLog = typeof inventoryLogs.$inferSelect;
 export type NewInventoryLog = typeof inventoryLogs.$inferInsert;
 
+// ─── 宠物系统 ───────────────────────────────────────────────
+
+/**
+ * 宠物表（animals）。
+ *
+ * - ownerId: 持有者（C 端用户），一人可有多只
+ * - speciesId: 物种标识（字符串，如 "moss_pet"），不做外键约束
+ * - genome: 基因 JSON 字符串（plain text 存储，应用层 parse，参考 badge/faq）
+ * - generation: 代数（1=初代，由兑换/发放产生；>1=繁殖产生）
+ * - fatherId/motherId: 父母宠物 ID（自引用，nullable：初代无父母）
+ * - breedCount: 繁殖次数
+ * - cooldownAt: 下次可繁殖时间（nullable）
+ * - status: active(正常)/resting(休息中)
+ *
+ * 基因结构见 PetGenome 类型。当前不渲染画面，仅展示基因卡片。
+ */
+export const animals = sqliteTable(
+  "animals",
+  {
+    id: text("id")
+      .primaryKey()
+      .notNull()
+      .$defaultFn(genUuid),
+    ownerId: text("owner_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    speciesId: text("species_id").notNull(),
+    // 基因 JSON 字符串（plain text，应用层手动 parse）
+    genome: text("genome").notNull(),
+    generation: integer("generation").notNull().default(1),
+    // 自引用：父母宠物 ID。Drizzle 不支持自引用外键约束在 D1，应用层保证。
+    fatherId: text("father_id"),
+    motherId: text("mother_id"),
+    breedCount: integer("breed_count").notNull().default(0),
+    // 下次可繁殖时间（Unix 秒，nullable：可立即繁殖）
+    cooldownAt: integer("cooldown_at"),
+    status: text("status", {
+      enum: ["active", "resting"],
+    }).notNull().default("active"),
+    createdAt: integer("created_at")
+      .notNull()
+      .$defaultFn(nowSeconds),
+    updatedAt: integer("updated_at")
+      .notNull()
+      .$defaultFn(nowSeconds),
+  },
+  (t) => ({
+    ownerIdx: index("animals_owner_id_idx").on(t.ownerId),
+    speciesIdx: index("animals_species_id_idx").on(t.speciesId),
+    generationIdx: index("animals_generation_idx").on(t.generation),
+    statusIdx: index("animals_status_idx").on(t.status),
+  }),
+);
+
+export type Animal = typeof animals.$inferSelect;
+export type NewAnimal = typeof animals.$inferInsert;
+
 // Zod Schemas（前后端共享校验）
 export const insertGameSchema = createInsertSchema(games);
 export const selectGameSchema = createSelectSchema(games);

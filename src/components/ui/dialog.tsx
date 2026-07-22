@@ -61,15 +61,19 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         onInteractOutside={(e) => {
-          // Radix Select / DropdownMenu 等浮层 portal 渲染在 body 顶层，
-          // 点击它们时会被 Dialog 误判为外部点击而关闭。这里守卫一下：
+          // Radix Select / DropdownMenu / Popover 等浮层 portal 渲染在 body
+          // 顶层，点击它们时会被 Dialog 误判为外部点击而关闭。这里守卫一下：
           // 若点击落在另一个 Radix 浮层内，阻止 Dialog 关闭。
           const target = e.target as HTMLElement | null;
-          if (
-            target?.closest?.("[data-slot='select-content']") ||
-            target?.closest?.("[data-radix-popper-content-wrapper]") ||
-            target?.closest?.("[role='listbox']")
-          ) {
+          if (!target) return;
+          const inFloatingLayer =
+            target.closest("[data-slot='select-content']") ||
+            target.closest("[data-radix-select-content]") ||
+            target.closest("[data-radix-popper-content-wrapper]") ||
+            target.closest("[role='listbox']") ||
+            target.closest("[data-slot='popover-content']") ||
+            target.closest("[data-radix-tooltip-content]");
+          if (inFloatingLayer) {
             e.preventDefault();
           }
         }}

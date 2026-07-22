@@ -597,3 +597,80 @@ export const itemUpdateSchema = z.object({
 
 export type ItemCreateInput = z.infer<typeof itemCreateSchema>;
 export type ItemUpdateInput = z.infer<typeof itemUpdateSchema>;
+
+// ─── 宠物系统 ───────────────────────────────────────────────
+
+/** 基础基因校验（6 个维度，每个字符串）。 */
+const petGenesSchema = z.object({
+  body: z.string().max(64).default(""),
+  eye: z.string().max(64).default(""),
+  tail: z.string().max(64).default(""),
+  pattern: z.string().max(64).default(""),
+  element: z.string().max(64).default(""),
+  personality: z.string().max(64).default(""),
+});
+
+/** 额外基因校验（可选稀有属性）。 */
+const petExtraGenesSchema = z
+  .object({
+    aura: z.string().max(64).optional(),
+    horn: z.string().max(64).optional(),
+    wing: z.string().max(64).optional(),
+  })
+  .optional();
+
+/** 基因组校验。 */
+export const petGenomeSchema = z.object({
+  version: z.number().int().min(1).default(1),
+  genes: petGenesSchema,
+  extraGenes: petExtraGenesSchema,
+});
+
+export type PetGenomeInput = z.infer<typeof petGenomeSchema>;
+
+/** B 端宠物列表查询参数。 */
+export const listAnimalsQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(10),
+  search: z.string().optional(),
+  speciesId: z.string().optional(),
+  status: z.enum(["active", "resting"]).optional(),
+  ownerId: z.string().optional(),
+});
+
+/** 宠物创建校验（B 端手动发放）。 */
+export const animalCreateSchema = z.object({
+  ownerId: z.string().min(1, "持有者不能为空"),
+  speciesId: z
+    .string()
+    .min(1, "物种不能为空")
+    .max(64)
+    .regex(/^[a-z][a-z0-9_]*$/, "物种只能包含小写字母、数字和下划线"),
+  genome: petGenomeSchema,
+  generation: z.number().int().min(1).max(999).optional().default(1),
+  fatherId: z.string().max(64).nullable().optional().default(null),
+  motherId: z.string().max(64).nullable().optional().default(null),
+  breedCount: z.number().int().min(0).max(999).optional().default(0),
+  cooldownAt: z.number().int().nullable().optional().default(null),
+  status: z.enum(["active", "resting"]).optional().default("active"),
+});
+
+/** 宠物更新校验（全字段可选）。 */
+export const animalUpdateSchema = z.object({
+  speciesId: z
+    .string()
+    .min(1)
+    .max(64)
+    .regex(/^[a-z][a-z0-9_]*$/)
+    .optional(),
+  genome: petGenomeSchema.optional(),
+  generation: z.number().int().min(1).max(999).optional(),
+  fatherId: z.string().max(64).nullable().optional(),
+  motherId: z.string().max(64).nullable().optional(),
+  breedCount: z.number().int().min(0).max(999).optional(),
+  cooldownAt: z.number().int().nullable().optional(),
+  status: z.enum(["active", "resting"]).optional(),
+});
+
+export type AnimalCreateInput = z.infer<typeof animalCreateSchema>;
+export type AnimalUpdateInput = z.infer<typeof animalUpdateSchema>;

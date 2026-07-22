@@ -367,7 +367,7 @@ function UserFormBody(props: UserFormBodyProps) {
             <SelectTrigger className="w-full">
               <SelectValue placeholder="请选择角色" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent position="popper" sideOffset={4}>
               {props.roles.map((r) => (
                 <SelectItem key={r.id} value={r.id}>
                   {r.name}

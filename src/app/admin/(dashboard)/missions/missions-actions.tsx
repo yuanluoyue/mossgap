@@ -421,7 +421,7 @@ function MissionForm({
             <SelectTrigger className="w-full">
               <SelectValue placeholder="选择类型" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent position="popper" sideOffset={4}>
               {TYPE_OPTIONS.map((o) => (
                 <SelectItem key={o.value} value={o.value}>
                   {o.label}
@@ -436,7 +436,7 @@ function MissionForm({
             <SelectTrigger className="w-full">
               <SelectValue placeholder="选择事件" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent position="popper" sideOffset={4}>
               {EVENT_OPTIONS.map((o) => (
                 <SelectItem key={o.value} value={o.value}>
                   {o.label}
@@ -466,7 +466,7 @@ function MissionForm({
             <SelectTrigger className="w-full">
               <SelectValue placeholder="选择奖励" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent position="popper" sideOffset={4}>
               {REWARD_TYPE_OPTIONS.map((o) => (
                 <SelectItem key={o.value} value={o.value}>
                   {o.label}

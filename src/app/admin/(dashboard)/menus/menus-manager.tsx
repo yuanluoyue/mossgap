@@ -388,7 +388,7 @@ function MenuFormDialog({
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="顶级菜单" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent position="popper" sideOffset={4}>
                 <SelectItem value="">（顶级）</SelectItem>
                 {parentOptions.map((m) => (
                   <SelectItem key={m.id} value={m.id}>

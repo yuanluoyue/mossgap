@@ -338,7 +338,7 @@ function ItemForm({
             <SelectTrigger className="w-full">
               <SelectValue placeholder="选择类型" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent position="popper" sideOffset={4}>
               {TYPE_OPTIONS.map((o) => (
                 <SelectItem key={o.value} value={o.value}>
                   {o.label}
@@ -443,7 +443,7 @@ function ItemForm({
             <SelectTrigger className="w-full">
               <SelectValue placeholder="选择稀有度" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent position="popper" sideOffset={4}>
               {RARITY_OPTIONS.map((o) => (
                 <SelectItem key={o.value} value={o.value}>
                   {o.label}

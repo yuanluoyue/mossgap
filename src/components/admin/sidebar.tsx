@@ -21,6 +21,7 @@ import {
   LayoutGrid,
   Target,
   Package,
+  PawPrint,
   Menu as MenuIcon,
   ChevronRight,
   ChevronDown,
@@ -52,6 +53,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   LayoutGrid,
   Target,
   Package,
+  PawPrint,
   Menu: MenuIcon,
 };
 

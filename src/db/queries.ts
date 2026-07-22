@@ -29,6 +29,7 @@ import {
   itemTemplates,
   userInventory,
   inventoryLogs,
+  animals,
 } from "./schema";
 import type {
   AdminFeedback,
@@ -36,6 +37,7 @@ import type {
   AdminCategory,
   AdminTag,
   AdminCollection,
+  AdminPet,
   FeedbackStatus,
   FeedbackType,
   GameBadge,
@@ -48,6 +50,11 @@ import type {
   PublicCategory,
   PublicTag,
   PublicCollection,
+  PublicPet,
+  PetGenome,
+  PetGenes,
+  PetExtraGenes,
+  PetStatus,
   TaxonomyLocale,
   CollectionLayout,
   GameCardItem,
@@ -3976,6 +3983,349 @@ export async function listInventoryLogs(opts: {
     })),
     total: totalRows[0]?.value ?? 0,
   };
+}
+
+// ─── 宠物系统 ───────────────────────────────────────────────
+
+/** moss pet 物种标识（C 端兑换的唯一物种）。 */
+export const MOSS_PET_SPECIES_ID = "moss_pet";
+
+/** 兑换 moss pet 所需积分（门槛低，新用户来两天即可领养）。 */
+export const MOSS_PET_REDEEM_PRICE = 2;
+
+/**
+ * 基础基因池：6 个维度，每个维度随机抽 1 个。
+ * 值用英文 snake_case，便于跨语言展示与后期 SVG 映射。
+ */
+const PET_GENE_POOL: Record<keyof PetGenes, string[]> = {
+  body: ["round", "slim", "fluffy", "spiky"],
+  eye: ["blue_big", "green_sharp", "amber_round", "violet_mystic", "red_fierce"],
+  tail: ["fox", "curl", "short", "long", "none"],
+  pattern: ["tiger", "spot", "stripe", "plain", "gradient"],
+  element: ["nature", "fire", "water", "thunder", "earth", "wind"],
+  personality: ["curious", "lazy", "brave", "shy", "playful"],
+};
+
+/** 额外基因池：稀有附加属性，每个独立按概率出现。 */
+const PET_EXTRA_GENE_POOL: Record<keyof PetExtraGenes, string[]> = {
+  aura: ["gold", "silver", "rainbow", "shadow"],
+  horn: ["dragon", "unicorn", "crystal"],
+  wing: ["angel", "demon", "fairy"],
+};
+
+/** 每个额外基因独立出现的概率（10%）。 */
+const PET_EXTRA_GENE_PROBABILITY = 0.1;
+
+/** 数组随机取一个元素。 */
+function pickRandom<T>(arr: readonly T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)]!;
+}
+
+/** 生成随机基因组（基础基因全随机，额外基因按概率出现）。 */
+export function generateRandomGenome(): PetGenome {
+  const genes: PetGenes = {
+    body: pickRandom(PET_GENE_POOL.body),
+    eye: pickRandom(PET_GENE_POOL.eye),
+    tail: pickRandom(PET_GENE_POOL.tail),
+    pattern: pickRandom(PET_GENE_POOL.pattern),
+    element: pickRandom(PET_GENE_POOL.element),
+    personality: pickRandom(PET_GENE_POOL.personality),
+  };
+
+  const extraGenes: PetExtraGenes = {};
+  let hasExtra = false;
+  for (const key of Object.keys(PET_EXTRA_GENE_POOL) as (keyof PetExtraGenes)[]) {
+    if (Math.random() < PET_EXTRA_GENE_PROBABILITY) {
+      extraGenes[key] = pickRandom(PET_EXTRA_GENE_POOL[key]);
+      hasExtra = true;
+    }
+  }
+
+  return {
+    version: 1,
+    genes,
+    ...(hasExtra ? { extraGenes } : {}),
+  };
+}
+
+/** 安全解析 genome JSON 字符串。失败时返回兜底空基因。 */
+function parseGenome(raw: string | null | undefined): PetGenome {
+  if (!raw) return { version: 1, genes: { body: "", eye: "", tail: "", pattern: "", element: "", personality: "" } };
+  try {
+    const parsed = JSON.parse(raw) as PetGenome;
+    if (!parsed || typeof parsed !== "object" || !parsed.genes) {
+      return { version: 1, genes: { body: "", eye: "", tail: "", pattern: "", element: "", personality: "" } };
+    }
+    return parsed;
+  } catch {
+    return { version: 1, genes: { body: "", eye: "", tail: "", pattern: "", element: "", personality: "" } };
+  }
+}
+
+/** 序列化基因为存储字符串。 */
+function stringifyGenome(genome: PetGenome): string {
+  return JSON.stringify(genome);
+}
+
+/** 把 animals row + owner 信息映射为 AdminPet。 */
+function toAdminPet(
+  row: typeof animals.$inferSelect,
+  owner?: { name: string | null; email: string | null } | null,
+): AdminPet {
+  return {
+    id: row.id,
+    ownerId: row.ownerId,
+    ownerName: owner?.name ?? null,
+    ownerEmail: owner?.email ?? null,
+    speciesId: row.speciesId,
+    genome: parseGenome(row.genome),
+    generation: row.generation,
+    fatherId: row.fatherId,
+    motherId: row.motherId,
+    breedCount: row.breedCount,
+    cooldownAt: toIso(row.cooldownAt),
+    status: row.status as PetStatus,
+    createdAt: toIso(row.createdAt),
+    updatedAt: toIso(row.updatedAt),
+  };
+}
+
+/** 把 animals row 映射为 PublicPet（不含 owner 信息）。 */
+function toPublicPet(row: typeof animals.$inferSelect): PublicPet {
+  return {
+    id: row.id,
+    speciesId: row.speciesId,
+    genome: parseGenome(row.genome),
+    generation: row.generation,
+    breedCount: row.breedCount,
+    cooldownAt: toIso(row.cooldownAt),
+    status: row.status as PetStatus,
+    createdAt: toIso(row.createdAt),
+  };
+}
+
+/** B 端：分页查询全部宠物（带 owner 信息 + 搜索 + 筛选）。 */
+export async function listAllAnimals(opts: {
+  page: number;
+  pageSize: number;
+  search?: string;
+  speciesId?: string;
+  status?: PetStatus;
+  ownerId?: string;
+}): Promise<{ items: AdminPet[]; total: number }> {
+  const db = await getDb();
+  const conds = [];
+  if (opts.search) {
+    const kw = `%${opts.search}%`;
+    // 搜索 owner 邮箱/昵称 + speciesId
+    conds.push(or(like(users.email, kw), like(users.name, kw), like(animals.speciesId, kw)));
+  }
+  if (opts.speciesId) {
+    conds.push(eq(animals.speciesId, opts.speciesId));
+  }
+  if (opts.status) {
+    conds.push(eq(animals.status, opts.status));
+  }
+  if (opts.ownerId) {
+    conds.push(eq(animals.ownerId, opts.ownerId));
+  }
+  const where = conds.length > 0 ? and(...conds) : undefined;
+
+  const [rows, totalRows] = await Promise.all([
+    db
+      .select({ animal: animals, user: users })
+      .from(animals)
+      .leftJoin(users, eq(animals.ownerId, users.id))
+      .where(where)
+      .orderBy(desc(animals.createdAt))
+      .limit(opts.pageSize)
+      .offset((opts.page - 1) * opts.pageSize),
+    db
+      .select({ value: count() })
+      .from(animals)
+      .leftJoin(users, eq(animals.ownerId, users.id))
+      .where(where),
+  ]);
+
+  return {
+    items: rows.map(({ animal, user }) =>
+      toAdminPet(animal, user ? { name: user.name, email: user.email } : null),
+    ),
+    total: totalRows[0]?.value ?? 0,
+  };
+}
+
+/** B 端：按 ID 取单只宠物（含 owner 信息）。 */
+export async function getAdminAnimalById(id: string): Promise<AdminPet | null> {
+  const db = await getDb();
+  const rows = await db
+    .select({ animal: animals, user: users })
+    .from(animals)
+    .leftJoin(users, eq(animals.ownerId, users.id))
+    .where(eq(animals.id, id))
+    .limit(1);
+  if (!rows[0]) return null;
+  const { animal, user } = rows[0];
+  return toAdminPet(animal, user ? { name: user.name, email: user.email } : null);
+}
+
+/** B 端：创建宠物（手动发放或测试用）。 */
+export async function createAnimal(input: {
+  ownerId: string;
+  speciesId: string;
+  genome: PetGenome;
+  generation?: number;
+  fatherId?: string | null;
+  motherId?: string | null;
+  breedCount?: number;
+  cooldownAt?: number | null;
+  status?: PetStatus;
+}): Promise<AdminPet> {
+  const db = await getDb();
+  const [row] = await db
+    .insert(animals)
+    .values({
+      ownerId: input.ownerId,
+      speciesId: input.speciesId,
+      genome: stringifyGenome(input.genome),
+      generation: input.generation ?? 1,
+      fatherId: input.fatherId ?? null,
+      motherId: input.motherId ?? null,
+      breedCount: input.breedCount ?? 0,
+      cooldownAt: input.cooldownAt ?? null,
+      status: input.status ?? "active",
+    })
+    .returning();
+  // 复查 owner 信息
+  const ownerRow = await db
+    .select({ name: users.name, email: users.email })
+    .from(users)
+    .where(eq(users.id, input.ownerId))
+    .limit(1);
+  return toAdminPet(row!, ownerRow[0] ?? null);
+}
+
+/** B 端：更新宠物（全字段可选）。 */
+export async function updateAnimal(
+  id: string,
+  input: Partial<{
+    speciesId: string;
+    genome: PetGenome;
+    generation: number;
+    fatherId: string | null;
+    motherId: string | null;
+    breedCount: number;
+    cooldownAt: number | null;
+    status: PetStatus;
+  }>,
+): Promise<AdminPet | null> {
+  const db = await getDb();
+  const patch: Record<string, unknown> = { updatedAt: Math.floor(Date.now() / 1000) };
+  if (input.speciesId !== undefined) patch.speciesId = input.speciesId;
+  if (input.genome !== undefined) patch.genome = stringifyGenome(input.genome);
+  if (input.generation !== undefined) patch.generation = input.generation;
+  if (input.fatherId !== undefined) patch.fatherId = input.fatherId;
+  if (input.motherId !== undefined) patch.motherId = input.motherId;
+  if (input.breedCount !== undefined) patch.breedCount = input.breedCount;
+  if (input.cooldownAt !== undefined) patch.cooldownAt = input.cooldownAt;
+  if (input.status !== undefined) patch.status = input.status;
+
+  const [row] = await db
+    .update(animals)
+    .set(patch)
+    .where(eq(animals.id, id))
+    .returning();
+  if (!row) return null;
+  const ownerRow = await db
+    .select({ name: users.name, email: users.email })
+    .from(users)
+    .where(eq(users.id, row.ownerId))
+    .limit(1);
+  return toAdminPet(row, ownerRow[0] ?? null);
+}
+
+/** B 端：删除宠物。 */
+export async function deleteAnimal(id: string): Promise<boolean> {
+  const db = await getDb();
+  const res = await db.delete(animals).where(eq(animals.id, id));
+  const changes = (res as unknown as { meta?: { changes?: number } })?.meta?.changes ?? 0;
+  return changes > 0;
+}
+
+/** C 端：列出当前用户的全部宠物（按创建时间倒序）。 */
+export async function listMyAnimals(userId: string): Promise<PublicPet[]> {
+  const db = await getDb();
+  const rows = await db
+    .select()
+    .from(animals)
+    .where(eq(animals.ownerId, userId))
+    .orderBy(desc(animals.createdAt));
+  return rows.map(toPublicPet);
+}
+
+/**
+ * 检查用户是否已兑换过 moss pet（幂等：按积分日志 bizType+bizId 判定）。
+ *
+ * bizType = "pet_redeem"，bizId = `moss_pet:${userId}`，
+ * 每个用户终身只能兑换一次。
+ */
+export async function hasRedeemedMossPet(userId: string): Promise<boolean> {
+  const log = await findPointLogByBiz(userId, "pet_redeem", `${MOSS_PET_SPECIES_ID}:${userId}`);
+  return log !== null;
+}
+
+/**
+ * C 端：兑换 moss pet（扣 2 积分 + 创建 1 代宠物）。
+ *
+ * 幂等：通过 point_logs 的 (bizType, bizId) 保证每用户只能兑换一次。
+ * 余额不足或已兑换过时返回错误，不扣积分、不创建宠物。
+ */
+export async function redeemMossPet(
+  userId: string,
+): Promise<
+  | { ok: true; pet: PublicPet; balance: number }
+  | { ok: false; reason: "already_redeemed" | "insufficient" }
+> {
+  // 1. 幂等检查：是否已兑换过
+  const redeemed = await hasRedeemedMossPet(userId);
+  if (redeemed) return { ok: false, reason: "already_redeemed" };
+
+  // 2. 余额检查（>= 价格才放行）
+  const db = await getDb();
+  const acctRow = await db
+    .select({ balance: pointAccounts.balance })
+    .from(pointAccounts)
+    .where(eq(pointAccounts.userId, userId))
+    .limit(1);
+  const balance = acctRow[0]?.balance ?? 0;
+  if (balance < MOSS_PET_REDEEM_PRICE) return { ok: false, reason: "insufficient" };
+
+  // 3. 扣积分（bizType+bizId 幂等键，写入 point_logs）
+  const adjusted = await adjustPoints({
+    userId,
+    change: -MOSS_PET_REDEEM_PRICE,
+    type: "spend",
+    bizType: "pet_redeem",
+    bizId: `${MOSS_PET_SPECIES_ID}:${userId}`,
+    remark: "Redeem moss pet",
+  });
+  if (!adjusted) return { ok: false, reason: "insufficient" };
+
+  // 4. 创建 1 代宠物（随机基因）
+  const genome = generateRandomGenome();
+  const [row] = await db
+    .insert(animals)
+    .values({
+      ownerId: userId,
+      speciesId: MOSS_PET_SPECIES_ID,
+      genome: stringifyGenome(genome),
+      generation: 1,
+      breedCount: 0,
+      status: "active",
+    })
+    .returning();
+
+  return { ok: true, pet: toPublicPet(row!), balance: adjusted.balance };
 }
 
 export { schema, asc };

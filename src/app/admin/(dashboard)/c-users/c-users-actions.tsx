@@ -159,7 +159,7 @@ export function CUsersActions({ user }: CUsersActionsProps) {
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="语言" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent position="popper" sideOffset={4}>
                     <SelectItem value="en">English</SelectItem>
                     <SelectItem value="zh">中文</SelectItem>
                   </SelectContent>

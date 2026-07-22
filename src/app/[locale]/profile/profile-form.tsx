@@ -32,6 +32,7 @@ import { formatDate, formatDateTime } from "@/lib/format";
 import type { PublicUser, PointLogItem } from "@/db/queries";
 import { MissionsSection } from "./missions-section";
 import { InventorySection } from "./inventory-section";
+import { PetsSection } from "./pets-section";
 
 interface ProfileFormProps {
   user: PublicUser | null;
@@ -547,6 +548,17 @@ export function ProfileForm({ user: initialUser }: ProfileFormProps) {
 
         {/* 我的背包 */}
         <InventorySection />
+
+        {/* 我的宠物 */}
+        <PetsSection
+          onBalanceChange={(b) => {
+            setUser((prev) =>
+              prev ? { ...prev, pointBalance: b } : prev,
+            );
+            Promise.resolve().then(() => fetchLogs(1));
+            router.refresh();
+          }}
+        />
       </div>
     </div>
   );

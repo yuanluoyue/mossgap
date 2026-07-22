@@ -247,6 +247,67 @@ export type FeedbackType = "game" | "platform";
 /** 反馈处理状态 */
 export type FeedbackStatus = "pending" | "resolved";
 
+// ─── 宠物系统 ───────────────────────────────────────────────
+
+/** 宠物状态 */
+export type PetStatus = "active" | "resting";
+
+export const PET_STATUSES: PetStatus[] = ["active", "resting"];
+
+/** 基础基因（6 个维度，每个维度从基因池随机抽取） */
+export interface PetGenes {
+  body: string;
+  eye: string;
+  tail: string;
+  pattern: string;
+  element: string;
+  personality: string;
+}
+
+/** 额外基因（稀有附加属性，按概率出现，可为空） */
+export interface PetExtraGenes {
+  aura?: string;
+  horn?: string;
+  wing?: string;
+}
+
+/** 宠物基因组（存于 animals.genome JSON 字段） */
+export interface PetGenome {
+  version: number;
+  genes: PetGenes;
+  extraGenes?: PetExtraGenes;
+}
+
+/** B 端宠物数据（含持有者信息） */
+export interface AdminPet {
+  id: string;
+  ownerId: string;
+  ownerName: string | null;
+  ownerEmail: string | null;
+  speciesId: string;
+  genome: PetGenome;
+  generation: number;
+  fatherId: string | null;
+  motherId: string | null;
+  breedCount: number;
+  cooldownAt: string | null;
+  status: PetStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** C 端宠物数据（不含敏感字段） */
+export interface PublicPet {
+  id: string;
+  speciesId: string;
+  genome: PetGenome;
+  generation: number;
+  breedCount: number;
+  cooldownAt: string | null;
+  status: PetStatus;
+  createdAt: string;
+}
+
 /** 后台反馈列表项 */
 export interface AdminFeedback {
   id: string;
