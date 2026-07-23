@@ -30,6 +30,7 @@ import {
   userInventory,
   inventoryLogs,
   animals,
+  eggs,
 } from "./schema";
 import type {
   AdminFeedback,
@@ -38,6 +39,8 @@ import type {
   AdminTag,
   AdminCollection,
   AdminPet,
+  AdminEgg,
+  EggStatus,
   FeedbackStatus,
   FeedbackType,
   GameBadge,
@@ -51,6 +54,7 @@ import type {
   PublicTag,
   PublicCollection,
   PublicPet,
+  PublicEgg,
   PetGenome,
   PetGenes,
   PetExtraGenes,
@@ -4193,7 +4197,7 @@ export async function createAnimal(input: {
       motherId: input.motherId ?? null,
       breedCount: input.breedCount ?? 0,
       cooldownAt: input.cooldownAt ?? null,
-      status: input.status ?? "active",
+      status: input.status ?? "NORMAL",
     })
     .returning();
   // 复查 owner 信息
@@ -4321,11 +4325,326 @@ export async function redeemMossPet(
       genome: stringifyGenome(genome),
       generation: 1,
       breedCount: 0,
-      status: "active",
+      status: "NORMAL",
     })
     .returning();
 
   return { ok: true, pet: toPublicPet(row!), balance: adjusted.balance };
+}
+
+// ─── 蛋系统 / 繁殖 / 孵化 ───────────────────────────────────
+
+/** 孵化时长（秒）：24 小时。 */
+export const EGG_INCUBATION_DURATION = 24 * 60 * 60;
+
+/** 繁殖后父母冷却时间（秒）：24 小时。 */
+export const BREED_COOLDOWN_DURATION = 24 * 60 * 60;
+
+/** 额外基因遗传概率（父母中有该基因时，后代继承的概率）。 */
+const EXTRA_GENE_INHERIT_PROBABILITY = 0.3;
+
+/**
+ * 繁殖基因遗传算法：
+ * - 基础基因：每个维度从父母对应基因中随机选一个
+ * - 额外基因：每个维度，若父母至少一方有该基因，有 30% 概率遗传（从有该基因的父母中随机选值）
+ */
+function inheritGenome(father: PetGenome, mother: PetGenome): PetGenome {
+  const genes: PetGenes = {
+    body: Math.random() < 0.5 ? father.genes.body : mother.genes.body,
+    eye: Math.random() < 0.5 ? father.genes.eye : mother.genes.eye,
+    tail: Math.random() < 0.5 ? father.genes.tail : mother.genes.tail,
+    pattern: Math.random() < 0.5 ? father.genes.pattern : mother.genes.pattern,
+    element: Math.random() < 0.5 ? father.genes.element : mother.genes.element,
+    personality: Math.random() < 0.5 ? father.genes.personality : mother.genes.personality,
+  };
+
+  const extraGenes: PetExtraGenes = {};
+  let hasExtra = false;
+  const extraKeys: (keyof PetExtraGenes)[] = ["aura", "horn", "wing"];
+  for (const key of extraKeys) {
+    const fatherVal = father.extraGenes?.[key];
+    const motherVal = mother.extraGenes?.[key];
+    if (fatherVal || motherVal) {
+      if (Math.random() < EXTRA_GENE_INHERIT_PROBABILITY) {
+        // 从有该基因的父母中随机选一个值
+        const candidates = [fatherVal, motherVal].filter((v) => v !== undefined) as string[];
+        extraGenes[key] = pickRandom(candidates);
+        hasExtra = true;
+      }
+    }
+  }
+
+  return {
+    version: 1,
+    genes,
+    ...(hasExtra ? { extraGenes } : {}),
+  };
+}
+
+/** 把 eggs row + owner 信息映射为 AdminEgg。 */
+function toAdminEgg(
+  row: typeof eggs.$inferSelect,
+  owner?: { name: string | null; email: string | null } | null,
+): AdminEgg {
+  return {
+    id: row.id,
+    ownerId: row.ownerId,
+    ownerName: owner?.name ?? null,
+    ownerEmail: owner?.email ?? null,
+    fatherId: row.fatherId,
+    motherId: row.motherId,
+    generation: row.generation,
+    genome: parseGenome(row.genome),
+    status: row.status as EggStatus,
+    startAt: toIso(row.startAt),
+    finishAt: toIso(row.finishAt),
+    createdPetId: row.createdPetId,
+    createdAt: toIso(row.createdAt),
+  };
+}
+
+/** 把 eggs row 映射为 PublicEgg。 */
+function toPublicEgg(row: typeof eggs.$inferSelect): PublicEgg {
+  return {
+    id: row.id,
+    fatherId: row.fatherId,
+    motherId: row.motherId,
+    generation: row.generation,
+    genome: parseGenome(row.genome),
+    status: row.status as EggStatus,
+    startAt: toIso(row.startAt),
+    finishAt: toIso(row.finishAt),
+    createdPetId: row.createdPetId,
+    createdAt: toIso(row.createdAt),
+  };
+}
+
+/** 根据时间判定蛋的实际状态（INCUBATING → READY 自动流转）。 */
+function getEggEffectiveStatus(row: typeof eggs.$inferSelect): EggStatus {
+  if (row.status === "HATCHED") return "HATCHED";
+  const now = Math.floor(Date.now() / 1000);
+  if (row.status === "INCUBATING" && now >= row.finishAt) return "READY";
+  return row.status as EggStatus;
+}
+
+/** B 端：分页查询全部蛋（带 owner 信息 + 筛选）。 */
+export async function listAllEggs(opts: {
+  page: number;
+  pageSize: number;
+  search?: string;
+  status?: EggStatus;
+  ownerId?: string;
+}): Promise<{ items: AdminEgg[]; total: number }> {
+  const db = await getDb();
+  const conds = [];
+  if (opts.search) {
+    const kw = `%${opts.search}%`;
+    conds.push(or(like(users.email, kw), like(users.name, kw)));
+  }
+  if (opts.status) {
+    conds.push(eq(eggs.status, opts.status));
+  }
+  if (opts.ownerId) {
+    conds.push(eq(eggs.ownerId, opts.ownerId));
+  }
+  const where = conds.length > 0 ? and(...conds) : undefined;
+
+  const [rows, totalRows] = await Promise.all([
+    db
+      .select({ egg: eggs, user: users })
+      .from(eggs)
+      .leftJoin(users, eq(eggs.ownerId, users.id))
+      .where(where)
+      .orderBy(desc(eggs.createdAt))
+      .limit(opts.pageSize)
+      .offset((opts.page - 1) * opts.pageSize),
+    db
+      .select({ value: count() })
+      .from(eggs)
+      .leftJoin(users, eq(eggs.ownerId, users.id))
+      .where(where),
+  ]);
+
+  return {
+    items: rows.map(({ egg, user }) =>
+      toAdminEgg(egg, user ? { name: user.name, email: user.email } : null),
+    ),
+    total: totalRows[0]?.value ?? 0,
+  };
+}
+
+/** B 端：按 ID 取单个蛋。 */
+export async function getAdminEggById(id: string): Promise<AdminEgg | null> {
+  const db = await getDb();
+  const rows = await db
+    .select({ egg: eggs, user: users })
+    .from(eggs)
+    .leftJoin(users, eq(eggs.ownerId, users.id))
+    .where(eq(eggs.id, id))
+    .limit(1);
+  if (!rows[0]) return null;
+  const { egg, user } = rows[0];
+  return toAdminEgg(egg, user ? { name: user.name, email: user.email } : null);
+}
+
+/** B 端：删除蛋。 */
+export async function deleteEgg(id: string): Promise<boolean> {
+  const db = await getDb();
+  const res = await db.delete(eggs).where(eq(eggs.id, id));
+  const changes = (res as unknown as { meta?: { changes?: number } })?.meta?.changes ?? 0;
+  return changes > 0;
+}
+
+/** C 端：列出当前用户的全部蛋（按创建时间倒序）。 */
+export async function listMyEggs(userId: string): Promise<PublicEgg[]> {
+  const db = await getDb();
+  const rows = await db
+    .select()
+    .from(eggs)
+    .where(eq(eggs.ownerId, userId))
+    .orderBy(desc(eggs.createdAt));
+  return rows.map((r) => {
+    // 应用层自动将 INCUBATING → READY
+    const effective = getEggEffectiveStatus(r);
+    return { ...toPublicEgg(r), status: effective };
+  });
+}
+
+/** 繁殖结果类型。 */
+export type BreedResult =
+  | { ok: true; egg: PublicEgg }
+  | {
+      ok: false;
+      reason:
+        | "same_pet"
+        | "not_owner"
+        | "not_normal"
+        | "cooldown"
+        | "pet_not_found";
+    };
+
+/**
+ * C 端：繁殖两只宠物，产下一枚蛋。
+ *
+ * - 宠物无性别，既可当父也可当母
+ * - 两只宠物都必须属于当前用户、状态为 NORMAL、冷却已结束
+ * - 基因在繁殖时即确定（基础基因随机遗传，额外基因 30% 概率遗传）
+ * - 蛋创建后父母进入冷却（24h），状态恢复 NORMAL
+ */
+export async function breedAnimals(
+  userId: string,
+  fatherId: string,
+  motherId: string,
+): Promise<BreedResult> {
+  if (fatherId === motherId) return { ok: false, reason: "same_pet" };
+
+  const db = await getDb();
+  const rows = await db
+    .select()
+    .from(animals)
+    .where(inArray(animals.id, [fatherId, motherId]))
+    .limit(2);
+  if (rows.length < 2) return { ok: false, reason: "pet_not_found" };
+
+  const father = rows.find((r) => r.id === fatherId)!;
+  const mother = rows.find((r) => r.id === motherId)!;
+
+  // 权限校验
+  if (father.ownerId !== userId || mother.ownerId !== userId) {
+    return { ok: false, reason: "not_owner" };
+  }
+  // 状态校验
+  if (father.status !== "NORMAL" || mother.status !== "NORMAL") {
+    return { ok: false, reason: "not_normal" };
+  }
+  // 冷却校验
+  const now = Math.floor(Date.now() / 1000);
+  if (father.cooldownAt && now < father.cooldownAt) return { ok: false, reason: "cooldown" };
+  if (mother.cooldownAt && now < mother.cooldownAt) return { ok: false, reason: "cooldown" };
+
+  // 计算后代基因
+  const childGenome = inheritGenome(parseGenome(father.genome), parseGenome(mother.genome));
+  const childGeneration = Math.max(father.generation, mother.generation) + 1;
+  const finishAt = now + EGG_INCUBATION_DURATION;
+
+  // 创建蛋
+  const [eggRow] = await db
+    .insert(eggs)
+    .values({
+      ownerId: userId,
+      fatherId,
+      motherId,
+      generation: childGeneration,
+      genome: stringifyGenome(childGenome),
+      status: "INCUBATING",
+      startAt: now,
+      finishAt,
+    })
+    .returning();
+
+  // 更新父母：breedCount +1，设置冷却，状态保持 NORMAL
+  const cooldownAt = now + BREED_COOLDOWN_DURATION;
+  await db
+    .update(animals)
+    .set({ breedCount: father.breedCount + 1, cooldownAt, updatedAt: now })
+    .where(eq(animals.id, fatherId));
+  await db
+    .update(animals)
+    .set({ breedCount: mother.breedCount + 1, cooldownAt, updatedAt: now })
+    .where(eq(animals.id, motherId));
+
+  return { ok: true, egg: toPublicEgg(eggRow!) };
+}
+
+/** 孵化结果类型。 */
+export type HatchResult =
+  | { ok: true; pet: PublicPet }
+  | { ok: false; reason: "egg_not_found" | "not_owner" | "not_ready" | "already_hatched" };
+
+/**
+ * C 端：孵化蛋（手动打开）。
+ *
+ * - 蛋必须属于当前用户
+ * - 蛋状态必须为 READY（INCUBATING 且 finishAt 已过）
+ * - 创建新宠物（generation = egg.generation，genome = egg.genome）
+ * - 更新蛋状态为 HATCHED，记录 createdPetId
+ */
+export async function hatchEgg(userId: string, eggId: string): Promise<HatchResult> {
+  const db = await getDb();
+  const rows = await db.select().from(eggs).where(eq(eggs.id, eggId)).limit(1);
+  if (!rows[0]) return { ok: false, reason: "egg_not_found" };
+  const egg = rows[0];
+
+  if (egg.ownerId !== userId) return { ok: false, reason: "not_owner" };
+  if (egg.status === "HATCHED") return { ok: false, reason: "already_hatched" };
+
+  const effective = getEggEffectiveStatus(egg);
+  if (effective !== "READY") return { ok: false, reason: "not_ready" };
+
+  const genome = parseGenome(egg.genome);
+
+  // 创建新宠物
+  const [petRow] = await db
+    .insert(animals)
+    .values({
+      ownerId: userId,
+      speciesId: MOSS_PET_SPECIES_ID,
+      genome: stringifyGenome(genome),
+      generation: egg.generation,
+      fatherId: egg.fatherId,
+      motherId: egg.motherId,
+      breedCount: 0,
+      status: "NORMAL",
+    })
+    .returning();
+
+  // 更新蛋状态
+  await db
+    .update(eggs)
+    .set({ status: "HATCHED", createdPetId: petRow!.id })
+    .where(eq(eggs.id, eggId));
+
+  return { ok: true, pet: toPublicPet(petRow!) };
 }
 
 export { schema, asc };

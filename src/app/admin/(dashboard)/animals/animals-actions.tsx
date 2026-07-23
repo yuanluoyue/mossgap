@@ -28,8 +28,10 @@ import {
 } from "@/components/ui/select";
 
 const STATUS_OPTIONS = [
-  { value: "active", label: "active（活跃）" },
-  { value: "resting", label: "resting（休息）" },
+  { value: "NORMAL", label: "NORMAL（正常）" },
+  { value: "BREEDING", label: "BREEDING（繁殖中）" },
+  { value: "LISTING", label: "LISTING（挂单中）" },
+  { value: "LOCKED", label: "LOCKED（锁定）" },
 ];
 
 const BASE_GENE_KEYS = ["body", "eye", "tail", "pattern", "element", "personality"] as const;
@@ -70,7 +72,7 @@ export function AnimalsActions({ mode, pet }: AnimalsActionsProps) {
   const [cooldownAt, setCooldownAt] = useState(
     pet?.cooldownAt ? String(Math.floor(new Date(pet.cooldownAt).getTime() / 1000)) : "",
   );
-  const [status, setStatus] = useState<PetStatus>(pet?.status ?? "active");
+  const [status, setStatus] = useState<PetStatus>(pet?.status ?? "NORMAL");
   const [genome, setGenome] = useState<PetGenome>(pet?.genome ?? emptyGenome());
 
   function resetForm() {
@@ -83,7 +85,7 @@ export function AnimalsActions({ mode, pet }: AnimalsActionsProps) {
     setCooldownAt(
       pet?.cooldownAt ? String(Math.floor(new Date(pet.cooldownAt).getTime() / 1000)) : "",
     );
-    setStatus(pet?.status ?? "active");
+    setStatus(pet?.status ?? "NORMAL");
     setGenome(pet?.genome ?? emptyGenome());
   }
 

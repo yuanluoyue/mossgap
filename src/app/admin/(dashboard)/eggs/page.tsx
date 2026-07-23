@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { PawPrint, Search } from "lucide-react";
+import { Egg, Search } from "lucide-react";
 
-import { listAllAnimals } from "@/db/queries";
+import { listAllEggs } from "@/db/queries";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,8 +22,7 @@ import {
 } from "@/components/ui/select";
 import { Pagination } from "@/components/admin/pagination";
 import { formatDateTime } from "@/lib/format";
-import { AnimalsActions } from "./animals-actions";
-import { RandomAnimalDialog } from "./random-animal-dialog";
+import { EggsActions } from "./eggs-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -31,26 +30,18 @@ const PAGE_SIZE = 10;
 
 const STATUS_OPTIONS = [
   { value: "all", label: "全部状态" },
-  { value: "NORMAL", label: "NORMAL（正常）" },
-  { value: "BREEDING", label: "BREEDING（繁殖中）" },
-  { value: "LISTING", label: "LISTING（挂单中）" },
-  { value: "LOCKED", label: "LOCKED（锁定）" },
+  { value: "INCUBATING", label: "INCUBATING（孵化中）" },
+  { value: "READY", label: "READY（可孵化）" },
+  { value: "HATCHED", label: "HATCHED（已孵化）" },
 ];
 
 const STATUS_COLORS: Record<string, string> = {
-  NORMAL: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-300",
-  BREEDING: "bg-amber-500/15 text-amber-600 dark:text-amber-300",
-  LISTING: "bg-blue-500/15 text-blue-600 dark:text-blue-300",
-  LOCKED: "bg-slate-500/15 text-slate-600 dark:text-slate-300",
+  INCUBATING: "bg-amber-500/15 text-amber-600 dark:text-amber-300",
+  READY: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-300",
+  HATCHED: "bg-slate-500/15 text-slate-600 dark:text-slate-300",
 };
 
-const GENERATION_COLORS: Record<number, string> = {
-  1: "bg-amber-500/15 text-amber-600 dark:text-amber-300",
-  2: "bg-purple-500/15 text-purple-600 dark:text-purple-300",
-  3: "bg-blue-500/15 text-blue-600 dark:text-blue-300",
-};
-
-export default async function AnimalsPage({
+export default async function EggsPage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -60,15 +51,13 @@ export default async function AnimalsPage({
   const search = firstOf(sp.search) ?? "";
   const statusRaw = firstOf(sp.status) ?? "all";
   const status =
-    statusRaw !== "all" ? (statusRaw as "NORMAL" | "BREEDING" | "LISTING" | "LOCKED") : undefined;
-  const speciesId = firstOf(sp.speciesId) ?? undefined;
+    statusRaw !== "all" ? (statusRaw as "INCUBATING" | "READY" | "HATCHED") : undefined;
 
-  const result = await listAllAnimals({
+  const result = await listAllEggs({
     page,
     pageSize: PAGE_SIZE,
     search: search || undefined,
     status,
-    speciesId,
   });
 
   const totalPages = Math.max(1, Math.ceil(result.total / PAGE_SIZE));
@@ -77,16 +66,8 @@ export default async function AnimalsPage({
     <div className="space-y-6">
       <div className="flex items-end justify-between gap-3">
         <div>
-          <h1 className="font-heading text-2xl font-bold tracking-tight">
-            宠物管理
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            共 {result.total} 只宠物
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <RandomAnimalDialog />
-          <AnimalsActions mode="create" />
+          <h1 className="font-heading text-2xl font-bold tracking-tight">蛋管理</h1>
+          <p className="mt-1 text-sm text-muted-foreground">共 {result.total} 枚蛋</p>
         </div>
       </div>
 
@@ -96,21 +77,15 @@ export default async function AnimalsPage({
           <Input
             name="search"
             defaultValue={search}
-            placeholder="搜索持有者邮箱/昵称或 speciesId..."
+            placeholder="搜索持有者邮箱/昵称..."
             className="pl-9"
           />
         </div>
-        <Input
-          name="speciesId"
-          defaultValue={speciesId ?? ""}
-          placeholder="speciesId 精确匹配"
-          className="w-[200px]"
-        />
         <Select name="status" defaultValue={statusRaw}>
-          <SelectTrigger className="w-[160px]">
+          <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="状态" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent position="popper" sideOffset={4}>
             {STATUS_OPTIONS.map((o) => (
               <SelectItem key={o.value} value={o.value}>
                 {o.label}
@@ -121,9 +96,9 @@ export default async function AnimalsPage({
         <Button type="submit" variant="secondary">
           筛选
         </Button>
-        {(search || statusRaw !== "all" || speciesId) && (
+        {(search || statusRaw !== "all") && (
           <Button asChild type="button" variant="ghost">
-            <Link href="/admin/animals">清除</Link>
+            <Link href="/admin/eggs">清除</Link>
           </Button>
         )}
       </form>
@@ -133,13 +108,13 @@ export default async function AnimalsPage({
           <TableHeader>
             <TableRow>
               <TableHead className="w-[120px]">持有者</TableHead>
-              <TableHead className="w-[120px]">species</TableHead>
               <TableHead className="w-[80px]">代数</TableHead>
               <TableHead>基因摘要</TableHead>
-              <TableHead className="w-[80px]">繁殖</TableHead>
               <TableHead className="w-[100px]">状态</TableHead>
+              <TableHead className="w-[140px]">孵化完成时间</TableHead>
+              <TableHead className="w-[100px]">孵化结果</TableHead>
               <TableHead className="w-[140px]">创建时间</TableHead>
-              <TableHead className="w-[100px] text-right">操作</TableHead>
+              <TableHead className="w-[80px] text-right">操作</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -147,45 +122,35 @@ export default async function AnimalsPage({
               <TableRow>
                 <TableCell colSpan={8} className="h-32 text-center">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                    <PawPrint className="size-8" />
-                    <p className="text-sm">暂无宠物</p>
+                    <Egg className="size-8" />
+                    <p className="text-sm">暂无蛋</p>
                   </div>
                 </TableCell>
               </TableRow>
             ) : (
-              result.items.map((pet) => {
-                const g = pet.genome;
+              result.items.map((egg) => {
+                const g = egg.genome;
                 const extraKeys = g.extraGenes
                   ? Object.keys(g.extraGenes).filter(
                       (k) =>
-                        g.extraGenes?.[k as keyof typeof g.extraGenes] !==
-                          undefined,
+                        g.extraGenes?.[k as keyof typeof g.extraGenes] !== undefined,
                     )
                   : [];
                 return (
-                  <TableRow key={pet.id}>
+                  <TableRow key={egg.id}>
                     <TableCell>
                       <div className="min-w-0">
                         <p className="max-w-[160px] truncate font-medium">
-                          {pet.ownerName || "—"}
+                          {egg.ownerName || "—"}
                         </p>
                         <p className="max-w-[160px] truncate text-xs text-muted-foreground">
-                          {pet.ownerEmail || pet.ownerId.slice(0, 8)}
+                          {egg.ownerEmail || egg.ownerId.slice(0, 8)}
                         </p>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="secondary" className="font-mono text-[10px]">
-                        {pet.speciesId}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <span
-                        className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-medium ${
-                          GENERATION_COLORS[pet.generation] ?? "bg-muted text-muted-foreground"
-                        }`}
-                      >
-                        G{pet.generation}
+                      <span className="inline-flex rounded bg-purple-500/15 px-1.5 py-0.5 text-[10px] font-medium text-purple-600 dark:text-purple-300">
+                        G{egg.generation}
                       </span>
                     </TableCell>
                     <TableCell>
@@ -199,15 +164,6 @@ export default async function AnimalsPage({
                         <Badge variant="outline" className="text-[10px]">
                           {g.genes.tail}
                         </Badge>
-                        <Badge variant="outline" className="text-[10px]">
-                          {g.genes.pattern}
-                        </Badge>
-                        <Badge variant="outline" className="text-[10px]">
-                          {g.genes.element}
-                        </Badge>
-                        <Badge variant="outline" className="text-[10px]">
-                          {g.genes.personality}
-                        </Badge>
                         {extraKeys.length > 0 && (
                           <span className="inline-flex items-center rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-300">
                             +{extraKeys.length}
@@ -215,23 +171,32 @@ export default async function AnimalsPage({
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {pet.breedCount}
-                    </TableCell>
                     <TableCell>
                       <span
                         className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-medium ${
-                          STATUS_COLORS[pet.status] ?? STATUS_COLORS.LOCKED
+                          STATUS_COLORS[egg.status] ?? STATUS_COLORS.HATCHED
                         }`}
                       >
-                        {pet.status}
+                        {egg.status}
                       </span>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {formatDateTime(pet.createdAt)}
+                      {formatDateTime(egg.finishAt)}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {egg.createdPetId ? (
+                        <span className="font-mono text-[10px]">
+                          {egg.createdPetId.slice(0, 8)}…
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {formatDateTime(egg.createdAt)}
                     </TableCell>
                     <TableCell className="text-right">
-                      <AnimalsActions mode="edit" pet={pet} />
+                      <EggsActions egg={egg} />
                     </TableCell>
                   </TableRow>
                 );

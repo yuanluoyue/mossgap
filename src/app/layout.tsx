@@ -36,6 +36,7 @@ const CLIENT_NAMESPACES = [
   "Nav",
   "Auth",
   "Profile",
+  "ProfileNav",
   "Mission",
   "Inventory",
   "Pets",

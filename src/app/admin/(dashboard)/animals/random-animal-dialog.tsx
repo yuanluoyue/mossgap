@@ -150,7 +150,7 @@ export function RandomAnimalDialog() {
           genome,
           generation: 1,
           breedCount: 0,
-          status: "active",
+          status: "NORMAL",
         }),
       });
       const json = (await res.json()) as {

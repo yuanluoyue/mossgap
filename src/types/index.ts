@@ -250,9 +250,9 @@ export type FeedbackStatus = "pending" | "resolved";
 // ─── 宠物系统 ───────────────────────────────────────────────
 
 /** 宠物状态 */
-export type PetStatus = "active" | "resting";
+export type PetStatus = "NORMAL" | "BREEDING" | "LISTING" | "LOCKED";
 
-export const PET_STATUSES: PetStatus[] = ["active", "resting"];
+export const PET_STATUSES: PetStatus[] = ["NORMAL", "BREEDING", "LISTING", "LOCKED"];
 
 /** 基础基因（6 个维度，每个维度从基因池随机抽取） */
 export interface PetGenes {
@@ -305,6 +305,44 @@ export interface PublicPet {
   breedCount: number;
   cooldownAt: string | null;
   status: PetStatus;
+  createdAt: string;
+}
+
+// ─── 蛋系统 ───────────────────────────────────────────────
+
+/** 蛋状态 */
+export type EggStatus = "INCUBATING" | "READY" | "HATCHED";
+
+export const EGG_STATUSES: EggStatus[] = ["INCUBATING", "READY", "HATCHED"];
+
+/** B 端蛋数据（含持有者信息） */
+export interface AdminEgg {
+  id: string;
+  ownerId: string;
+  ownerName: string | null;
+  ownerEmail: string | null;
+  fatherId: string;
+  motherId: string;
+  generation: number;
+  genome: PetGenome;
+  status: EggStatus;
+  startAt: string;
+  finishAt: string;
+  createdPetId: string | null;
+  createdAt: string;
+}
+
+/** C 端蛋数据（不含敏感字段） */
+export interface PublicEgg {
+  id: string;
+  fatherId: string;
+  motherId: string;
+  generation: number;
+  genome: PetGenome;
+  status: EggStatus;
+  startAt: string;
+  finishAt: string;
+  createdPetId: string | null;
   createdAt: string;
 }
 

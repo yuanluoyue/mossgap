@@ -1028,7 +1028,7 @@ export type NewInventoryLog = typeof inventoryLogs.$inferInsert;
  * - fatherId/motherId: 父母宠物 ID（自引用，nullable：初代无父母）
  * - breedCount: 繁殖次数
  * - cooldownAt: 下次可繁殖时间（nullable）
- * - status: active(正常)/resting(休息中)
+ * - status: NORMAL(正常)/BREEDING(繁殖中)/LISTING(挂单中)/LOCKED(锁定)
  *
  * 基因结构见 PetGenome 类型。当前不渲染画面，仅展示基因卡片。
  */
@@ -1053,8 +1053,8 @@ export const animals = sqliteTable(
     // 下次可繁殖时间（Unix 秒，nullable：可立即繁殖）
     cooldownAt: integer("cooldown_at"),
     status: text("status", {
-      enum: ["active", "resting"],
-    }).notNull().default("active"),
+      enum: ["NORMAL", "BREEDING", "LISTING", "LOCKED"],
+    }).notNull().default("NORMAL"),
     createdAt: integer("created_at")
       .notNull()
       .$defaultFn(nowSeconds),
@@ -1072,6 +1072,53 @@ export const animals = sqliteTable(
 
 export type Animal = typeof animals.$inferSelect;
 export type NewAnimal = typeof animals.$inferInsert;
+
+/**
+ * 蛋表（eggs）—— 繁殖产物。
+ *
+ * - ownerId: 持有者（与父母相同）
+ * - fatherId/motherId: 父母宠物 ID（animals.id）
+ * - generation: 蛋的代数（= max(父代, 母代) + 1）
+ * - genome: 孵化结果基因（繁殖完成时即确定，plain text JSON）
+ * - status: INCUBATING(孵化中)/READY(可孵化)/HATCHED(已孵化)
+ * - startAt: 开始孵化时间（Unix 秒）
+ * - finishAt: 孵化完成时间（Unix 秒，到点自动变 READY，应用层判定）
+ * - createdPetId: 孵化后生成的新宠物 ID（nullable：未孵化）
+ */
+export const eggs = sqliteTable(
+  "eggs",
+  {
+    id: text("id")
+      .primaryKey()
+      .notNull()
+      .$defaultFn(genUuid),
+    ownerId: text("owner_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    fatherId: text("father_id").notNull(),
+    motherId: text("mother_id").notNull(),
+    generation: integer("generation").notNull().default(2),
+    genome: text("genome").notNull(),
+    status: text("status", {
+      enum: ["INCUBATING", "READY", "HATCHED"],
+    }).notNull().default("INCUBATING"),
+    startAt: integer("start_at").notNull(),
+    finishAt: integer("finish_at").notNull(),
+    createdPetId: text("created_pet_id"),
+    createdAt: integer("created_at")
+      .notNull()
+      .$defaultFn(nowSeconds),
+  },
+  (t) => ({
+    ownerIdx: index("eggs_owner_id_idx").on(t.ownerId),
+    statusIdx: index("eggs_status_idx").on(t.status),
+    fatherIdx: index("eggs_father_id_idx").on(t.fatherId),
+    motherIdx: index("eggs_mother_id_idx").on(t.motherId),
+  }),
+);
+
+export type Egg = typeof eggs.$inferSelect;
+export type NewEgg = typeof eggs.$inferInsert;
 
 // Zod Schemas（前后端共享校验）
 export const insertGameSchema = createInsertSchema(games);

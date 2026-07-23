@@ -53,6 +53,7 @@ const menuTree = [
       { name: "任务管理", path: "/admin/missions", icon: "Target", sort_order: 1 },
       { name: "物品管理", path: "/admin/items", icon: "Package", sort_order: 2 },
       { name: "宠物管理", path: "/admin/animals", icon: "PawPrint", sort_order: 3 },
+      { name: "蛋管理", path: "/admin/eggs", icon: "Egg", sort_order: 4 },
     ],
   },
   {

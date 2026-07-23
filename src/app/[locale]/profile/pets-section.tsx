@@ -28,8 +28,17 @@ import { formatDateTime } from "@/lib/format";
 const MOSS_PET_PRICE = 2;
 
 const STATUS_STYLE: Record<PetStatus, string> = {
-  active: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-300",
-  resting: "bg-slate-500/15 text-slate-600 dark:text-slate-300",
+  NORMAL: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-300",
+  BREEDING: "bg-amber-500/15 text-amber-600 dark:text-amber-300",
+  LISTING: "bg-blue-500/15 text-blue-600 dark:text-blue-300",
+  LOCKED: "bg-slate-500/15 text-slate-600 dark:text-slate-300",
+};
+
+const STATUS_I18N_KEY: Record<PetStatus, string> = {
+  NORMAL: "statusNormal",
+  BREEDING: "statusBreeding",
+  LISTING: "statusListing",
+  LOCKED: "statusLocked",
 };
 
 const GEN_STYLE: Record<number, string> = {
@@ -53,11 +62,7 @@ const EXTRA_GENE_FIELDS: Array<{ key: "aura" | "horn" | "wing"; label: string }>
   { key: "wing", label: "fieldWing" },
 ];
 
-interface PetsSectionProps {
-  onBalanceChange?: (balance: number) => void;
-}
-
-export function PetsSection({ onBalanceChange }: PetsSectionProps) {
+export function PetsSection() {
   const t = useTranslations("Pets");
   const [pets, setPets] = useState<PublicPet[]>([]);
   const [loading, setLoading] = useState(false);
@@ -108,9 +113,6 @@ export function PetsSection({ onBalanceChange }: PetsSectionProps) {
         return;
       }
       toast.success(t("redeemSuccess", { price: MOSS_PET_PRICE }));
-      if (json.data?.balance !== undefined) {
-        onBalanceChange?.(json.data.balance);
-      }
       // 重新拉取宠物列表
       Promise.resolve().then(() => fetchPets());
     } catch {
@@ -191,10 +193,10 @@ export function PetsSection({ onBalanceChange }: PetsSectionProps) {
                       </div>
                       <span
                         className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-medium ${
-                          STATUS_STYLE[pet.status] ?? STATUS_STYLE.active
+                          STATUS_STYLE[pet.status] ?? STATUS_STYLE.NORMAL
                         }`}
                       >
-                        {pet.status === "active" ? t("statusActive") : t("statusResting")}
+                        {t(STATUS_I18N_KEY[pet.status] as never)}
                       </span>
                     </div>
                     <div className="flex flex-wrap gap-1">
@@ -261,10 +263,10 @@ export function PetsSection({ onBalanceChange }: PetsSectionProps) {
                   </span>
                   <span
                     className={`inline-flex rounded px-2 py-0.5 text-xs font-medium ${
-                      STATUS_STYLE[selected.status] ?? STATUS_STYLE.active
+                      STATUS_STYLE[selected.status] ?? STATUS_STYLE.NORMAL
                     }`}
                   >
-                    {selected.status === "active" ? t("statusActive") : t("statusResting")}
+                    {t(STATUS_I18N_KEY[selected.status] as never)}
                   </span>
                   <Badge variant="secondary" className="text-[10px]">
                     {t("fieldBreedCount")}: {selected.breedCount}
@@ -323,7 +325,7 @@ export function PetsSection({ onBalanceChange }: PetsSectionProps) {
                   <div className="rounded-md bg-muted/50 p-2">
                     <dt className="text-muted-foreground">{t("fieldStatus")}</dt>
                     <dd className="mt-0.5 font-medium">
-                      {selected.status === "active" ? t("statusActive") : t("statusResting")}
+                      {t(STATUS_I18N_KEY[selected.status] as never)}
                     </dd>
                   </div>
                   <div className="rounded-md bg-muted/50 p-2">

@@ -634,7 +634,7 @@ export const listAnimalsQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(10),
   search: z.string().optional(),
   speciesId: z.string().optional(),
-  status: z.enum(["active", "resting"]).optional(),
+  status: z.enum(["NORMAL", "BREEDING", "LISTING", "LOCKED"]).optional(),
   ownerId: z.string().optional(),
 });
 
@@ -652,7 +652,7 @@ export const animalCreateSchema = z.object({
   motherId: z.string().max(64).nullable().optional().default(null),
   breedCount: z.number().int().min(0).max(999).optional().default(0),
   cooldownAt: z.number().int().nullable().optional().default(null),
-  status: z.enum(["active", "resting"]).optional().default("active"),
+  status: z.enum(["NORMAL", "BREEDING", "LISTING", "LOCKED"]).optional().default("NORMAL"),
 });
 
 /** 宠物更新校验（全字段可选）。 */
@@ -669,8 +669,25 @@ export const animalUpdateSchema = z.object({
   motherId: z.string().max(64).nullable().optional(),
   breedCount: z.number().int().min(0).max(999).optional(),
   cooldownAt: z.number().int().nullable().optional(),
-  status: z.enum(["active", "resting"]).optional(),
+  status: z.enum(["NORMAL", "BREEDING", "LISTING", "LOCKED"]).optional(),
 });
 
 export type AnimalCreateInput = z.infer<typeof animalCreateSchema>;
 export type AnimalUpdateInput = z.infer<typeof animalUpdateSchema>;
+
+// ─── 蛋系统 ───────────────────────────────────────────────
+
+/** B 端蛋列表查询参数。 */
+export const listEggsQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(10),
+  search: z.string().optional(),
+  status: z.enum(["INCUBATING", "READY", "HATCHED"]).optional(),
+  ownerId: z.string().optional(),
+});
+
+/** C 端繁殖请求校验。 */
+export const breedSchema = z.object({
+  fatherId: z.string().min(1, "请选择父代"),
+  motherId: z.string().min(1, "请选择母代"),
+});
