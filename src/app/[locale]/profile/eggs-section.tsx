@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { Egg, Heart, Loader2, Sparkles } from "lucide-react";
+import { Egg, Heart, Loader2, Sparkles, Clock } from "lucide-react";
 
 import type { PublicEgg, PublicPet, EggStatus, PetGenome } from "@/types";
 import { Badge } from "@/components/ui/badge";
@@ -46,6 +46,13 @@ const BASE_GENE_FIELDS: Array<{ key: keyof PetGenome["genes"]; label: string }> 
   { key: "personality", label: "fieldPersonality" },
 ];
 
+/** 判断宠物是否处于繁殖冷却中。 */
+function isCoolingDown(pet: { cooldownAt: string | null }, now: number): boolean {
+  if (!pet.cooldownAt) return false;
+  const cooldownMs = new Date(pet.cooldownAt).getTime();
+  return Number.isFinite(cooldownMs) && cooldownMs > now;
+}
+
 interface EggsSectionProps {
   /** 可选：外部传入的宠物列表。未传时组件自动拉取。 */
   pets?: PublicPet[];
@@ -66,6 +73,9 @@ export function EggsSection({ pets: externalPets, onPetsChange }: EggsSectionPro
 
   // 内部 pets 状态（当外部未传入时自动拉取）
   const [internalPets, setInternalPets] = useState<PublicPet[]>([]);
+
+  // 当前时间戳，用于冷却判定（避免 render 中调用 Date.now）
+  const [now, setNow] = useState(() => Date.now());
 
   const fetchEggs = useCallback(async () => {
     setLoading(true);
@@ -109,10 +119,15 @@ export function EggsSection({ pets: externalPets, onPetsChange }: EggsSectionPro
 
   const pets = externalPets ?? internalPets;
 
-  // 可繁殖宠物：状态 NORMAL（冷却由服务端在繁殖时校验）
-  const breedablePets = pets.filter((p) => p.status === "NORMAL");
+  // 可繁殖宠物：状态 NORMAL（冷却的在选择器里禁用展示，不直接过滤掉，让用户知道为什么不能选）
+  const normalPets = pets.filter((p) => p.status === "NORMAL");
+  const breedablePets = normalPets.filter((p) => !isCoolingDown(p, now));
 
   function handleBreedOpenChange(next: boolean) {
+    if (next) {
+      // 打开弹窗时刷新当前时间，确保冷却判定准确
+      setNow(Date.now());
+    }
     setBreedOpen(next);
     if (!next) {
       setFatherId("");
@@ -293,7 +308,7 @@ export function EggsSection({ pets: externalPets, onPetsChange }: EggsSectionPro
               <DialogDescription>{t("breedDescription")}</DialogDescription>
             </DialogHeader>
 
-            {breedablePets.length < 2 ? (
+            {normalPets.length < 2 ? (
               <p className="rounded-lg bg-muted/50 p-4 text-sm text-muted-foreground">
                 {t("breedNeedTwo")}
               </p>
@@ -304,10 +319,11 @@ export function EggsSection({ pets: externalPets, onPetsChange }: EggsSectionPro
                     {t("breedFather")}
                   </label>
                   <PetSelect
-                    pets={breedablePets}
+                    pets={normalPets}
                     value={fatherId}
                     onChange={setFatherId}
                     excludeId={motherId}
+                    now={now}
                     t={t}
                   />
                 </div>
@@ -316,10 +332,11 @@ export function EggsSection({ pets: externalPets, onPetsChange }: EggsSectionPro
                     {t("breedMother")}
                   </label>
                   <PetSelect
-                    pets={breedablePets}
+                    pets={normalPets}
                     value={motherId}
                     onChange={setMotherId}
                     excludeId={fatherId}
+                    now={now}
                     t={t}
                   />
                 </div>
@@ -466,52 +483,72 @@ export function EggsSection({ pets: externalPets, onPetsChange }: EggsSectionPro
   );
 }
 
-/** 宠物选择器（从可繁殖列表中选一只）。 */
+/** 宠物选择器（从 NORMAL 列表中选一只，冷却中的禁用展示）。 */
 function PetSelect({
   pets,
   value,
   onChange,
   excludeId,
+  now,
   t,
 }: {
   pets: PublicPet[];
   value: string;
   onChange: (id: string) => void;
   excludeId?: string;
+  now: number;
   t: (key: string, values?: Record<string, string | number | Date>) => string;
 }) {
   const available = pets.filter((p) => p.id !== excludeId);
   return (
-    <div className="grid max-h-40 grid-cols-1 gap-1 overflow-y-auto rounded-lg border p-1">
+    <div className="grid max-h-60 grid-cols-1 gap-1 overflow-y-auto rounded-lg border p-1">
       {available.length === 0 ? (
         <p className="px-2 py-3 text-center text-xs text-muted-foreground">
           {t("breedNoAvailable")}
         </p>
       ) : (
-        available.map((p) => (
-          <button
-            key={p.id}
-            type="button"
-            onClick={() => onChange(p.id)}
-            className={`flex items-center justify-between rounded px-2 py-1.5 text-left text-sm transition-colors ${
-              value === p.id
-                ? "bg-primary/10 ring-1 ring-primary"
-                : "hover:bg-accent"
-            }`}
-          >
-            <span className="font-medium">
-              {t("generation", { n: p.generation })}
-            </span>
-            <div className="flex items-center gap-1">
-              <Badge variant="outline" className="text-[10px]">
-                {p.genome.genes.body}
-              </Badge>
-              <Badge variant="outline" className="text-[10px]">
-                {p.genome.genes.element}
-              </Badge>
-            </div>
-          </button>
-        ))
+        available.map((p) => {
+          const cooling = isCoolingDown(p, now);
+          const selected = value === p.id;
+          return (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => {
+                if (!cooling) onChange(p.id);
+              }}
+              disabled={cooling}
+              className={`flex items-center justify-between rounded px-2 py-1.5 text-left text-sm transition-colors ${
+                cooling
+                  ? "cursor-not-allowed opacity-50"
+                  : selected
+                    ? "bg-primary/10 ring-1 ring-primary"
+                    : "hover:bg-accent"
+              }`}
+            >
+              <span className="font-medium">
+                {t("generation", { n: p.generation })}
+              </span>
+              <div className="flex items-center gap-1">
+                {cooling && p.cooldownAt ? (
+                  <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground">
+                    <Clock className="size-2.5" />
+                    {t("cooldownEndsAt", { time: formatDateTime(p.cooldownAt) })}
+                  </span>
+                ) : (
+                  <>
+                    <Badge variant="outline" className="text-[10px]">
+                      {p.genome.genes.body}
+                    </Badge>
+                    <Badge variant="outline" className="text-[10px]">
+                      {p.genome.genes.element}
+                    </Badge>
+                  </>
+                )}
+              </div>
+            </button>
+          );
+        })
       )}
     </div>
   );

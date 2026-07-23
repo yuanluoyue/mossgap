@@ -516,6 +516,9 @@
     "breedFailed": "繁殖失败",
     "hatch": "孵化",
     "hatchSuccess": "孵化成功！一只新宠物已加入你的收藏。",
-    "hatchFailed": "孵化失败"
+    "hatchFailed": "孵化失败",
+    "cooldown": "冷却中",
+    "cooldownEndsAt": "{time} 可再次繁殖",
+    "fieldCooldownEndsAt": "冷却结束"
   }
 }

@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { Loader2, PawPrint, Sparkles } from "lucide-react";
+import { Loader2, PawPrint, Sparkles, Clock } from "lucide-react";
 
 import type { PublicPet, PetGenome, PetStatus } from "@/types";
 import { Badge } from "@/components/ui/badge";
@@ -62,6 +62,13 @@ const EXTRA_GENE_FIELDS: Array<{ key: "aura" | "horn" | "wing"; label: string }>
   { key: "wing", label: "fieldWing" },
 ];
 
+/** 判断宠物是否处于繁殖冷却中。 */
+function isCoolingDown(pet: { cooldownAt: string | null }, now: number): boolean {
+  if (!pet.cooldownAt) return false;
+  const cooldownMs = new Date(pet.cooldownAt).getTime();
+  return Number.isFinite(cooldownMs) && cooldownMs > now;
+}
+
 export function PetsSection() {
   const t = useTranslations("Pets");
   const [pets, setPets] = useState<PublicPet[]>([]);
@@ -69,6 +76,9 @@ export function PetsSection() {
   const [redeeming, setRedeeming] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [selected, setSelected] = useState<PublicPet | null>(null);
+
+  // 当前时间戳，用于冷却判定（避免 render 中调用 Date.now）
+  const [now, setNow] = useState(() => Date.now());
 
   const fetchPets = useCallback(async () => {
     setLoading(true);
@@ -170,11 +180,15 @@ export function PetsSection() {
                 const extraCount = g.extraGenes
                   ? EXTRA_GENE_FIELDS.filter((f) => g.extraGenes?.[f.key]).length
                   : 0;
+                const cooling = isCoolingDown(pet, now);
                 return (
                   <button
                     key={pet.id}
                     type="button"
-                    onClick={() => setSelected(pet)}
+                    onClick={() => {
+                      setNow(Date.now());
+                      setSelected(pet);
+                    }}
                     className="group flex flex-col gap-3 rounded-xl border bg-card p-4 text-left transition-colors hover:border-primary/40 hover:bg-accent/40"
                   >
                     <div className="flex items-center justify-between gap-2">
@@ -191,13 +205,21 @@ export function PetsSection() {
                           </p>
                         </div>
                       </div>
-                      <span
-                        className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-medium ${
-                          STATUS_STYLE[pet.status] ?? STATUS_STYLE.NORMAL
-                        }`}
-                      >
-                        {t(STATUS_I18N_KEY[pet.status] as never)}
-                      </span>
+                      <div className="flex flex-col items-end gap-1">
+                        <span
+                          className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                            STATUS_STYLE[pet.status] ?? STATUS_STYLE.NORMAL
+                          }`}
+                        >
+                          {t(STATUS_I18N_KEY[pet.status] as never)}
+                        </span>
+                        {cooling && (
+                          <span className="inline-flex items-center gap-0.5 rounded bg-slate-500/15 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 dark:text-slate-300">
+                            <Clock className="size-2.5" />
+                            {t("cooldown")}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="flex flex-wrap gap-1">
                       <Badge variant="outline" className="text-[10px]">
@@ -271,6 +293,12 @@ export function PetsSection() {
                   <Badge variant="secondary" className="text-[10px]">
                     {t("fieldBreedCount")}: {selected.breedCount}
                   </Badge>
+                  {isCoolingDown(selected, now) && selected.cooldownAt ? (
+                    <span className="inline-flex items-center gap-1 rounded bg-slate-500/15 px-2 py-0.5 text-xs font-medium text-slate-600 dark:text-slate-300">
+                      <Clock className="size-3" />
+                      {t("cooldownEndsAt", { time: formatDateTime(selected.cooldownAt) })}
+                    </span>
+                  ) : null}
                 </div>
 
                 {/* 基础基因 */}

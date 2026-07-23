@@ -517,6 +517,9 @@
     "breedFailed": "Breeding failed",
     "hatch": "Hatch",
     "hatchSuccess": "Hatched! A new pet has joined your collection.",
-    "hatchFailed": "Hatch failed"
+    "hatchFailed": "Hatch failed",
+    "cooldown": "Cooldown",
+    "cooldownEndsAt": "Can breed again at {time}",
+    "fieldCooldownEndsAt": "Cooldown ends"
   }
 }
