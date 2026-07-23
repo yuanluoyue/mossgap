@@ -38,11 +38,13 @@
     "S3_FORCE_PATH_STYLE": "true",
     // 生产站点 URL，供 sitemap.ts / SEO 元信息使用
     "NEXT_PUBLIC_APP_URL": "https://mossgap.com",
+    // Cron 触发鉴权密钥（worker-entry.mjs scheduled → /api/cron/cleanup-missions）
+    "CRON_SECRET": "44c7ab4fd92d91292dc6d75ed4eb2dc28554a192560b9dbafe1f6eccd634511e",
   },
   // 定时任务：清理 180 天前的 user_missions。
   // worker-entry.mjs 扩展了 scheduled() handler，把 cron 转换为内部 fetch 调用
   // /api/cron/cleanup-missions，复用现有 route 逻辑（X-Cron-Secret 鉴权）。
-  // CRON_SECRET 通过 `wrangler secret put CRON_SECRET` 设置。
+  // CRON_SECRET 已在上方 vars 中配置。
   // 每天 UTC 0 点触发（北京时间 8:00）。
   "triggers": {
     "crons": ["0 0 * * *"]
