@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
   LayoutGrid,
@@ -85,12 +85,14 @@ export function ProfileShell({ user: initialUser, children }: ProfileShellProps)
   const tProfile = useTranslations("Profile");
   const tAuth = useTranslations("Auth");
   const tCommon = useTranslations("Common");
-  const router = useRouter();
   const pathname = usePathname();
 
   const [user, setUser] = useState<PublicUser | null>(initialUser);
 
   // 未登录：客户端探测一次（access token 可能过期但 refresh 还有效）
+  // 注意：不能用 router.refresh() 依赖 useState 重新初始化，
+  // 因为 React 的 useState 初始值只在首次 mount 时使用，prop 变化不会更新 state。
+  // 所以这里直接用 /api/auth/me 返回的 user 数据更新本地 state。
   const [authChecking, setAuthChecking] = useState(!initialUser);
 
   useEffect(() => {
@@ -101,11 +103,13 @@ export function ProfileShell({ user: initialUser, children }: ProfileShellProps)
           const res = await fetch("/api/auth/me", { cache: "no-store" });
           const json = (await res.json()) as {
             success?: boolean;
-            data?: { authenticated?: boolean };
+            data?: { authenticated?: boolean; user?: PublicUser };
           };
           if (cancelled) return;
-          if (json.success && json.data?.authenticated) {
-            router.refresh();
+          if (json.success && json.data?.authenticated && json.data.user) {
+            // 直接用接口返回的 user 更新 state，避免依赖 router.refresh()
+            setUser(json.data.user);
+            setAuthChecking(false);
             return;
           }
           setAuthChecking(false);
@@ -117,7 +121,7 @@ export function ProfileShell({ user: initialUser, children }: ProfileShellProps)
         cancelled = true;
       };
     }
-  }, [initialUser, authChecking, router]);
+  }, [initialUser, authChecking]);
 
   // 监听 profile-updated 事件（头像/资料更新后同步本地 user）
   useEffect(() => {

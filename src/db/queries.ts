@@ -55,6 +55,7 @@ import type {
   PublicCollection,
   PublicPet,
   PublicEgg,
+  LineageNode,
   PetGenome,
   PetGenes,
   PetExtraGenes,
@@ -4265,6 +4266,72 @@ export async function listMyAnimals(userId: string): Promise<PublicPet[]> {
     .where(eq(animals.ownerId, userId))
     .orderBy(desc(animals.createdAt));
   return rows.map(toPublicPet);
+}
+
+/**
+ * C 端：查询宠物三代族谱（自己 → 父母 → 祖父母）。
+ *
+ * - 校验宠物属于当前用户
+ * - 通过 animals.fatherId/motherId 自引用字段递归查询
+ * - 初代宠物（无父母）返回单节点树
+ * - 最多查询 3 层（7 个节点：1 + 2 + 4），每层批量查询避免 N+1
+ */
+export async function getPetLineage(
+  userId: string,
+  petId: string,
+): Promise<LineageNode | null> {
+  const db = await getDb();
+
+  // 第 1 层：查自己
+  const selfRows = await db.select().from(animals).where(eq(animals.id, petId)).limit(1);
+  if (!selfRows[0]) return null;
+  const self = selfRows[0];
+  if (self.ownerId !== userId) return null;
+
+  // 第 2 层：查父母
+  const parentIdSet = new Set<string>();
+  if (self.fatherId) parentIdSet.add(self.fatherId);
+  if (self.motherId) parentIdSet.add(self.motherId);
+  const parentMap = new Map<string, (typeof animals.$inferSelect)>();
+  if (parentIdSet.size > 0) {
+    const rows = await db.select().from(animals).where(inArray(animals.id, [...parentIdSet]));
+    for (const r of rows) parentMap.set(r.id, r);
+  }
+
+  // 第 3 层：查祖父母（父母的父母）
+  const grandparentIdSet = new Set<string>();
+  for (const p of parentMap.values()) {
+    if (p.fatherId) grandparentIdSet.add(p.fatherId);
+    if (p.motherId) grandparentIdSet.add(p.motherId);
+  }
+  const grandparentMap = new Map<string, (typeof animals.$inferSelect)>();
+  if (grandparentIdSet.size > 0) {
+    const rows = await db
+      .select()
+      .from(animals)
+      .where(inArray(animals.id, [...grandparentIdSet]));
+    for (const r of rows) grandparentMap.set(r.id, r);
+  }
+
+  // 构建树（depth 0=自己, 1=父母, 2=祖父母；到 2 不再下钻）
+  function buildNode(
+    row: typeof animals.$inferSelect,
+    depth: number,
+  ): LineageNode {
+    if (depth >= 2) {
+      return { pet: toPublicPet(row), father: null, mother: null };
+    }
+    const lookup = depth === 0 ? parentMap : grandparentMap;
+    const fatherRow = row.fatherId ? lookup.get(row.fatherId) : undefined;
+    const motherRow = row.motherId ? lookup.get(row.motherId) : undefined;
+    return {
+      pet: toPublicPet(row),
+      father: fatherRow ? buildNode(fatherRow, depth + 1) : null,
+      mother: motherRow ? buildNode(motherRow, depth + 1) : null,
+    };
+  }
+
+  return buildNode(self, 0);
 }
 
 /**

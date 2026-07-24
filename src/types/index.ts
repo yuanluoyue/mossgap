@@ -308,6 +308,13 @@ export interface PublicPet {
   createdAt: string;
 }
 
+/** 族谱节点（递归树结构，最多三代：自己 → 父母 → 祖父母）。 */
+export interface LineageNode {
+  pet: PublicPet;
+  father: LineageNode | null;
+  mother: LineageNode | null;
+}
+
 // ─── 蛋系统 ───────────────────────────────────────────────
 
 /** 蛋状态 */

@@ -3,9 +3,9 @@
 import { useState, useCallback, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { Loader2, PawPrint, Sparkles, Clock } from "lucide-react";
+import { Loader2, PawPrint, Sparkles, Clock, GitBranch } from "lucide-react";
 
-import type { PublicPet, PetGenome, PetStatus } from "@/types";
+import type { PublicPet, PetGenome, PetStatus, LineageNode } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -69,6 +69,87 @@ function isCoolingDown(pet: { cooldownAt: string | null }, now: number): boolean
   return Number.isFinite(cooldownMs) && cooldownMs > now;
 }
 
+/** 族谱树节点渲染（递归，最多三代）。 */
+function LineageTreeNode({
+  node,
+  label,
+  depth,
+  isRoot,
+}: {
+  node: LineageNode | null;
+  label: string;
+  depth: number;
+  isRoot?: boolean;
+}) {
+  const t = useTranslations("Pets");
+  // 空节点（父母缺失）只在非根节点显示占位
+  if (!node) {
+    if (isRoot) return null;
+    return (
+      <div className="ml-3 border-l border-dashed border-muted pl-3">
+        <div className="rounded-md border border-dashed border-muted bg-muted/20 px-2 py-1.5">
+          <p className="text-[10px] text-muted-foreground">{label}</p>
+          <p className="text-[10px] italic text-muted-foreground">
+            {t("lineageUnknown")}
+          </p>
+        </div>
+      </div>
+    );
+  }
+  const g = node.pet.genome;
+  return (
+    <div className={isRoot ? "" : "ml-3 border-l border-primary/30 pl-3"}>
+      <div
+        className={`rounded-md border px-2 py-1.5 ${
+          isRoot
+            ? "border-primary/40 bg-primary/5"
+            : "border-border bg-card"
+        }`}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[10px] font-medium text-muted-foreground">
+            {label}
+          </span>
+          <span
+            className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-medium ${
+              GEN_STYLE[node.pet.generation] ?? "bg-muted text-muted-foreground"
+            }`}
+          >
+            {t("generation", { n: node.pet.generation })}
+          </span>
+        </div>
+        <p className="mt-0.5 truncate text-xs font-medium">{node.pet.speciesId}</p>
+        <div className="mt-1 flex flex-wrap gap-1">
+          <Badge variant="outline" className="text-[9px]">
+            {g.genes.body}
+          </Badge>
+          <Badge variant="outline" className="text-[9px]">
+            {g.genes.eye}
+          </Badge>
+          <Badge variant="outline" className="text-[9px]">
+            {g.genes.element}
+          </Badge>
+        </div>
+      </div>
+      {/* 非根节点且无父母时不再递归；根节点/父母节点继续展开 */}
+      {(node.father || node.mother) && depth < 2 && (
+        <div className="mt-1 space-y-1">
+          <LineageTreeNode
+            node={node.father}
+            label={t("breedFather")}
+            depth={depth + 1}
+          />
+          <LineageTreeNode
+            node={node.mother}
+            label={t("breedMother")}
+            depth={depth + 1}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function PetsSection() {
   const t = useTranslations("Pets");
   const [pets, setPets] = useState<PublicPet[]>([]);
@@ -79,6 +160,12 @@ export function PetsSection() {
 
   // 当前时间戳，用于冷却判定（避免 render 中调用 Date.now）
   const [now, setNow] = useState(() => Date.now());
+
+  // 族谱相关状态
+  const [lineageOpen, setLineageOpen] = useState(false);
+  const [lineageLoading, setLineageLoading] = useState(false);
+  const [lineage, setLineage] = useState<LineageNode | null>(null);
+  const [lineagePet, setLineagePet] = useState<PublicPet | null>(null);
 
   const fetchPets = useCallback(async () => {
     setLoading(true);
@@ -133,6 +220,33 @@ export function PetsSection() {
     }
   }
 
+  // 拉取族谱并打开 Dialog
+  async function handleOpenLineage(pet: PublicPet) {
+    setLineagePet(pet);
+    setLineageOpen(true);
+    setLineageLoading(true);
+    setLineage(null);
+    try {
+      const res = await fetch(`/api/auth/animals/${pet.id}/lineage`, {
+        cache: "no-store",
+      });
+      const json = (await res.json()) as {
+        success?: boolean;
+        data?: LineageNode;
+        error?: { code?: string; message?: string };
+      };
+      if (res.ok && json.success && json.data) {
+        setLineage(json.data);
+      } else {
+        toast.error(json.error?.message ?? t("lineageFailed"));
+      }
+    } catch {
+      toast.error(t("lineageFailed"));
+    } finally {
+      setLineageLoading(false);
+    }
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -182,14 +296,22 @@ export function PetsSection() {
                   : 0;
                 const cooling = isCoolingDown(pet, now);
                 return (
-                  <button
+                  <div
                     key={pet.id}
-                    type="button"
+                    role="button"
+                    tabIndex={0}
                     onClick={() => {
                       setNow(Date.now());
                       setSelected(pet);
                     }}
-                    className="group flex flex-col gap-3 rounded-xl border bg-card p-4 text-left transition-colors hover:border-primary/40 hover:bg-accent/40"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setNow(Date.now());
+                        setSelected(pet);
+                      }
+                    }}
+                    className="group flex cursor-pointer flex-col gap-3 rounded-xl border bg-card p-4 text-left transition-colors hover:border-primary/40 hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
@@ -237,7 +359,24 @@ export function PetsSection() {
                         </span>
                       )}
                     </div>
-                  </button>
+                    {/* 操作行：族谱按钮（阻止冒泡，避免触发卡片点击） */}
+                    <div className="flex justify-end border-t pt-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenLineage(pet);
+                        }}
+                        className="h-7 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
+                        title={t("lineage")}
+                      >
+                        <GitBranch className="size-3.5" />
+                        {t("lineage")}
+                      </Button>
+                    </div>
+                  </div>
                 );
               })}
             </div>
@@ -370,6 +509,56 @@ export function PetsSection() {
               </div>
             </>
           ) : null}
+        </DialogContent>
+      </Dialog>
+
+      {/* 族谱弹窗 */}
+      <Dialog
+        open={lineageOpen}
+        onOpenChange={(v) => {
+          if (!lineageLoading) setLineageOpen(v);
+        }}
+      >
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <GitBranch className="size-5 text-primary" />
+              {t("lineageTitle")}
+            </DialogTitle>
+            <DialogDescription>
+              {lineagePet
+                ? `${t("generation", { n: lineagePet.generation })} · ${lineagePet.speciesId}`
+                : t("lineageDesc")}
+            </DialogDescription>
+          </DialogHeader>
+          {lineageLoading ? (
+            <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
+              <Loader2 className="mr-2 size-4 animate-spin" />
+              {t("lineageLoading")}
+            </div>
+          ) : lineage ? (
+            <div className="space-y-2">
+              {lineage.father || lineage.mother ? (
+                <p className="text-xs text-muted-foreground">
+                  {t("lineageDesc")}
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  {t("lineageNoParents")}
+                </p>
+              )}
+              <LineageTreeNode
+                node={lineage}
+                label={t("lineageSelf")}
+                depth={0}
+                isRoot
+              />
+            </div>
+          ) : (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              {t("lineageFailed")}
+            </p>
+          )}
         </DialogContent>
       </Dialog>
 

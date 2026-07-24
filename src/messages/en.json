@@ -520,6 +520,14 @@
     "hatchFailed": "Hatch failed",
     "cooldown": "Cooldown",
     "cooldownEndsAt": "Can breed again at {time}",
-    "fieldCooldownEndsAt": "Cooldown ends"
+    "fieldCooldownEndsAt": "Cooldown ends",
+    "lineage": "Lineage",
+    "lineageTitle": "3-Generation Lineage",
+    "lineageDesc": "View genes of parents and grandparents",
+    "lineageLoading": "Loading lineage...",
+    "lineageFailed": "Failed to load lineage",
+    "lineageSelf": "This pet",
+    "lineageUnknown": "Unknown",
+    "lineageNoParents": "Gen 1 pets have no parent records"
   }
 }

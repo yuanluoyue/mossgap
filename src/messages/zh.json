@@ -519,6 +519,14 @@
     "hatchFailed": "孵化失败",
     "cooldown": "冷却中",
     "cooldownEndsAt": "{time} 可再次繁殖",
-    "fieldCooldownEndsAt": "冷却结束"
+    "fieldCooldownEndsAt": "冷却结束",
+    "lineage": "族谱",
+    "lineageTitle": "三代族谱",
+    "lineageDesc": "查看父母与祖父母的基因",
+    "lineageLoading": "加载族谱中...",
+    "lineageFailed": "加载族谱失败",
+    "lineageSelf": "当前宠物",
+    "lineageUnknown": "未知",
+    "lineageNoParents": "初代宠物没有父母记录"
   }
 }
