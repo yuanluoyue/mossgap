@@ -3508,6 +3508,93 @@ export async function claimMissionReward(
 }
 
 /**
+ * 领取在线时长奖励。
+ *
+ * 在线时长由前端统计，服务端不记录。本函数按 minutes 匹配
+ * event=ONLINE_DURATION 且 target=minutes 的 daily 任务，
+ * 懒创建 user_mission 后直接标记 completed 并发奖。
+ * 依靠 user_mission (userId, missionId, cycleKey) 唯一索引防重复领取。
+ */
+export async function claimOnlineDurationReward(
+  userId: string,
+  minutes: number,
+): Promise<
+  | { ok: true; balance: number; reward: number }
+  | { ok: false; reason: "mission_not_found" | "already_claimed" }
+> {
+  const db = await getDb();
+  const now = Math.floor(Date.now() / 1000);
+
+  // 1. 查找匹配的 ONLINE_DURATION 任务
+  const missionRows = await db
+    .select()
+    .from(missions)
+    .where(
+      and(
+        eq(missions.event, "ONLINE_DURATION"),
+        eq(missions.target, minutes),
+        eq(missions.enabled, 1),
+        or(isNull(missions.startAt), lte(missions.startAt, now)),
+        or(isNull(missions.endAt), gte(missions.endAt, now)),
+      ),
+    )
+    .limit(1);
+  const mission = missionRows[0];
+  if (!mission) return { ok: false, reason: "mission_not_found" };
+
+  // 2. 懒创建 user_mission
+  const cycleKey = computeCycleKey("daily");
+  await db
+    .insert(userMissions)
+    .values({
+      id: crypto.randomUUID(),
+      userId,
+      missionId: mission.id,
+      cycleKey,
+      progress: mission.target,
+      status: "pending",
+      updatedAt: now,
+    })
+    .onConflictDoNothing({
+      target: [
+        userMissions.userId,
+        userMissions.missionId,
+        userMissions.cycleKey,
+      ],
+    });
+
+  // 3. 读当前状态
+  const existing = await db
+    .select()
+    .from(userMissions)
+    .where(
+      and(
+        eq(userMissions.userId, userId),
+        eq(userMissions.missionId, mission.id),
+        eq(userMissions.cycleKey, cycleKey),
+      ),
+    )
+    .limit(1);
+  const um = existing[0];
+  if (!um) return { ok: false, reason: "mission_not_found" };
+  if (um.status === "claimed") return { ok: false, reason: "already_claimed" };
+
+  // 4. 直接标记为 completed（进度在前端统计，服务端不跟踪）
+  await db
+    .update(userMissions)
+    .set({ progress: mission.target, status: "completed", updatedAt: now })
+    .where(eq(userMissions.id, um.id));
+
+  // 5. 复用 claimMissionReward 发奖
+  const result = await claimMissionReward(um.id, userId);
+  if (result.ok) {
+    return { ok: true, balance: result.balance, reward: result.reward };
+  }
+  // 前面已校验 status 不为 claimed，此处只可能 already_claimed
+  return { ok: false, reason: "already_claimed" };
+}
+
+/**
  * 列出当前用户在当前周期内所有可领取/进行中的任务进度。
  * 含未触发的任务（lazy 创建后 progress=0）。
  */

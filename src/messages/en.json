@@ -423,6 +423,18 @@
     "typeWeekly": "Weekly",
     "typeAchievement": "Achievement"
   },
+  "OnlineDuration": {
+    "rewardAvailable": "Reward available",
+    "loginRequired": "Sign in required",
+    "loginRequiredHint": "Sign in to claim your online duration rewards",
+    "claimTitle": "Online Rewards",
+    "claimDesc": "Claim your online duration rewards",
+    "minutes": "{count} min",
+    "claim": "Claim",
+    "claimSuccess": "Claimed! +{reward} points",
+    "alreadyClaimed": "Already claimed",
+    "claimFailed": "Claim failed, please try again"
+  },
   "Inventory": {
     "title": "My Inventory",
     "description": "Items you have collected",

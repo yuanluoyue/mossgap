@@ -103,6 +103,67 @@ const builtinMissions: Array<{
     sortOrder: 0,
     enabled: 1,
   },
+  // 在线时长任务：前端统计在线时长，达到档位后可领取对应积分
+  {
+    name: { en: "Online 2 min", zh: "在线 2 分钟" },
+    description: {
+      en: "Stay online for 2 minutes to claim 2 points.",
+      zh: "在线满 2 分钟，领取 2 积分。",
+    },
+    type: "daily",
+    event: "ONLINE_DURATION",
+    target: 2,
+    rewardType: "point",
+    rewardValue: 2,
+    icon: "⏱️",
+    sortOrder: 1,
+    enabled: 1,
+  },
+  {
+    name: { en: "Online 5 min", zh: "在线 5 分钟" },
+    description: {
+      en: "Stay online for 5 minutes to claim 5 points.",
+      zh: "在线满 5 分钟，领取 5 积分。",
+    },
+    type: "daily",
+    event: "ONLINE_DURATION",
+    target: 5,
+    rewardType: "point",
+    rewardValue: 5,
+    icon: "⏱️",
+    sortOrder: 2,
+    enabled: 1,
+  },
+  {
+    name: { en: "Online 15 min", zh: "在线 15 分钟" },
+    description: {
+      en: "Stay online for 15 minutes to claim 15 points.",
+      zh: "在线满 15 分钟，领取 15 积分。",
+    },
+    type: "daily",
+    event: "ONLINE_DURATION",
+    target: 15,
+    rewardType: "point",
+    rewardValue: 15,
+    icon: "⏱️",
+    sortOrder: 3,
+    enabled: 1,
+  },
+  {
+    name: { en: "Online 30 min", zh: "在线 30 分钟" },
+    description: {
+      en: "Stay online for 30 minutes to claim 30 points.",
+      zh: "在线满 30 分钟，领取 30 积分。",
+    },
+    type: "daily",
+    event: "ONLINE_DURATION",
+    target: 30,
+    rewardType: "point",
+    rewardValue: 30,
+    icon: "⏱️",
+    sortOrder: 4,
+    enabled: 1,
+  },
 ];
 
 /** 将 LocalizedText 序列化为数据库存储的 JSON 字符串。 */

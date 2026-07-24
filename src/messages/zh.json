@@ -423,6 +423,18 @@
     "typeWeekly": "每周",
     "typeAchievement": "成就"
   },
+  "OnlineDuration": {
+    "rewardAvailable": "有奖励可领取",
+    "loginRequired": "请先登录",
+    "loginRequiredHint": "登录后才能领取在线时长奖励",
+    "claimTitle": "在线奖励",
+    "claimDesc": "领取你的在线时长奖励",
+    "minutes": "{count} 分钟",
+    "claim": "领取",
+    "claimSuccess": "领取成功！+{reward} 积分",
+    "alreadyClaimed": "该奖励已领取",
+    "claimFailed": "领取失败，请稍后重试"
+  },
   "Inventory": {
     "title": "我的背包",
     "description": "你收集到的物品",

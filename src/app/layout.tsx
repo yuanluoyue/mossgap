@@ -41,6 +41,7 @@ const CLIENT_NAMESPACES = [
   "Inventory",
   "Pets",
   "Market",
+  "OnlineDuration",
 ] as const;
 
 function pickMessages(
