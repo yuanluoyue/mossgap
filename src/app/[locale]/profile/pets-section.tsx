@@ -430,7 +430,7 @@ export function PetsSection() {
                       )}
                     </div>
                     {/* 操作行：族谱 + 开放配种按钮（阻止冒泡，避免触发卡片点击） */}
-                    <div className="flex items-center justify-between border-t pt-2">
+                    <div className="mt-auto flex items-center justify-between border-t pt-2">
                       <Button
                         type="button"
                         size="sm"
