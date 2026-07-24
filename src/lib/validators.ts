@@ -691,3 +691,34 @@ export const breedSchema = z.object({
   fatherId: z.string().min(1, "请选择父代"),
   motherId: z.string().min(1, "请选择母代"),
 });
+
+// ─── 繁育市场 ───────────────────────────────────────────────
+
+/** B 端订单列表查询参数。 */
+export const listBreedOrdersQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(10),
+  search: z.string().optional(),
+  status: z.enum(["OPEN", "CLOSED", "CANCELLED"]).optional(),
+  ownerId: z.string().optional(),
+});
+
+/** C 端创建挂单校验。 */
+export const breedOrderCreateSchema = z.object({
+  animalId: z.string().min(1, "请选择宠物"),
+  price: z
+    .number()
+    .int("价格必须为整数")
+    .min(1, "价格必须大于 0")
+    .max(1_000_000, "价格过高"),
+  description: z.string().max(100, "留言最长 100 字").optional().nullable().default(null),
+});
+
+/** B 端修改价格校验。 */
+export const breedOrderPriceUpdateSchema = z.object({
+  price: z
+    .number()
+    .int("价格必须为整数")
+    .min(1, "价格必须大于 0")
+    .max(1_000_000, "价格过高"),
+});

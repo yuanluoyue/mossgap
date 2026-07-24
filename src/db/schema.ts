@@ -1120,6 +1120,52 @@ export const eggs = sqliteTable(
 export type Egg = typeof eggs.$inferSelect;
 export type NewEgg = typeof eggs.$inferInsert;
 
+/**
+ * 繁育市场订单表（breed_market_orders）。
+ *
+ * - ownerId: 挂单方（C 端用户）
+ * - animalId: 挂单宠物（animals.id，软关联）
+ * - price: 配种价格（积分，正整数）
+ * - status: OPEN(挂单中) / CLOSED(已成交或过期) / CANCELLED(主动取消)
+ * - description: 留言（≤100 字，nullable）
+ * - expiredAt: 过期时间（Unix 秒，默认 createdAt + 7 天）
+ *
+ * 一个 animal 同时只能有一个 OPEN 状态订单（应用层保证）。
+ */
+export const breedMarketOrders = sqliteTable(
+  "breed_market_orders",
+  {
+    id: text("id")
+      .primaryKey()
+      .notNull()
+      .$defaultFn(genUuid),
+    ownerId: text("owner_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    animalId: text("animal_id").notNull(),
+    price: integer("price").notNull().default(0),
+    status: text("status", {
+      enum: ["OPEN", "CLOSED", "CANCELLED"],
+    }).notNull().default("OPEN"),
+    description: text("description"),
+    expiredAt: integer("expired_at"),
+    createdAt: integer("created_at")
+      .notNull()
+      .$defaultFn(nowSeconds),
+    updatedAt: integer("updated_at")
+      .notNull()
+      .$defaultFn(nowSeconds),
+  },
+  (t) => ({
+    ownerIdx: index("breed_market_orders_owner_id_idx").on(t.ownerId),
+    animalIdx: index("breed_market_orders_animal_id_idx").on(t.animalId),
+    statusIdx: index("breed_market_orders_status_idx").on(t.status),
+  }),
+);
+
+export type BreedMarketOrder = typeof breedMarketOrders.$inferSelect;
+export type NewBreedMarketOrder = typeof breedMarketOrders.$inferInsert;
+
 // Zod Schemas（前后端共享校验）
 export const insertGameSchema = createInsertSchema(games);
 export const selectGameSchema = createSelectSchema(games);

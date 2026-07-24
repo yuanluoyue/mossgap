@@ -31,6 +31,7 @@ import {
   inventoryLogs,
   animals,
   eggs,
+  breedMarketOrders,
 } from "./schema";
 import type {
   AdminFeedback,
@@ -56,6 +57,9 @@ import type {
   PublicPet,
   PublicEgg,
   LineageNode,
+  AdminBreedOrder,
+  PublicBreedOrder,
+  BreedOrderStatus,
   PetGenome,
   PetGenes,
   PetExtraGenes,
@@ -4712,6 +4716,419 @@ export async function hatchEgg(userId: string, eggId: string): Promise<HatchResu
     .where(eq(eggs.id, eggId));
 
   return { ok: true, pet: toPublicPet(petRow!) };
+}
+
+// ─── 繁育市场 ───────────────────────────────────────────────
+
+/** 市场订单默认有效期（秒）：7 天。 */
+export const BREED_ORDER_DEFAULT_TTL = 7 * 24 * 60 * 60;
+
+/** 市场订单允许的最大价格（积分）。 */
+export const BREED_ORDER_MAX_PRICE = 1_000_000;
+
+/** 市场订单留言最大长度。 */
+export const BREED_ORDER_MAX_DESC = 100;
+
+/** 把 breed_market_orders row + owner + animal 映射为 AdminBreedOrder。 */
+function toAdminBreedOrder(
+  row: typeof breedMarketOrders.$inferSelect,
+  owner: { name: string | null; email: string | null } | null,
+  animal: typeof animals.$inferSelect | null,
+): AdminBreedOrder {
+  return {
+    id: row.id,
+    ownerId: row.ownerId,
+    ownerName: owner?.name ?? null,
+    ownerEmail: owner?.email ?? null,
+    animalId: row.animalId,
+    animalSpeciesId: animal?.speciesId ?? "",
+    animalGeneration: animal?.generation ?? 1,
+    animalGenome: animal ? parseGenome(animal.genome) : { version: 1, genes: { body: "", eye: "", tail: "", pattern: "", element: "", personality: "" } },
+    animalStatus: (animal?.status ?? "NORMAL") as PetStatus,
+    price: row.price,
+    status: row.status as BreedOrderStatus,
+    description: row.description,
+    expiredAt: toIso(row.expiredAt),
+    createdAt: toIso(row.createdAt),
+    updatedAt: toIso(row.updatedAt),
+  };
+}
+
+/** 把 row + owner + animal 映射为 PublicBreedOrder。 */
+function toPublicBreedOrder(
+  row: typeof breedMarketOrders.$inferSelect,
+  owner: { name: string | null } | null,
+  animal: typeof animals.$inferSelect | null,
+): PublicBreedOrder {
+  return {
+    id: row.id,
+    ownerId: row.ownerId,
+    ownerName: owner?.name ?? null,
+    animalId: row.animalId,
+    animalSpeciesId: animal?.speciesId ?? "",
+    animalGeneration: animal?.generation ?? 1,
+    animalGenome: animal ? parseGenome(animal.genome) : { version: 1, genes: { body: "", eye: "", tail: "", pattern: "", element: "", personality: "" } },
+    animalStatus: (animal?.status ?? "NORMAL") as PetStatus,
+    animalBreedCount: animal?.breedCount ?? 0,
+    animalCooldownAt: toIso(animal?.cooldownAt ?? null),
+    price: row.price,
+    status: row.status as BreedOrderStatus,
+    description: row.description,
+    expiredAt: toIso(row.expiredAt),
+    createdAt: toIso(row.createdAt),
+  };
+}
+
+/**
+ * C 端：列出市场挂单（默认只看 OPEN 且未过期）。
+ *
+ * - excludeOwnerId：排除自己的挂单（市场页不展示自己的）
+ * - 只返回 OPEN 状态且 expiredAt > now 的订单
+ * - 按 createdAt 倒序
+ */
+export async function listOpenBreedOrders(opts: {
+  excludeOwnerId?: string;
+  limit?: number;
+}): Promise<PublicBreedOrder[]> {
+  const db = await getDb();
+  const now = Math.floor(Date.now() / 1000);
+  const conds = [
+    eq(breedMarketOrders.status, "OPEN"),
+    or(
+      isNull(breedMarketOrders.expiredAt),
+      gte(breedMarketOrders.expiredAt, now),
+    ),
+  ];
+  if (opts.excludeOwnerId) {
+    conds.push(sql`${breedMarketOrders.ownerId} != ${opts.excludeOwnerId}`);
+  }
+  const rows = await db
+    .select()
+    .from(breedMarketOrders)
+    .where(and(...conds))
+    .orderBy(desc(breedMarketOrders.createdAt))
+    .limit(opts.limit ?? 100);
+
+  if (rows.length === 0) return [];
+
+  // 批量查 owner 与 animal
+  const ownerIds = [...new Set(rows.map((r) => r.ownerId))];
+  const animalIds = [...new Set(rows.map((r) => r.animalId))];
+  const [ownerRows, animalRows] = await Promise.all([
+    db.select({ id: users.id, name: users.name }).from(users).where(inArray(users.id, ownerIds)),
+    db.select().from(animals).where(inArray(animals.id, animalIds)),
+  ]);
+  const ownerMap = new Map(ownerRows.map((o) => [o.id, o]));
+  const animalMap = new Map(animalRows.map((a) => [a.id, a]));
+
+  return rows.map((r) =>
+    toPublicBreedOrder(
+      r,
+      ownerMap.get(r.ownerId) ?? null,
+      animalMap.get(r.animalId) ?? null,
+    ),
+  );
+}
+
+/** C 端：列出某用户的市场挂单（含已取消/过期，便于"我的挂单"页展示）。 */
+export async function listMyBreedOrders(userId: string): Promise<PublicBreedOrder[]> {
+  const db = await getDb();
+  const rows = await db
+    .select()
+    .from(breedMarketOrders)
+    .where(eq(breedMarketOrders.ownerId, userId))
+    .orderBy(desc(breedMarketOrders.createdAt));
+
+  if (rows.length === 0) return [];
+
+  const animalIds = [...new Set(rows.map((r) => r.animalId))];
+  const animalRows = await db.select().from(animals).where(inArray(animals.id, animalIds));
+  const animalMap = new Map(animalRows.map((a) => [a.id, a]));
+
+  return rows.map((r) => toPublicBreedOrder(r, null, animalMap.get(r.animalId) ?? null));
+}
+
+/** B 端：分页查询所有订单（搜索 owner / 状态筛选）。 */
+export async function listAllBreedOrders(opts: {
+  page: number;
+  pageSize: number;
+  search?: string;
+  status?: BreedOrderStatus;
+  ownerId?: string;
+}): Promise<{ items: AdminBreedOrder[]; total: number }> {
+  const db = await getDb();
+  const conds = [];
+  if (opts.search) {
+    const kw = `%${opts.search}%`;
+    conds.push(or(like(users.email, kw), like(users.name, kw)) ?? undefined);
+  }
+  if (opts.status) {
+    conds.push(eq(breedMarketOrders.status, opts.status));
+  }
+  if (opts.ownerId) {
+    conds.push(eq(breedMarketOrders.ownerId, opts.ownerId));
+  }
+  const where = conds.length > 0 ? and(...conds) : undefined;
+
+  const [rows, totalRows] = await Promise.all([
+    db
+      .select({
+        order: breedMarketOrders,
+        ownerName: users.name,
+        ownerEmail: users.email,
+      })
+      .from(breedMarketOrders)
+      .leftJoin(users, eq(breedMarketOrders.ownerId, users.id))
+      .where(where ?? sql`1=1`)
+      .orderBy(desc(breedMarketOrders.createdAt))
+      .limit(opts.pageSize)
+      .offset((opts.page - 1) * opts.pageSize),
+    db
+      .select({ c: count() })
+      .from(breedMarketOrders)
+      .leftJoin(users, eq(breedMarketOrders.ownerId, users.id))
+      .where(where ?? sql`1=1`),
+  ]);
+
+  const animalIds = [...new Set(rows.map((r) => r.order.animalId))];
+  const animalRows = animalIds.length > 0
+    ? await db.select().from(animals).where(inArray(animals.id, animalIds))
+    : [];
+  const animalMap = new Map(animalRows.map((a) => [a.id, a]));
+
+  return {
+    items: rows.map((r) =>
+      toAdminBreedOrder(
+        r.order,
+        r.ownerName !== null || r.ownerEmail !== null
+          ? { name: r.ownerName, email: r.ownerEmail }
+          : null,
+        animalMap.get(r.order.animalId) ?? null,
+      ),
+    ),
+    total: totalRows[0]?.c ?? 0,
+  };
+}
+
+/** 取单个订单 row（内部用）。 */
+async function getOrderRow(id: string) {
+  const db = await getDb();
+  const rows = await db
+    .select()
+    .from(breedMarketOrders)
+    .where(eq(breedMarketOrders.id, id))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+/** C 端：按 id 查单个订单（校验属于该用户），返回 PublicBreedOrder。 */
+export async function getMyBreedOrder(
+  userId: string,
+  orderId: string,
+): Promise<PublicBreedOrder | null> {
+  const row = await getOrderRow(orderId);
+  if (!row || row.ownerId !== userId) return null;
+  const db = await getDb();
+  const [ownerRow, animalRow] = await Promise.all([
+    db.select({ name: users.name }).from(users).where(eq(users.id, userId)).limit(1),
+    db.select().from(animals).where(eq(animals.id, row.animalId)).limit(1),
+  ]);
+  return toPublicBreedOrder(row, ownerRow[0] ?? null, animalRow[0] ?? null);
+}
+
+/** B 端：按 id 查单个订单（含 owner / animal 详情），返回 AdminBreedOrder。 */
+export async function getAdminBreedOrder(id: string): Promise<AdminBreedOrder | null> {
+  const row = await getOrderRow(id);
+  if (!row) return null;
+  const db = await getDb();
+  const [ownerRow, animalRow] = await Promise.all([
+    db
+      .select({ name: users.name, email: users.email })
+      .from(users)
+      .where(eq(users.id, row.ownerId))
+      .limit(1),
+    db.select().from(animals).where(eq(animals.id, row.animalId)).limit(1),
+  ]);
+  return toAdminBreedOrder(row, ownerRow[0] ?? null, animalRow[0] ?? null);
+}
+
+export type CreateBreedOrderResult =
+  | { ok: true; order: PublicBreedOrder }
+  | { ok: false; reason: "pet_not_found" | "not_owner" | "cooldown" | "already_listing" | "invalid_price" | "invalid_description" };
+
+/**
+ * C 端：创建繁育市场挂单。
+ *
+ * 校验：
+ * 1. 宠物存在且属于当前用户
+ * 2. 宠物状态为 NORMAL（不允许 BREEDING / LISTING / LOCKED）
+ * 3. 宠物不在冷却中
+ * 4. 该宠物当前没有其他 OPEN 订单（应用层幂等）
+ * 5. 价格 > 0，描述（如有）≤ 100 字
+ *
+ * 创建后：
+ * - 写入 expiredAt = now + 7d
+ * - 不修改 animals.status（仍保持 NORMAL，避免影响其他流程）
+ *   说明：保持 NORMAL 让 owner 仍能自己繁殖该宠物；挂单只影响他人能否购买（待实现）
+ */
+export async function createBreedOrder(
+  userId: string,
+  input: { animalId: string; price: number; description?: string | null },
+): Promise<CreateBreedOrderResult> {
+  const price = Math.floor(input.price);
+  if (!Number.isFinite(price) || price <= 0 || price > BREED_ORDER_MAX_PRICE) {
+    return { ok: false, reason: "invalid_price" };
+  }
+  const desc = input.description?.trim() ?? "";
+  if (desc.length > BREED_ORDER_MAX_DESC) {
+    return { ok: false, reason: "invalid_description" };
+  }
+
+  const db = await getDb();
+
+  // 1. 校验宠物
+  const animalRows = await db
+    .select()
+    .from(animals)
+    .where(eq(animals.id, input.animalId))
+    .limit(1);
+  const animal = animalRows[0];
+  if (!animal) return { ok: false, reason: "pet_not_found" };
+  if (animal.ownerId !== userId) return { ok: false, reason: "not_owner" };
+  if (animal.status !== "NORMAL") return { ok: false, reason: "already_listing" };
+  const now = Math.floor(Date.now() / 1000);
+  if (animal.cooldownAt && now < animal.cooldownAt) {
+    return { ok: false, reason: "cooldown" };
+  }
+
+  // 2. 校验该宠物没有其他 OPEN 订单
+  const existing = await db
+    .select({ id: breedMarketOrders.id })
+    .from(breedMarketOrders)
+    .where(
+      and(
+        eq(breedMarketOrders.animalId, input.animalId),
+        eq(breedMarketOrders.status, "OPEN"),
+      ),
+    )
+    .limit(1);
+  if (existing[0]) return { ok: false, reason: "already_listing" };
+
+  // 3. 创建订单
+  const expiredAt = now + BREED_ORDER_DEFAULT_TTL;
+  const [row] = await db
+    .insert(breedMarketOrders)
+    .values({
+      ownerId: userId,
+      animalId: input.animalId,
+      price,
+      status: "OPEN",
+      description: desc || null,
+      expiredAt,
+    })
+    .returning();
+
+  // 4. 锁定宠物状态为 LISTING，避免重复挂单 / 繁殖
+  await db
+    .update(animals)
+    .set({ status: "LISTING", updatedAt: now })
+    .where(eq(animals.id, input.animalId));
+
+  return {
+    ok: true,
+    order: toPublicBreedOrder(row!, null, animal),
+  };
+}
+
+export type CancelBreedOrderResult =
+  | { ok: true }
+  | { ok: false; reason: "not_found" | "not_owner" | "not_open" };
+
+/**
+ * C 端：取消自己的挂单。
+ *
+ * - 仅 OPEN 状态可取消（CANCELLED / CLOSED 不可再取消）
+ * - 不删除订单，只把 status 改为 CANCELLED
+ */
+export async function cancelMyBreedOrder(
+  userId: string,
+  orderId: string,
+): Promise<CancelBreedOrderResult> {
+  const db = await getDb();
+  const row = await getOrderRow(orderId);
+  if (!row) return { ok: false, reason: "not_found" };
+  if (row.ownerId !== userId) return { ok: false, reason: "not_owner" };
+  if (row.status !== "OPEN") return { ok: false, reason: "not_open" };
+
+  const now = Math.floor(Date.now() / 1000);
+  await db
+    .update(breedMarketOrders)
+    .set({ status: "CANCELLED", updatedAt: now })
+    .where(eq(breedMarketOrders.id, orderId));
+
+  // 恢复宠物状态为 NORMAL，使其可以再次挂单 / 繁殖
+  await db
+    .update(animals)
+    .set({ status: "NORMAL", updatedAt: now })
+    .where(
+      and(eq(animals.id, row.animalId), eq(animals.status, "LISTING")),
+    );
+  return { ok: true };
+}
+
+export type AdminCancelBreedOrderResult =
+  | { ok: true }
+  | { ok: false; reason: "not_found" | "not_open" };
+
+/** B 端：取消任意挂单。 */
+export async function adminCancelBreedOrder(
+  orderId: string,
+): Promise<AdminCancelBreedOrderResult> {
+  const db = await getDb();
+  const row = await getOrderRow(orderId);
+  if (!row) return { ok: false, reason: "not_found" };
+  if (row.status !== "OPEN") return { ok: false, reason: "not_open" };
+
+  const now = Math.floor(Date.now() / 1000);
+  await db
+    .update(breedMarketOrders)
+    .set({ status: "CANCELLED", updatedAt: now })
+    .where(eq(breedMarketOrders.id, orderId));
+
+  // 恢复宠物状态为 NORMAL
+  await db
+    .update(animals)
+    .set({ status: "NORMAL", updatedAt: now })
+    .where(
+      and(eq(animals.id, row.animalId), eq(animals.status, "LISTING")),
+    );
+  return { ok: true };
+}
+
+export type AdminUpdateBreedOrderPriceResult =
+  | { ok: true; order: AdminBreedOrder }
+  | { ok: false; reason: "not_found" | "invalid_price" };
+
+/** B 端：修改挂单价格。 */
+export async function adminUpdateBreedOrderPrice(
+  orderId: string,
+  price: number,
+): Promise<AdminUpdateBreedOrderPriceResult> {
+  const p = Math.floor(price);
+  if (!Number.isFinite(p) || p <= 0 || p > BREED_ORDER_MAX_PRICE) {
+    return { ok: false, reason: "invalid_price" };
+  }
+  const db = await getDb();
+  const row = await getOrderRow(orderId);
+  if (!row) return { ok: false, reason: "not_found" };
+
+  const now = Math.floor(Date.now() / 1000);
+  await db
+    .update(breedMarketOrders)
+    .set({ price: p, updatedAt: now })
+    .where(eq(breedMarketOrders.id, orderId));
+
+  return { ok: true, order: (await getAdminBreedOrder(orderId))! };
 }
 
 export { schema, asc };

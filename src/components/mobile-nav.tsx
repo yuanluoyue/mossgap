@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Menu, Home, Gamepad2, Info } from "lucide-react";
+import { Menu, Home, Gamepad2, Info, Store } from "lucide-react";
 
 import {
   Sheet,
@@ -17,14 +17,15 @@ import {
 import { cn } from "@/lib/utils";
 
 interface NavItem {
-  href: "/" | "/games" | "/about";
-  labelKey: "home" | "games" | "about";
+  href: "/" | "/games" | "/market/breed" | "/about";
+  labelKey: "home" | "games" | "market" | "about";
   icon: typeof Home;
 }
 
 const NAV_ITEMS: NavItem[] = [
   { href: "/", labelKey: "home", icon: Home },
   { href: "/games", labelKey: "games", icon: Gamepad2 },
+  { href: "/market/breed", labelKey: "market", icon: Store },
   { href: "/about", labelKey: "about", icon: Info },
 ];
 

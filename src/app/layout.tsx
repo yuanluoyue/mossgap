@@ -40,6 +40,7 @@ const CLIENT_NAMESPACES = [
   "Mission",
   "Inventory",
   "Pets",
+  "Market",
 ] as const;
 
 function pickMessages(

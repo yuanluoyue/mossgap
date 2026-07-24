@@ -315,6 +315,51 @@ export interface LineageNode {
   mother: LineageNode | null;
 }
 
+// ─── 繁育市场 ───────────────────────────────────────────────
+
+/** 市场订单状态 */
+export type BreedOrderStatus = "OPEN" | "CLOSED" | "CANCELLED";
+
+export const BREED_ORDER_STATUSES: BreedOrderStatus[] = ["OPEN", "CLOSED", "CANCELLED"];
+
+/** B 端订单数据（含 owner 与 animal 信息） */
+export interface AdminBreedOrder {
+  id: string;
+  ownerId: string;
+  ownerName: string | null;
+  ownerEmail: string | null;
+  animalId: string;
+  animalSpeciesId: string;
+  animalGeneration: number;
+  animalGenome: PetGenome;
+  animalStatus: PetStatus;
+  price: number;
+  status: BreedOrderStatus;
+  description: string | null;
+  expiredAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** C 端订单数据（不含 owner 敏感信息；含必要 animal 摘要） */
+export interface PublicBreedOrder {
+  id: string;
+  ownerId: string;
+  ownerName: string | null;
+  animalId: string;
+  animalSpeciesId: string;
+  animalGeneration: number;
+  animalGenome: PetGenome;
+  animalStatus: PetStatus;
+  animalBreedCount: number;
+  animalCooldownAt: string | null;
+  price: number;
+  status: BreedOrderStatus;
+  description: string | null;
+  expiredAt: string | null;
+  createdAt: string;
+}
+
 // ─── 蛋系统 ───────────────────────────────────────────────
 
 /** 蛋状态 */

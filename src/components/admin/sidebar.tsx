@@ -23,6 +23,7 @@ import {
   Package,
   PawPrint,
   Egg,
+  Store,
   Menu as MenuIcon,
   ChevronRight,
   ChevronDown,
@@ -56,6 +57,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Package,
   PawPrint,
   Egg,
+  Store,
   Menu: MenuIcon,
 };
 

@@ -36,6 +36,7 @@ export async function SiteHeader() {
         {/* 主导航（≥ md） */}
         <nav className="hidden items-center gap-1 md:flex">
           <NavLink href="/games">{t("games")}</NavLink>
+          <NavLink href="/market/breed">{t("market")}</NavLink>
           <NavLink href="/about">{t("about")}</NavLink>
         </nav>
 
@@ -53,7 +54,7 @@ function NavLink({
   href,
   children,
 }: {
-  href: "/" | "/games" | "/about";
+  href: "/" | "/games" | "/market/breed" | "/about";
   children: React.ReactNode;
 }) {
   return (

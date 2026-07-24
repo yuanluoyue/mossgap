@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { Loader2, PawPrint, Sparkles, Clock, GitBranch } from "lucide-react";
+import { Loader2, PawPrint, Sparkles, Clock, GitBranch, Store } from "lucide-react";
 
 import type { PublicPet, PetGenome, PetStatus, LineageNode } from "@/types";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +22,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { formatDateTime } from "@/lib/format";
 
 /** moss pet 兑换价格（与后端常量保持一致，仅用于 UI 文案）。 */
@@ -167,6 +170,14 @@ export function PetsSection() {
   const [lineage, setLineage] = useState<LineageNode | null>(null);
   const [lineagePet, setLineagePet] = useState<PublicPet | null>(null);
 
+  // 开放配种挂单相关状态
+  const tMarket = useTranslations("Market");
+  const [listingOpen, setListingOpen] = useState(false);
+  const [listingPet, setListingPet] = useState<PublicPet | null>(null);
+  const [listingPrice, setListingPrice] = useState<string>("");
+  const [listingDesc, setListingDesc] = useState<string>("");
+  const [listingSubmitting, setListingSubmitting] = useState(false);
+
   const fetchPets = useCallback(async () => {
     setLoading(true);
     try {
@@ -244,6 +255,65 @@ export function PetsSection() {
       toast.error(t("lineageFailed"));
     } finally {
       setLineageLoading(false);
+    }
+  }
+
+  // 打开开放配种弹窗
+  function handleOpenListing(pet: PublicPet) {
+    setListingPet(pet);
+    setListingPrice("");
+    setListingDesc("");
+    setListingOpen(true);
+  }
+
+  // 提交挂单
+  async function handleCreateListing() {
+    if (!listingPet) return;
+    const price = Number(listingPrice);
+    if (!Number.isFinite(price) || price <= 0 || !Number.isInteger(price)) {
+      toast.error(tMarket("errInvalidPrice"));
+      return;
+    }
+    if (listingDesc.length > 100) {
+      toast.error(tMarket("errInvalidDescription"));
+      return;
+    }
+    setListingSubmitting(true);
+    try {
+      const res = await fetch("/api/market/breed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          animalId: listingPet.id,
+          price,
+          description: listingDesc.trim() || null,
+        }),
+      });
+      const json = (await res.json()) as {
+        success?: boolean;
+        error?: { code?: string; message?: string };
+      };
+      if (!res.ok || !json.success) {
+        const code = json.error?.code;
+        const reasonMap: Record<string, string> = {
+          PET_NOT_FOUND: tMarket("errPetNotFound"),
+          NOT_OWNER: tMarket("errNotOwner"),
+          COOLDOWN: tMarket("errCooldown"),
+          ALREADY_LISTING: tMarket("errAlreadyListing"),
+          INVALID_PRICE: tMarket("errInvalidPrice"),
+          INVALID_DESCRIPTION: tMarket("errInvalidDescription"),
+        };
+        toast.error(reasonMap[code ?? ""] ?? json.error?.message ?? tMarket("createFailed"));
+        return;
+      }
+      toast.success(tMarket("createSuccess"));
+      setListingOpen(false);
+      // 刷新宠物列表，让按钮状态更新为已挂单
+      fetchPets();
+    } catch {
+      toast.error(tMarket("createFailed"));
+    } finally {
+      setListingSubmitting(false);
     }
   }
 
@@ -359,8 +429,29 @@ export function PetsSection() {
                         </span>
                       )}
                     </div>
-                    {/* 操作行：族谱按钮（阻止冒泡，避免触发卡片点击） */}
-                    <div className="flex justify-end border-t pt-2">
+                    {/* 操作行：族谱 + 开放配种按钮（阻止冒泡，避免触发卡片点击） */}
+                    <div className="flex items-center justify-between border-t pt-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenListing(pet);
+                        }}
+                        disabled={cooling || pet.status !== "NORMAL"}
+                        className="h-7 gap-1 px-2 text-xs"
+                        title={
+                          cooling
+                            ? tMarket("errCooldown")
+                            : pet.status !== "NORMAL"
+                              ? tMarket("errAlreadyListing")
+                              : tMarket("create")
+                        }
+                      >
+                        <Store className="size-3.5" />
+                        {tMarket("create")}
+                      </Button>
                       <Button
                         type="button"
                         size="sm"
@@ -559,6 +650,110 @@ export function PetsSection() {
               {t("lineageFailed")}
             </p>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* 开放配种挂单弹窗 */}
+      <Dialog
+        open={listingOpen}
+        onOpenChange={(v) => {
+          if (!listingSubmitting) setListingOpen(v);
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Store className="size-5 text-primary" />
+              {tMarket("createTitle")}
+            </DialogTitle>
+            <DialogDescription>{tMarket("createDesc")}</DialogDescription>
+          </DialogHeader>
+          {listingPet ? (
+            <div className="space-y-4">
+              {/* 宠物摘要 */}
+              <div className="flex items-center gap-3 rounded-lg border bg-muted/30 p-3">
+                <div className="flex size-10 items-center justify-center rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 ring-1 ring-primary/20">
+                  <PawPrint className="size-5 text-primary" />
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">
+                    {listingPet.speciesId}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {t("generation", { n: listingPet.generation })}
+                    {isCoolingDown(listingPet, now) && listingPet.cooldownAt
+                      ? ` · ${tMarket("cooldownEndsAt", { time: formatDateTime(listingPet.cooldownAt) })}`
+                      : ""}
+                  </p>
+                </div>
+              </div>
+
+              {/* 价格输入 */}
+              <div className="space-y-2">
+                <Label htmlFor="listing-price">{tMarket("createPrice")}</Label>
+                <Input
+                  id="listing-price"
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={listingPrice}
+                  onChange={(e) => setListingPrice(e.target.value)}
+                  placeholder="1"
+                  disabled={listingSubmitting}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {tMarket("createPriceHint")}
+                </p>
+              </div>
+
+              {/* 留言输入 */}
+              <div className="space-y-2">
+                <Label htmlFor="listing-desc">{tMarket("createDescription")}</Label>
+                <Textarea
+                  id="listing-desc"
+                  rows={3}
+                  maxLength={100}
+                  value={listingDesc}
+                  onChange={(e) => setListingDesc(e.target.value)}
+                  placeholder={tMarket("createDescriptionPlaceholder")}
+                  disabled={listingSubmitting}
+                />
+                <p className="text-right text-[10px] text-muted-foreground">
+                  {listingDesc.length}/100
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setListingOpen(false)}
+                  disabled={listingSubmitting}
+                >
+                  {t("cancel")}
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleCreateListing}
+                  disabled={
+                    listingSubmitting ||
+                    !listingPrice ||
+                    Number(listingPrice) <= 0
+                  }
+                  className="gap-1.5"
+                >
+                  {listingSubmitting ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Store className="size-4" />
+                  )}
+                  {listingSubmitting
+                    ? tMarket("createSubmitting")
+                    : tMarket("createConfirm")}
+                </Button>
+              </div>
+            </div>
+          ) : null}
         </DialogContent>
       </Dialog>
 
