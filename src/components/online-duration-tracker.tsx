@@ -220,17 +220,21 @@ export function OnlineDurationTracker() {
 
   return (
     <>
-      {/* 右下角浮动小按钮 */}
+      {/* 右下角浮动小按钮（黑白风格 + 呼吸动画） */}
       <button
         type="button"
         onClick={handleButtonClick}
-        className="fixed bottom-4 right-4 z-50 flex size-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="fixed bottom-4 right-4 z-50 flex size-12 items-center justify-center rounded-md border-2 border-foreground bg-background text-foreground shadow-lg transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         aria-label={t("rewardAvailable")}
         title={t("rewardAvailable")}
       >
         <Clock className="size-5" />
-        <span className="absolute -right-1 -top-1 flex size-5 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-white">
-          {topTier}
+        {/* 红色徽章（呼吸动画 + 分钟数字） */}
+        <span className="absolute -right-1.5 -top-1.5 flex size-5 items-center justify-center">
+          <span className="absolute size-5 rounded-full bg-red-500 motion-safe:animate-ping" />
+          <span className="relative flex size-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+            {topTier}
+          </span>
         </span>
       </button>
 
