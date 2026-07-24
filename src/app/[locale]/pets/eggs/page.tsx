@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
 import { buildPageMetadata } from "@/lib/seo";
-import { PetsSection } from "../pets-section";
+import { EggsSection } from "../eggs-section";
 
 export const dynamic = "force-dynamic";
 
@@ -14,15 +14,15 @@ export async function generateMetadata({
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "ProfileNav" });
   return buildPageMetadata({
-    title: t("pets"),
-    description: t("petsDesc"),
-    path: "/profile/pets",
+    title: t("eggs"),
+    description: t("eggsDesc"),
+    path: "/pets/eggs",
     locale,
     type: "profile",
   });
 }
 
-export default async function PetsPage({
+export default async function EggsPage({
   params,
 }: {
   params: Promise<{ locale: string }>;
@@ -30,5 +30,5 @@ export default async function PetsPage({
   const { locale } = await params;
   await setRequestLocale(locale);
 
-  return <PetsSection />;
+  return <EggsSection />;
 }

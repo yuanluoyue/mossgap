@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
-import { getTranslations } from "next-intl/server";
 
+import { HeaderNav } from "@/components/header-nav";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { MobileNav } from "@/components/mobile-nav";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -9,7 +9,6 @@ import { UserMenu } from "@/components/user-menu";
 import { getCurrentUserOrNull } from "@/lib/user-session";
 
 export async function SiteHeader() {
-  const t = await getTranslations("Nav");
   const user = await getCurrentUserOrNull();
 
   return (
@@ -34,11 +33,7 @@ export async function SiteHeader() {
         </Link>
 
         {/* 主导航（≥ md） */}
-        <nav className="hidden items-center gap-1 md:flex">
-          <NavLink href="/games">{t("games")}</NavLink>
-          <NavLink href="/market/breed">{t("market")}</NavLink>
-          <NavLink href="/about">{t("about")}</NavLink>
-        </nav>
+        <HeaderNav />
 
         <div className="ml-auto flex items-center gap-2">
           <LanguageSwitcher />
@@ -47,22 +42,5 @@ export async function SiteHeader() {
         </div>
       </div>
     </header>
-  );
-}
-
-function NavLink({
-  href,
-  children,
-}: {
-  href: "/" | "/games" | "/market/breed" | "/about";
-  children: React.ReactNode;
-}) {
-  return (
-    <Link
-      href={href}
-      className="rounded-full px-3.5 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-    >
-      {children}
-    </Link>
   );
 }

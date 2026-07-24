@@ -10,8 +10,6 @@ import {
   Coins,
   Target,
   Package,
-  PawPrint,
-  Egg,
   Loader2,
   type LucideIcon,
 } from "lucide-react";
@@ -71,8 +69,6 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/profile/points", labelKey: "points", icon: Coins },
   { href: "/profile/missions", labelKey: "missions", icon: Target },
   { href: "/profile/inventory", labelKey: "inventory", icon: Package },
-  { href: "/profile/pets", labelKey: "pets", icon: PawPrint },
-  { href: "/profile/eggs", labelKey: "eggs", icon: Egg },
 ];
 
 interface ProfileShellProps {

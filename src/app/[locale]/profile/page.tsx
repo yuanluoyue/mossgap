@@ -3,9 +3,7 @@ import Link from "next/link";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import {
   Coins,
-  Egg,
   Package,
-  PawPrint,
   Settings,
   Target,
   type LucideIcon,
@@ -57,8 +55,6 @@ const NAV_CARDS: NavCard[] = [
   { href: "/profile/points", labelKey: "points", descKey: "pointsDesc", icon: Coins },
   { href: "/profile/missions", labelKey: "missions", descKey: "missionsDesc", icon: Target },
   { href: "/profile/inventory", labelKey: "inventory", descKey: "inventoryDesc", icon: Package },
-  { href: "/profile/pets", labelKey: "pets", descKey: "petsDesc", icon: PawPrint },
-  { href: "/profile/eggs", labelKey: "eggs", descKey: "eggsDesc", icon: Egg },
 ];
 
 export default async function ProfilePage({
